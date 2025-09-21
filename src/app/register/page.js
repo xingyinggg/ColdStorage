@@ -5,12 +5,25 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 
+const DEPARTMENTS = [
+  "Marketing",
+  "Sales",
+  "Technology",
+  "Finance",
+  "Operations",
+  "Human Resources",
+];
+
+const ROLES = ["Director", "HR", "Manager", "Staff"];
+
+
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [empId, setEmpId] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [department, setDepartment] = useState("");
+  const [department, setDepartment] = useState(DEPARTMENTS[0]); // default
+  const [role, setRole] = useState("Staff"); // default
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -38,7 +51,7 @@ export default function RegisterPage() {
         data: {
           name: name,
           department: department,
-          role: "staff",
+          role: role.toLowerCase(), // store as 'director' | 'hr' | 'manager' | 'staff'
           emp_id: empId,
         },
       },
@@ -93,6 +106,7 @@ export default function RegisterPage() {
               />
             </div>
 
+            {/* Department (dropdown) */}
             <div>
               <label
                 htmlFor="department"
@@ -100,16 +114,39 @@ export default function RegisterPage() {
               >
                 Department
               </label>
-              <input
+              <select
                 id="department"
                 name="department"
-                type="text"
-                required
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="e.g., Engineering, Marketing"
-              />
+              >
+                {DEPARTMENTS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Role (Dropdown) */}
+            <div>
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+                Role
+              </label>
+              <select
+                id="role"
+                name="role"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>

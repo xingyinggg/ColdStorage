@@ -5,6 +5,7 @@ import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth.js';
 import taskRoutes from './routes/tasks.js';
+import projectsRouter from './routes/projects.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,6 +20,7 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 app.get('/health', (req, res) => res.json({ ok: true }));
 app.use('/auth', authRoutes);
 app.use('/tasks', taskRoutes);
+app.use('/projects', projectsRouter);
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => console.log(`Express API listening on http://localhost:${port}`));

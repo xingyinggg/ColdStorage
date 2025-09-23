@@ -8,6 +8,7 @@ export const TaskSchema = z.object({
   project_id: z.number().optional().nullable(),
   status: z.enum(['pending', 'in_progress', 'completed']).optional().nullable(),
   file: z.string().optional().nullable(),
+  collaborators: z.array(z.string()).optional().nullable(),
 });
 
 export const RegisterSchema = z.object({
@@ -19,4 +20,8 @@ export const RegisterSchema = z.object({
   emp_id: z.string().min(1),
 });
 
-
+export const ProjectSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional().nullable(),
+  members: z.array(z.string()).optional().nullable()
+});

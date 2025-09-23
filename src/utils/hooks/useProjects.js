@@ -19,10 +19,22 @@ export function useProjects() {
         return;
       }
 
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("emp_id")
+        .eq("id", user.id)
+        .single();
+
+      if (userError) {
+        setError("Failed to get user data");
+        return;
+      }
+
+      // Fetch projects where user is either owner OR member
       const { data, error } = await supabase
         .from("projects")
         .select("*")
-        .eq("owner_id", user.id) // Changed from user_id to owner_id
+        .or(`owner_id.eq.${userData.emp_id},members.cs.{${userData.emp_id}}`)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -47,13 +59,23 @@ export function useProjects() {
         throw new Error("User not authenticated");
       }
 
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("emp_id")
+        .eq("id", user.id)
+        .single();
+
+      if (userError) {
+        throw new Error("Failed to get user data");
+      }
+
       const { data, error } = await supabase
         .from("projects")
         .insert([
           {
             title: projectData.name,
             description: projectData.description,
-            owner_id: user.id,
+            owner_id: userData.emp_id,
             status: "active",
             members: projectData.members || [],
             created_at: new Date().toISOString(),

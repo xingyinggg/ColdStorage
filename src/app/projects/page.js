@@ -18,6 +18,7 @@ export default function ProjectsPage() {
   const [memberSearch, setMemberSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [memberNames, setMemberNames] = useState({});
   const router = useRouter();
   const supabase = createClient();
 
@@ -29,6 +30,14 @@ export default function ProjectsPage() {
     deleteProject,
   } = useProjects();
 
+  // to get member names
+  useEffect(() => {
+    if (projects && projects.length > 0) {
+      fetchMemberNames(projects);
+    }
+  }, [projects]);
+
+  // to get users
   useEffect(() => {
     const getUser = async () => {
       const {
@@ -57,6 +66,37 @@ export default function ProjectsPage() {
 
     getUser();
   }, [supabase.auth, showCreateForm]);
+
+  const fetchMemberNames = async (projectsList) => {
+    if (!projectsList || projectsList.length === 0) return;
+
+    // Get all unique emp_ids from all projects
+    const allEmpIds = new Set();
+    projectsList.forEach((project) => {
+      if (project.members && Array.isArray(project.members)) {
+        project.members.forEach((empId) => allEmpIds.add(empId));
+      }
+    });
+
+    if (allEmpIds.size === 0) return;
+
+    try {
+      const { data: usersData, error } = await supabase
+        .from("users")
+        .select("emp_id, name")
+        .in("emp_id", Array.from(allEmpIds));
+
+      if (!error && usersData) {
+        const namesMap = {};
+        usersData.forEach((user) => {
+          namesMap[user.emp_id] = user.name;
+        });
+        setMemberNames(namesMap);
+      }
+    } catch (error) {
+      console.error("Error fetching member names:", error);
+    }
+  };
 
   // Update the form reset to include current user
   const resetForm = async () => {
@@ -115,7 +155,6 @@ export default function ProjectsPage() {
         .limit(10);
 
       console.log("Search results:", data);
-      console.log("Search error:", error);
 
       if (error) {
         console.error("Error searching users:", error);
@@ -185,16 +224,6 @@ export default function ProjectsPage() {
     }
   };
 
-  const handleDeleteProject = async (id) => {
-    if (confirm("Are you sure you want to delete this project?")) {
-      try {
-        await deleteProject(id);
-      } catch (error) {
-        console.error("Error deleting project:", error);
-      }
-    }
-  };
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
@@ -207,6 +236,8 @@ export default function ProjectsPage() {
       </div>
     );
   }
+
+  console.log("Projects data:", projects);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -420,23 +451,27 @@ export default function ProjectsPage() {
                           )}
                           <div className="flex items-center space-x-4 text-sm text-gray-500">
                             <span>Status: {project.status}</span>
+                            {project.members && project.members.length > 0 && (
+                              <span>
+                                Team Members:{" "}
+                                {project.members.map((empId, index) => (
+                                  <span key={empId} className="text-gray-500">
+                                    {memberNames[empId] || `ID: ${empId}`}
+                                    {index < project.members.length - 1
+                                      ? ", "
+                                      : ""}
+                                  </span>
+                                ))}
+                              </span>
+                            )}
                             <span>
                               Created:{" "}
                               {new Date(
                                 project.created_at
                               ).toLocaleDateString()}
                             </span>
-                            {project.members && project.members.length > 0 && (
-                              <span>Members: {project.members.length}</span>
-                            )}
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleDeleteProject(project.id)}
-                          className="text-red-600 hover:text-red-800 text-sm"
-                        >
-                          Delete
-                        </button>
                       </div>
                     </div>
                   ))}

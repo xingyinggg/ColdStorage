@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/utils/hooks/useTasks";
+import { useProjects } from "@/utils/hooks/useProjects";
 import Link from "next/link";
 
 export default function DashboardPage() {
@@ -21,6 +22,12 @@ export default function DashboardPage() {
     error: tasksError,
     toggleTaskComplete,
   } = useTasks();
+
+  const {
+    projects,
+    loading: projectsLoading,
+    error: projectsError,
+  } = useProjects();
 
   useEffect(() => {
     const getUser = async () => {
@@ -160,10 +167,12 @@ export default function DashboardPage() {
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <Link
-                      href="/dashboard/projects"
+                      href="/projects"
                       className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center hover:bg-purple-600 transition-colors"
                     >
-                      <span className="text-white text-sm font-bold">P</span>
+                      <span className="text-white text-sm font-medium">
+                        {projectsLoading ? "..." : projects.length}
+                      </span>
                     </Link>
                   </div>
                   <div className="ml-5 w-0 flex-1">
@@ -176,7 +185,11 @@ export default function DashboardPage() {
                           href="/projects"
                           className="text-purple-600 hover:text-purple-800"
                         >
-                          View Projects
+                          {projectsLoading
+                            ? "Loading..."
+                            : projectsError
+                            ? "Error loading"
+                            : `${projects.length} projects`}
                         </Link>
                       </dd>
                     </dl>

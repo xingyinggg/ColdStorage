@@ -1,20 +1,23 @@
 // app/dashboard/page.js
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/utils/supabase/client";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/utils/hooks/useTasks";
 import { useProjects } from "@/utils/hooks/useProjects";
+import { useAuth } from "@/utils/hooks/useAuth";
 import Link from "next/link";
 
-export default function DashboardPage() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  const supabase = createClient();
+// Import manager dashboard component
+import ManagerDashboard from "./ManagerDashboard";
 
-  // Use the tasks hook
+export default function DashboardPage() {
+  const router = useRouter();
+  
+  // Use auth hook to get user role
+  const { user, userProfile, loading: authLoading, isManager, isStaff, signOut } = useAuth();
+
+  // Use the tasks hook for staff
   const {
     activeTasks,
     overdueTasks,
@@ -30,16 +33,11 @@ export default function DashboardPage() {
   } = useProjects();
 
   useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-      setLoading(false);
-    };
-
-    getUser();
-  }, [supabase.auth]);
+    // Redirect to login if not authenticated
+    if (!authLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, authLoading, router]);
 
   // Utility functions
   const formatDate = (dateString) => {
@@ -79,11 +77,12 @@ export default function DashboardPage() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     router.push("/login");
   };
 
-  if (loading) {
+  // Show loading state
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg">Loading...</div>
@@ -91,7 +90,40 @@ export default function DashboardPage() {
     );
   }
 
+  // Redirect if not authenticated
+  if (!user) {
+    return null;
+  }
+
+  // Render manager dashboard if user is manager
+  if (isManager) {
+    return <ManagerDashboard user={user} userProfile={userProfile} onLogout={handleLogout} />;
+  }
+
+  // Render staff dashboard (existing functionality)
+  if (isStaff) {
+    return <StaffDashboard />;
+  }
+
+  // Default fallback
   return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <h2 className="text-xl font-bold mb-4">Access Denied</h2>
+        <p className="text-gray-600 mb-4">Your role is not recognized.</p>
+        <button
+          onClick={handleLogout}
+          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+        >
+          Logout
+        </button>
+      </div>
+    </div>
+  );
+
+  // Staff Dashboard Component (existing functionality)
+  function StaffDashboard() {
+    return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -301,6 +333,11 @@ export default function DashboardPage() {
                           )}
                           <div className="flex items-center text-xs text-gray-500 space-x-4">
                             <span>Due: {formatDate(task.due_date)}</span>
+                            {task.manager && (
+                              <span className="text-blue-600">
+                                • Assigned by: {task.manager.name} (ID: {task.manager.emp_id})
+                              </span>
+                            )}
                             {task.project_id && (
                               <span>Project: {task.project_id}</span>
                             )}
@@ -335,5 +372,6 @@ export default function DashboardPage() {
         </div>
       </main>
     </div>
-  );
+    );
+  }
 }

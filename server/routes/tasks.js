@@ -48,14 +48,45 @@ router.get('/', async (req, res) => {
     const empId = await getEmpIdForUserId(user.id);
     if (!empId) return res.status(400).json({ error: 'emp_id not found' });
 
-    const { data, error } = await supabase
+    // First, get tasks where user is in collaborators
+    const { data: tasksData, error: tasksError } = await supabase
       .from('tasks')
       .select('*')
-      .eq('owner_id', empId)
+      .contains('collaborators', [empId])
       .order('created_at', { ascending: false });
-    if (error) return res.status(400).json({ error: error.message });
+    
+    if (tasksError) return res.status(400).json({ error: tasksError.message });
 
-    res.json({ tasks: data || [] });
+    // If there are tasks, fetch manager information for each task
+    if (tasksData && tasksData.length > 0) {
+      // Get unique owner_ids
+      const ownerIds = [...new Set(tasksData.map(task => task.owner_id).filter(Boolean))];
+      
+      if (ownerIds.length > 0) {
+        // Fetch manager info for all unique owner_ids
+        const { data: managersData, error: managersError } = await supabase
+          .from('users')
+          .select('emp_id, name, department')
+          .in('emp_id', ownerIds);
+        
+        if (!managersError && managersData) {
+          // Create a map of emp_id to manager info
+          const managersMap = {};
+          managersData.forEach(manager => {
+            managersMap[manager.emp_id] = manager;
+          });
+          
+          // Add manager info to each task
+          tasksData.forEach(task => {
+            if (task.owner_id && managersMap[task.owner_id]) {
+              task.manager = managersMap[task.owner_id];
+            }
+          });
+        }
+      }
+    }
+
+    res.json({ tasks: tasksData || [] });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

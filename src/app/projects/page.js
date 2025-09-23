@@ -5,10 +5,9 @@ import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useProjects } from "@/utils/hooks/useProjects";
+import { useAuth } from "@/utils/hooks/useAuth";
 
 export default function ProjectsPage() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newProject, setNewProject] = useState({
     name: "",
@@ -22,12 +21,14 @@ export default function ProjectsPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  // Use centralized auth hook
+  const { user, userProfile, loading: authLoading, signOut } = useAuth();
+
   const {
     projects,
     loading: projectsLoading,
     error: projectsError,
     createProject,
-    deleteProject,
   } = useProjects();
 
   // to get member names
@@ -37,35 +38,22 @@ export default function ProjectsPage() {
     }
   }, [projects]);
 
-  // to get users
+  // Handle authentication and redirect
   useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-      setLoading(false);
+    if (!authLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, authLoading, router]);
 
-      // Auto-add current user to members when they open the form
-      if (user && showCreateForm) {
-        // Get user details from users table
-        const { data: userData, error } = await supabase
-          .from("users")
-          .select("emp_id, name, email")
-          .eq("id", user.id)
-          .single();
-
-        if (!error && userData) {
-          setNewProject((prev) => ({
-            ...prev,
-            members: [userData],
-          }));
-        }
-      }
-    };
-
-    getUser();
-  }, [supabase.auth, showCreateForm]);
+  // Auto-add current user to members when they open the form
+  useEffect(() => {
+    if (user && userProfile && showCreateForm) {
+      setNewProject((prev) => ({
+        ...prev,
+        members: [{ emp_id: userProfile.emp_id, name: userProfile.name, email: user.email }],
+      }));
+    }
+  }, [user, userProfile, showCreateForm]);
 
   const fetchMemberNames = async (projectsList) => {
     if (!projectsList || projectsList.length === 0) return;
@@ -225,16 +213,21 @@ export default function ProjectsPage() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     router.push("/login");
   };
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg">Loading...</div>
       </div>
     );
+  }
+
+  // Redirect if not authenticated
+  if (!user) {
+    return null;
   }
 
   console.log("Projects data:", projects);

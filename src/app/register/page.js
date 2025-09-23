@@ -43,24 +43,34 @@ export default function RegisterPage() {
       return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      empId,
-      password,
-      options: {
-        data: {
-          name: name,
-          department: department,
-          role: role.toLowerCase(), // store as 'director' | 'hr' | 'manager' | 'staff'
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const res = await fetch(`${apiUrl}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          name,
+          department,
+          role,
           emp_id: empId,
-        },
-      },
-    });
+        }),
+      });
 
-    if (error) {
-      setError(error.message);
-    } else {
-      setMessage("Check your email for confirmation link!");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed: ${res.status}`);
+      }
+
+      const body = await res.json();
+      setMessage(
+        body.requiresEmailConfirm
+          ? "Check your email for confirmation link!"
+          : "Account created!"
+      );
+    } catch (err) {
+      setError(err.message);
     }
     setLoading(false);
   };

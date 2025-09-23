@@ -8,35 +8,21 @@ export const useTasks = () => {
   const [error, setError] = useState(null);
   const supabase = createClient();
 
-  // Fetch all tasks for the current user
+  // Fetch all tasks via Express API
   const fetchTasks = useCallback(async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error('User not authenticated');
+      const { data: { session } } = await supabase.auth.getSession();
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/tasks`, {
+        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed: ${res.status}`);
       }
-
-      // First, get the user's emp_id from the users table
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('emp_id')
-        .eq('id', user.id)
-        .single();
-
-      if (userError) throw userError;
-      if (!userData?.emp_id) throw new Error('User emp_id not found');
-
-      // Then fetch tasks using the emp_id as owner_id
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('owner_id', userData.emp_id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setTasks(data || []);
+      const body = await res.json();
+      setTasks(body.tasks || []);
     } catch (err) {
       console.error('Error in fetchTasks:', err);
       setError(err.message);
@@ -70,41 +56,26 @@ export const useTasks = () => {
     );
   };
 
-  // Create a new task
+  // Create a new task via Express API
   const createTask = async (taskData) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error('User not authenticated');
+      const { data: { session } } = await supabase.auth.getSession();
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token || ''}`,
+        },
+        body: JSON.stringify(taskData),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed: ${res.status}`);
       }
-
-      // First, get the user's emp_id from the users table
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('emp_id')
-        .eq('id', user.id)
-        .single();
-
-      if (userError) throw userError;
-      if (!userData?.emp_id) throw new Error('User emp_id not found');
-
-      const { data, error } = await supabase
-        .from('tasks')
-        .insert([
-          {
-            ...taskData,
-            owner_id: userData.emp_id,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-        ])
-        .select();
-
-      if (error) throw error;
-      
-      setTasks(prev => [data[0], ...prev]);
-      return { success: true, data: data[0] };
+      const created = await res.json();
+      setTasks(prev => [created, ...prev]);
+      return { success: true, data: created };
     } catch (err) {
       setError(err.message);
       return { success: false, error: err.message };
@@ -114,24 +85,23 @@ export const useTasks = () => {
   // Update a task
   const updateTask = async (taskId, updates) => {
     try {
-      const { data, error } = await supabase
-        .from('tasks')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', taskId)
-        .select();
-
-      if (error) throw error;
-
-      setTasks(prev => 
-        prev.map(task => 
-          task.id === taskId ? { ...task, ...updates } : task
-        )
-      );
-      
-      return { success: true, data: data[0] };
+      const { data: { session } } = await supabase.auth.getSession();
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token || ''}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed: ${res.status}`);
+      }
+      const updated = await res.json();
+      setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, ...updated } : t)));
+      return { success: true, data: updated };
     } catch (err) {
       setError(err.message);
       return { success: false, error: err.message };
@@ -141,13 +111,16 @@ export const useTasks = () => {
   // Delete a task
   const deleteTask = async (taskId) => {
     try {
-      const { error } = await supabase
-        .from('tasks')
-        .delete()
-        .eq('id', taskId);
-
-      if (error) throw error;
-
+      const { data: { session } } = await supabase.auth.getSession();
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed: ${res.status}`);
+      }
       setTasks(prev => prev.filter(task => task.id !== taskId));
       return { success: true };
     } catch (err) {

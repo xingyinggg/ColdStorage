@@ -12,14 +12,14 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const supabase = createClient();
-  
+
   // Use the tasks hook
-  const { 
-    activeTasks, 
-    overdueTasks, 
-    loading: tasksLoading, 
+  const {
+    activeTasks,
+    overdueTasks,
+    loading: tasksLoading,
     error: tasksError,
-    toggleTaskComplete 
+    toggleTaskComplete,
   } = useTasks();
 
   useEffect(() => {
@@ -36,38 +36,38 @@ export default function DashboardPage() {
 
   // Utility functions
   const formatDate = (dateString) => {
-    if (!dateString) return 'No due date';
+    if (!dateString) return "No due date";
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
   const getPriorityColor = (priority) => {
     switch (priority?.toLowerCase()) {
-      case 'high':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low':
-        return 'bg-green-100 text-green-800 border-green-200';
+      case "high":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "medium":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "low":
+        return "bg-green-100 text-green-800 border-green-200";
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "in_progress":
+        return "bg-blue-100 text-blue-800";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -106,7 +106,7 @@ export default function DashboardPage() {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Dashboard Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-white overflow-hidden shadow rounded-lg">
               <div className="p-5">
                 <div className="flex items-center">
@@ -159,7 +159,37 @@ export default function DashboardPage() {
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Link 
+                    <Link
+                      href="/dashboard/projects"
+                      className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center hover:bg-purple-600 transition-colors"
+                    >
+                      <span className="text-white text-sm font-bold">P</span>
+                    </Link>
+                  </div>
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">
+                        Projects
+                      </dt>
+                      <dd className="text-lg font-medium text-gray-900">
+                        <Link
+                          href="/projects"
+                          className="text-purple-600 hover:text-purple-800"
+                        >
+                          View Projects
+                        </Link>
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white overflow-hidden shadow rounded-lg">
+              <div className="p-5">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <Link
                       href="/dashboard/tasks/create"
                       className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center hover:bg-green-600 transition-colors"
                     >
@@ -172,7 +202,7 @@ export default function DashboardPage() {
                         Quick Actions
                       </dt>
                       <dd className="text-lg font-medium text-gray-900">
-                        <Link 
+                        <Link
                           href="/dashboard/tasks/create"
                           className="text-green-600 hover:text-green-800"
                         >
@@ -185,7 +215,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-
           {/* Tasks Section */}
           <div className="bg-white shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
@@ -231,16 +260,24 @@ export default function DashboardPage() {
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-2">
                             <h4 className="text-base font-medium text-gray-900">
-                              {task.title || 'Untitled Task'}
+                              {task.title || "Untitled Task"}
                             </h4>
                             {task.priority && (
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(task.priority)}`}>
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(
+                                  task.priority
+                                )}`}
+                              >
                                 {task.priority}
                               </span>
                             )}
                             {task.status && (
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                                {task.status.replace('_', ' ')}
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                                  task.status
+                                )}`}
+                              >
+                                {task.status.replace("_", " ")}
                               </span>
                             )}
                           </div>
@@ -267,7 +304,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   ))}
-                  
+
                   {activeTasks.length > 5 && (
                     <div className="text-center pt-4">
                       <Link

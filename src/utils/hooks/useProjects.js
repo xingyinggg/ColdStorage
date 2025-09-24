@@ -7,42 +7,44 @@ export function useProjects() {
   const [error, setError] = useState(null);
   const supabase = createClient();
 
+  // Helper function to get auth token
+  const getAuthToken = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.access_token;
+  };
+
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const token = await getAuthToken();
 
-      if (!user) {
+      if (!token) {
         setError("User not authenticated");
         return;
       }
 
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("emp_id")
-        .eq("id", user.id)
-        .single();
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/projects`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      if (userError) {
-        setError("Failed to get user data");
-        return;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Fetch projects where user is either owner OR member
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*")
-        .or(`owner_id.eq.${userData.emp_id},members.cs.{${userData.emp_id}}`)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        setError(error.message);
-      } else {
-        setProjects(data || []);
-      }
+      const data = await response.json();
+      setProjects(data || []);
+      setError(null);
     } catch (err) {
+      console.error("Fetch projects error:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -51,46 +53,41 @@ export function useProjects() {
 
   const createProject = async (projectData) => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const token = await getAuthToken();
 
-      if (!user) {
+      if (!token) {
         throw new Error("User not authenticated");
       }
 
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("emp_id")
-        .eq("id", user.id)
-        .single();
-
-      if (userError) {
-        throw new Error("Failed to get user data");
-      }
-
-      const { data, error } = await supabase
-        .from("projects")
-        .insert([
-          {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/projects`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
             title: projectData.name,
             description: projectData.description,
-            owner_id: userData.emp_id,
             status: "active",
             members: projectData.members || [],
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-        ])
-        .select();
+          }),
+        }
+      );
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
       }
 
-      setProjects((prev) => [data[0], ...prev]);
-      return data[0];
+      const newProject = await response.json();
+      setProjects((prev) => [newProject, ...prev]);
+      return newProject;
     } catch (err) {
+      console.error("Create project error:", err);
       setError(err.message);
       throw err;
     }
@@ -98,27 +95,45 @@ export function useProjects() {
 
   const updateProject = async (id, updates) => {
     try {
+      const token = await getAuthToken();
+
+      if (!token) {
+        throw new Error("User not authenticated");
+      }
+
+      // Map the updates to match backend expectations
       const mappedUpdates = {
         ...updates,
         ...(updates.name && { title: updates.name }),
       };
       delete mappedUpdates.name;
 
-      const { data, error } = await supabase
-        .from("projects")
-        .update(mappedUpdates)
-        .eq("id", id)
-        .select();
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/projects/${id}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(mappedUpdates),
+        }
+      );
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
       }
 
+      const updatedProject = await response.json();
       setProjects((prev) =>
-        prev.map((project) => (project.id === id ? data[0] : project))
+        prev.map((project) => (project.id === id ? updatedProject : project))
       );
-      return data[0];
+      return updatedProject;
     } catch (err) {
+      console.error("Update project error:", err);
       setError(err.message);
       throw err;
     }
@@ -126,14 +141,33 @@ export function useProjects() {
 
   const deleteProject = async (id) => {
     try {
-      const { error } = await supabase.from("projects").delete().eq("id", id);
+      const token = await getAuthToken();
 
-      if (error) {
-        throw error;
+      if (!token) {
+        throw new Error("User not authenticated");
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/projects/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
       }
 
       setProjects((prev) => prev.filter((project) => project.id !== id));
     } catch (err) {
+      console.error("Delete project error:", err);
       setError(err.message);
       throw err;
     }

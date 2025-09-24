@@ -8,14 +8,15 @@ import { useProjects } from "@/utils/hooks/useProjects";
 import { useAuth } from "@/utils/hooks/useAuth";
 import Link from "next/link";
 
-// Import manager dashboard component
+// Import manager/HR dashboard component
 import ManagerDashboard from "./ManagerDashboard";
+import HrDashboard from "./HrDashboard";
 
 export default function DashboardPage() {
   const router = useRouter();
   
   // Use auth hook to get user role
-  const { user, userProfile, loading: authLoading, isManager, isStaff, signOut } = useAuth();
+  const { user, userProfile, loading: authLoading, isManager, isStaff, isHR, signOut } = useAuth();
 
   // Use the tasks hook for staff
   const {
@@ -100,6 +101,11 @@ export default function DashboardPage() {
     return <ManagerDashboard user={user} userProfile={userProfile} onLogout={handleLogout} />;
   }
 
+  // Render HR dashboard if user is HR
+  if (isHR) {
+    return <HrDashboard user={user} userProfile={userProfile} onLogout={handleLogout} />;
+}
+
   // Render staff dashboard (existing functionality)
   if (isStaff) {
     return <StaffDashboard />;
@@ -130,7 +136,7 @@ export default function DashboardPage() {
           <div className="flex justify-between h-16 items-center">
             <h1 className="text-xl font-semibold">Task Management Dashboard</h1>
             <div className="flex items-center space-x-4">
-              <span className="text-gray-700">Welcome, {user?.email}</span>
+              <span className="text-gray-700">Welcome, {userProfile?.name || user?.email}</span>
               <button
                 onClick={handleLogout}
                 className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"

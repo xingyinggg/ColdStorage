@@ -46,6 +46,11 @@ export const useAuth = () => {
     return userProfile?.role?.toLowerCase() === 'manager';
   };
 
+  // Check if user is HR
+  const isHR = () => {
+    return userProfile?.role?.toLowerCase() === 'hr';
+  };
+
   // Check if user is staff
   const isStaff = () => {
     return userProfile?.role?.toLowerCase() === 'staff';
@@ -94,6 +99,7 @@ export const useAuth = () => {
     loading,
     error,
     isManager: isManager(),
+    isHR: isHR(),
     isStaff: isStaff(),
     role: getUserRole(),
     signOut,

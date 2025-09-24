@@ -21,6 +21,7 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 const authRoutes = (await import('./routes/auth.js')).default;
 const taskRoutes = (await import('./routes/tasks.js')).default;
 const projectsRouter = (await import('./routes/projects.js')).default;
+const managerProjectsRouter = (await import('./routes/manager-projects.js')).default;
 const hrRoutes = (await import('./routes/hr.js')).default;
 
 // // Import routes AFTER loading env variables
@@ -37,6 +38,7 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 app.use('/auth', authRoutes);
 app.use('/tasks', taskRoutes);
 app.use('/projects', projectsRouter);
+app.use('/manager-projects', managerProjectsRouter);
 app.use('/hr', hrRoutes);
 
 const port = process.env.PORT || 4000;

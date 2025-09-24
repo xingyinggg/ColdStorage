@@ -4,7 +4,6 @@ import {
   getUserFromToken,
   getEmpIdForUserId,
 } from "../lib/supabase.js";
-import { ProjectSchema } from "../schemas/task.js";
 
 const router = Router();
 

@@ -1,8 +1,10 @@
 // app/dashboard/ManagerDashboard.js
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useManagerTasks } from "@/utils/hooks/useManagerTasks";
+import { useManagerProjects } from "@/utils/hooks/useManagerProjects";
+import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 
 export default function ManagerDashboard({ user, userProfile, onLogout }) {
@@ -21,6 +23,17 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
     getOverdueTasks,
     getTasksByStaff
   } = useManagerTasks();
+
+  // Get projects data for the manager projects tab via Express API
+  const {
+    projects,
+    loading: projectsLoading,
+    error: projectsError,
+    createProject,
+    deleteProject,
+    activeProjects,
+    completedProjects,
+  } = useManagerProjects();
 
   // Utility functions
   const formatDate = (dateString) => {
@@ -99,7 +112,7 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
-            {['overview', 'all-tasks', 'staff', 'assign-task'].map((tab) => (
+            {['overview', 'all-tasks', 'staff', 'projects', 'assign-task'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setSelectedTab(tab)}
@@ -290,6 +303,19 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
             <StaffTab 
               staffMembers={staffMembers}
               getTasksByStaff={getTasksByStaff}
+              formatDate={formatDate}
+            />
+          )}
+
+          {selectedTab === 'projects' && (
+            <ProjectsTab 
+              projects={projects}
+              loading={projectsLoading}
+              error={projectsError}
+              createProject={createProject}
+              deleteProject={deleteProject}
+              activeProjects={activeProjects}
+              completedProjects={completedProjects}
               formatDate={formatDate}
             />
           )}
@@ -599,6 +625,503 @@ function AssignTaskTab({ staffMembers, assignTask, onSuccess }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// Projects Tab Component
+function ProjectsTab({ 
+  projects, 
+  loading, 
+  error, 
+  createProject, 
+  deleteProject, 
+  activeProjects, 
+  completedProjects, 
+  formatDate 
+}) {
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newProject, setNewProject] = useState({
+    title: "",
+    description: "",
+    status: "active",
+    members: [],
+  });
+  const [memberSearch, setMemberSearch] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [memberNames, setMemberNames] = useState({});
+  const supabase = createClient();
+
+  // Fetch member names for display
+  const fetchMemberNames = useCallback(async (projectsList) => {
+    if (!projectsList || projectsList.length === 0) return;
+
+    // Get all unique emp_ids from all projects
+    const allEmpIds = new Set();
+    projectsList.forEach((project) => {
+      if (project.members && Array.isArray(project.members)) {
+        project.members.forEach((empId) => allEmpIds.add(empId));
+      }
+      if (project.owner_id) {
+        allEmpIds.add(project.owner_id);
+      }
+    });
+
+    if (allEmpIds.size === 0) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("emp_id, name")
+        .in("emp_id", Array.from(allEmpIds));
+
+      if (!error && data) {
+        const namesMap = {};
+        data.forEach((user) => {
+          namesMap[user.emp_id] = user.name;
+        });
+        setMemberNames(namesMap);
+      }
+    } catch (error) {
+      console.error("Error fetching member names:", error);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    if (projects && projects.length > 0) {
+      fetchMemberNames(projects);
+    }
+  }, [projects, fetchMemberNames]);
+
+  // Search for users
+  const searchUsers = async (searchTerm) => {
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setSearchLoading(true);
+      const { data, error } = await supabase
+        .from("users")
+        .select("emp_id, name, email")
+        .ilike("name", `%${searchTerm}%`)
+        .limit(10);
+
+      if (error) {
+        console.error("Error searching users:", error);
+        setSearchResults([]);
+        return;
+      }
+
+      // Filter out already selected members
+      const filteredResults = data.filter(
+        (user) =>
+          !newProject.members.some((member) => member.emp_id === user.emp_id)
+      );
+
+      setSearchResults(filteredResults);
+    } catch (error) {
+      console.error("Error searching users:", error);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Handle member search input
+  const handleMemberSearchChange = (e) => {
+    const value = e.target.value;
+    setMemberSearch(value);
+    searchUsers(value);
+  };
+
+  // Add member to project
+  const addMember = (user) => {
+    setNewProject((prev) => ({
+      ...prev,
+      members: [...prev.members, user],
+    }));
+    setMemberSearch("");
+    setSearchResults([]);
+  };
+
+  // Remove member from project
+  const removeMember = (empId) => {
+    setNewProject((prev) => ({
+      ...prev,
+      members: prev.members.filter((member) => member.emp_id !== empId),
+    }));
+  };
+
+  const handleCreateProject = async (e) => {
+    e.preventDefault();
+    try {
+      // Extract just the emp_ids for the database
+      const memberIds = newProject.members.map((member) => member.emp_id);
+
+      const projectData = {
+        title: newProject.title,
+        description: newProject.description,
+        status: newProject.status,
+        members: memberIds,
+      };
+
+      const result = await createProject(projectData);
+      
+      if (result.success) {
+        // Reset form
+        setNewProject({
+          title: "",
+          description: "",
+          status: "active",
+          members: [],
+        });
+        setShowCreateForm(false);
+        setMemberSearch("");
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error("Error creating project:", error);
+    }
+  };
+
+  const handleDeleteProject = async (projectId) => {
+    if (window.confirm("Are you sure you want to delete this project?")) {
+      await deleteProject(projectId);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header with stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
+                    {projects.length}
+                  </span>
+                </div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">
+                    Total Projects
+                  </dt>
+                  <dd className="text-lg font-medium text-gray-900">
+                    {projects.length}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
+                    {activeProjects.length}
+                  </span>
+                </div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">
+                    Active Projects
+                  </dt>
+                  <dd className="text-lg font-medium text-gray-900">
+                    {activeProjects.length}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
+                    {completedProjects.length}
+                  </span>
+                </div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">
+                    Completed Projects
+                  </dt>
+                  <dd className="text-lg font-medium text-gray-900">
+                    {completedProjects.length}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium">All Projects</h3>
+        <button
+          onClick={() => setShowCreateForm(!showCreateForm)}
+          className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+        >
+          {showCreateForm ? 'Cancel' : 'Create New Project'}
+        </button>
+      </div>
+
+      {/* Create Project Form */}
+      {showCreateForm && (
+        <div className="bg-gray-50 p-6 rounded-lg border">
+          <h4 className="text-md font-medium mb-4">Create New Project</h4>
+          <form onSubmit={handleCreateProject} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Project Title *
+              </label>
+              <input
+                type="text"
+                required
+                value={newProject.title}
+                onChange={(e) =>
+                  setNewProject((prev) => ({ ...prev, title: e.target.value }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter project title"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Description
+              </label>
+              <textarea
+                value={newProject.description}
+                onChange={(e) =>
+                  setNewProject((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows="3"
+                placeholder="Enter project description"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                value={newProject.status}
+                onChange={(e) =>
+                  setNewProject((prev) => ({ ...prev, status: e.target.value }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="active">Active</option>
+                <option value="planning">Planning</option>
+                <option value="on-hold">On Hold</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Add Team Members
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={memberSearch}
+                  onChange={handleMemberSearchChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Search for team members by name..."
+                />
+
+                {/* Search Results */}
+                {searchResults.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                    {searchResults.map((user) => (
+                      <button
+                        key={user.emp_id}
+                        type="button"
+                        onClick={() => addMember(user)}
+                        className="w-full text-left px-3 py-2 hover:bg-gray-100 flex justify-between items-center"
+                      >
+                        <span>{user.name}</span>
+                        <span className="text-sm text-gray-500">
+                          ID: {user.emp_id}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {searchLoading && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-3">
+                    <div className="text-center text-gray-500">Searching...</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Selected Members */}
+              {newProject.members.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-sm font-medium text-gray-700 mb-2">
+                    Selected Members:
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {newProject.members.map((member) => (
+                      <span
+                        key={member.emp_id}
+                        className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
+                      >
+                        {member.name}
+                        <button
+                          type="button"
+                          onClick={() => removeMember(member.emp_id)}
+                          className="ml-2 text-blue-600 hover:text-blue-800"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Create Project
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateForm(false);
+                  setNewProject({
+                    title: "",
+                    description: "",
+                    status: "active",
+                    members: [],
+                  });
+                  setMemberSearch("");
+                  setSearchResults([]);
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Projects List */}
+      <div className="bg-white rounded-lg border">
+        <div className="p-6">
+          <h4 className="text-lg font-medium text-gray-900 mb-4">Projects List</h4>
+          
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="text-gray-500">Loading projects...</div>
+            </div>
+          ) : error ? (
+            <div className="text-center py-8">
+              <div className="text-red-600 mb-2">Error loading projects</div>
+              <div className="text-sm text-gray-500">{error}</div>
+            </div>
+          ) : projects.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-gray-500 mb-4">No projects yet</div>
+              <p className="text-sm text-gray-400">
+                Click &quot;Create New Project&quot; to get started
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {projects.map((project) => (
+                <div
+                  key={project.id}
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <h4 className="text-lg font-medium text-gray-900">
+                          {project.title}
+                        </h4>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            project.status === 'active'
+                              ? 'bg-green-100 text-green-800'
+                              : project.status === 'completed'
+                              ? 'bg-gray-100 text-gray-800'
+                              : project.status === 'planning'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}
+                        >
+                          {project.status}
+                        </span>
+                      </div>
+                      
+                      {project.description && (
+                        <p className="text-gray-600 mb-2">
+                          {project.description}
+                        </p>
+                      )}
+                      
+                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        {project.members && project.members.length > 0 && (
+                          <span>
+                            Team Members:{" "}
+                            {project.members.map((empId, index) => (
+                              <span key={empId}>
+                                {memberNames[empId] || `ID: ${empId}`}
+                                {index < project.members.length - 1 ? ", " : ""}
+                              </span>
+                            ))}
+                          </span>
+                        )}
+                        <span>
+                          Created:{" "}
+                          {formatDate(project.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2 ml-4">
+                      <button
+                        onClick={() => handleDeleteProject(project.id)}
+                        className="text-red-600 hover:text-red-800 text-sm font-medium"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

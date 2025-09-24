@@ -1,6 +1,6 @@
 // utils/hooks/useTasks.js
-import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@/utils/supabase/client';
+import { useState, useEffect, useCallback } from "react";
+import { createClient } from "@/utils/supabase/client";
 
 export const useTasks = () => {
   const [tasks, setTasks] = useState([]);
@@ -12,10 +12,12 @@ export const useTasks = () => {
   const fetchTasks = useCallback(async () => {
     try {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
       const res = await fetch(`${apiUrl}/tasks`, {
-        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
+        headers: { Authorization: `Bearer ${session?.access_token || ""}` },
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -24,7 +26,7 @@ export const useTasks = () => {
       const body = await res.json();
       setTasks(body.tasks || []);
     } catch (err) {
-      console.error('Error in fetchTasks:', err);
+      console.error("Error in fetchTasks:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -33,39 +35,42 @@ export const useTasks = () => {
 
   // Get active tasks (not completed)
   const getActiveTasks = () => {
-    return tasks.filter(task => task.status !== 'completed');
+    return tasks.filter((task) => task.status !== "completed");
   };
 
   // Get completed tasks
   const getCompletedTasks = () => {
-    return tasks.filter(task => task.status === 'completed');
+    return tasks.filter((task) => task.status === "completed");
   };
 
   // Get tasks by priority
   const getTasksByPriority = (priority) => {
-    return tasks.filter(task => task.priority === priority);
+    return tasks.filter((task) => task.priority === priority);
   };
 
   // Get overdue tasks
   const getOverdueTasks = () => {
     const today = new Date();
-    return tasks.filter(task => 
-      task.due_date && 
-      new Date(task.due_date) < today && 
-      task.status !== 'completed'
+    return tasks.filter(
+      (task) =>
+        task.due_date &&
+        new Date(task.due_date) < today &&
+        task.status !== "completed"
     );
   };
 
   // Create a new task via Express API
   const createTask = async (taskData) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
       const res = await fetch(`${apiUrl}/tasks`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token || ''}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token || ""}`,
         },
         body: JSON.stringify(taskData),
       });
@@ -74,7 +79,7 @@ export const useTasks = () => {
         throw new Error(body?.error || `Request failed: ${res.status}`);
       }
       const created = await res.json();
-      setTasks(prev => [created, ...prev]);
+      setTasks((prev) => [created, ...prev]);
       return { success: true, data: created };
     } catch (err) {
       setError(err.message);
@@ -85,13 +90,15 @@ export const useTasks = () => {
   // Update a task
   const updateTask = async (taskId, updates) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
       const res = await fetch(`${apiUrl}/tasks/${taskId}`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token || ''}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token || ""}`,
         },
         body: JSON.stringify(updates),
       });
@@ -100,7 +107,9 @@ export const useTasks = () => {
         throw new Error(body?.error || `Request failed: ${res.status}`);
       }
       const updated = await res.json();
-      setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, ...updated } : t)));
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t))
+      );
       return { success: true, data: updated };
     } catch (err) {
       setError(err.message);
@@ -111,17 +120,19 @@ export const useTasks = () => {
   // Delete a task
   const deleteTask = async (taskId) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
       const res = await fetch(`${apiUrl}/tasks/${taskId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session?.access_token || ""}` },
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.error || `Request failed: ${res.status}`);
       }
-      setTasks(prev => prev.filter(task => task.id !== taskId));
+      setTasks((prev) => prev.filter((task) => task.id !== taskId));
       return { success: true };
     } catch (err) {
       setError(err.message);
@@ -131,10 +142,10 @@ export const useTasks = () => {
 
   // Toggle task completion
   const toggleTaskComplete = async (taskId) => {
-    const task = tasks.find(t => t.id === taskId);
+    const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    const newStatus = task.status === 'completed' ? 'in_progress' : 'completed';
+    const newStatus = task.status === "completed" ? "in_progress" : "completed";
     return await updateTask(taskId, { status: newStatus });
   };
 
@@ -154,6 +165,6 @@ export const useTasks = () => {
     updateTask,
     deleteTask,
     toggleTaskComplete,
-    getTasksByPriority
+    getTasksByPriority,
   };
 };

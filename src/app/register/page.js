@@ -2,8 +2,9 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/utils/supabase/client";
-import { useRouter } from "next/navigation";
+// import { createClient } from "@/utils/supabase/client";
+// import { useRouter } from "next/navigation";
+import Alert from "@/components/ui/Alert";
 
 const DEPARTMENTS = [
   "Marketing",
@@ -27,8 +28,8 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const router = useRouter();
-  const supabase = createClient();
+  // const router = useRouter();
+  // const supabase = createClient();
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -84,17 +85,9 @@ export default function RegisterPage() {
           </h2>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleRegister}>
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
+          {error && (<Alert type="error">{error}</Alert>)}
 
-          {message && (
-            <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded">
-              {message}
-            </div>
-          )}
+          {message && (<Alert type="success">{message}</Alert>)}
 
           <div className="space-y-4">
             <div>

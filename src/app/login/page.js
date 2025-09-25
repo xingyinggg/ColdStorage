@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import Alert from "@/components/ui/Alert";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -40,10 +41,8 @@ export default function LoginPage() {
           </h2>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-              {error}
-            </div>
+        {error && (
+            <Alert type="error">{error}</Alert>
           )}
 
           <div className="space-y-4">

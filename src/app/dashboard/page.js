@@ -11,6 +11,9 @@ import Link from "next/link";
 // Import manager/HR dashboard component
 import ManagerDashboard from "./ManagerDashboard";
 import HrDashboard from "./HrDashboard";
+import SidebarLayout from "@/components/layout/SidebarLayout";
+import StaffDashboard from "./StaffDashboard";
+import TaskCard from "@/components/tasks/TaskCard";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -103,17 +106,42 @@ export default function DashboardPage() {
 
   // Render manager dashboard if user is manager
   if (isManager) {
-    return <ManagerDashboard user={user} userProfile={userProfile} onLogout={handleLogout} />;
+    return (
+      <SidebarLayout>
+        <ManagerDashboard user={user} userProfile={userProfile} onLogout={handleLogout} />
+      </SidebarLayout>
+    );
   }
 
   // Render HR dashboard if user is HR
   if (isHR) {
-    return <HrDashboard user={user} userProfile={userProfile} onLogout={handleLogout} />;
+    return (
+      <SidebarLayout>
+        <HrDashboard user={user} userProfile={userProfile} onLogout={handleLogout} />
+      </SidebarLayout>
+    );
   }
 
-  // Render staff dashboard (existing functionality)
+  // Render staff dashboard (using extracted component)
   if (isStaff) {
-    return <StaffDashboard />;
+    return (
+      <SidebarLayout>
+        <StaffDashboard
+          userProfile={userProfile}
+          activeTasks={activeTasks}
+          overdueTasks={overdueTasks}
+          projects={projects}
+          projectsLoading={projectsLoading}
+          projectsError={projectsError}
+          formatDate={formatDate}
+          getPriorityColor={getPriorityColor}
+          getStatusColor={getStatusColor}
+          getProjectName={getProjectName}
+          toggleTaskComplete={toggleTaskComplete}
+          handleLogout={handleLogout}
+        />
+      </SidebarLayout>
+    );
   }
 
   // Default fallback

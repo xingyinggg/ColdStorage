@@ -5,6 +5,9 @@ import { useState } from "react";
 import { useHrInsights } from "@/utils/hooks/useHrInsights";
 import Link from "next/link";
 import { Bar, Pie, Line } from 'react-chartjs-2';
+import HeaderBar from "@/components/layout/HeaderBar";
+import { StatCard } from "@/components/ui/StatCard";
+import { Th, Td } from "@/components/ui/Table";
 
 // Chart.js registration
 import {
@@ -79,28 +82,14 @@ export default function HrDashboard({ user, userProfile, onLogout }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <h1 className="text-xl font-semibold">HR Dashboard</h1>
-            <div className="flex items-center space-x-4">
-              <span className="text-gray-700">
-                Welcome, {userProfile?.name || user?.email}
-              </span>
-              <span className="text-sm bg-pink-100 text-pink-800 px-2 py-1 rounded">
-                {userProfile?.role || "HR"}
-              </span>
-              <button
-                onClick={onLogout}
-                className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <HeaderBar
+        title="HR Dashboard"
+        user={user}
+        userProfile={userProfile}
+        roleLabel={userProfile?.role || "HR"}
+        roleColor="purple"
+        onLogout={onLogout}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tab Navigation - Update to include analytics */}
@@ -441,7 +430,7 @@ function LoadTable({ title, rows }) {
   );
 }
 
-// --- Advanced Filters Component
+// --- Advanced Filters Component (kept for future use)
 function AdvancedFilters({ onFilter }) {
   const [filters, setFilters] = useState({
     department: 'all',
@@ -482,56 +471,5 @@ function AdvancedFilters({ onFilter }) {
         </select>
       </div>
     </div>
-  );
-}
-
-// --- UI Helpers
-function StatCard({ color, label, value }) {
-  const colorMap = {
-    blue: "bg-blue-500",
-    green: "bg-green-500",
-    purple: "bg-purple-500",
-    red: "bg-red-500",
-  };
-  return (
-    <div className="bg-white overflow-hidden shadow rounded-lg">
-      <div className="p-5">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <div
-              className={`w-8 h-8 ${colorMap[color]} rounded-full flex items-center justify-center`}
-            >
-              <span className="text-white text-sm font-medium">{value}</span>
-            </div>
-          </div>
-          <div className="ml-5 w-0 flex-1">
-            <dl>
-              <dt className="text-sm font-medium text-gray-500 truncate">{label}</dt>
-              <dd className="text-lg font-medium text-gray-900">{value}</dd>
-            </dl>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-function Th({ children, align = "left" }) {
-  return (
-    <th
-      className={`px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider ${align === "center" ? "text-center" : "text-left"
-        }`}
-    >
-      {children}
-    </th>
-  );
-}
-function Td({ children, align = "left" }) {
-  return (
-    <td
-      className={`px-4 py-2 whitespace-nowrap text-sm text-gray-700 ${align === "center" ? "text-center" : "text-left"
-        }`}
-    >
-      {children}
-    </td>
   );
 }

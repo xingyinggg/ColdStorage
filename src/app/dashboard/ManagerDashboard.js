@@ -6,6 +6,9 @@ import { useManagerTasks } from "@/utils/hooks/useManagerTasks";
 import { useManagerProjects } from "@/utils/hooks/useManagerProjects";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
+import TaskCard from "@/components/tasks/TaskCard";
+import HeaderBar from "@/components/layout/HeaderBar";
+import { Badge } from "@/components/ui/Badge";
 
 export default function ManagerDashboard({ user, userProfile, onLogout }) {
   const [selectedTab, setSelectedTab] = useState('overview');
@@ -87,26 +90,14 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <h1 className="text-xl font-semibold">Manager Dashboard</h1>
-            <div className="flex items-center space-x-4">
-              <span className="text-gray-700">Welcome, {userProfile?.name || user?.email}</span>
-              <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                {userProfile?.role || 'Manager'}
-              </span>
-              <button
-                onClick={onLogout}
-                className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <HeaderBar
+        title="Manager Dashboard"
+        user={user}
+        userProfile={userProfile}
+        roleLabel={userProfile?.role || 'Manager'}
+        roleColor="blue"
+        onLogout={onLogout}
+      />
 
       {/* Tab Navigation */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
@@ -245,43 +236,19 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
                     Recent Tasks Overview
                   </h3>
                   {allTasks.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      No tasks found
-                    </div>
+                    <div className="text-center py-8 text-gray-500">No tasks found</div>
                   ) : (
                     <div className="space-y-4">
                       {allTasks.slice(0, 5).map((task) => (
-                        <div
+                        <TaskCard
                           key={task.id}
-                          className="border border-gray-200 rounded-lg p-4"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-2">
-                                <h4 className="text-base font-medium text-gray-900">
-                                  {task.title || 'Untitled Task'}
-                                </h4>
-                                {task.priority && (
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(task.priority)}`}>
-                                    {task.priority}
-                                  </span>
-                                )}
-                                {task.status && (
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                                    {task.status.replace('_', ' ')}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center text-xs text-gray-500 space-x-4">
-                                <span>Due: {formatDate(task.due_date)}</span>
-                                <span>Created by: {task.task_owner?.name || `Manager (ID: ${task.owner_id})`}</span>
-                                {task.collaborators && task.collaborators.length > 0 && (
-                                  <span>Assigned to: {task.collaborators.length} staff member(s)</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                          task={task}
+                          formatDate={formatDate}
+                          getPriorityColor={getPriorityColor}
+                          getStatusColor={getStatusColor}
+                          canEdit={userProfile?.emp_id === task.owner_id}
+                          onEdit={(id, updates) => updateTaskAssignment(id, task.collaborators || [], updates)}
+                        />
                       ))}
                     </div>
                   )}
@@ -296,6 +263,8 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
               formatDate={formatDate}
               getPriorityColor={getPriorityColor}
               getStatusColor={getStatusColor}
+              currentUserEmpId={userProfile?.emp_id}
+              onEditTask={(id, collaborators, updates) => updateTaskAssignment(id, collaborators, updates)}
             />
           )}
 
@@ -334,7 +303,7 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
 }
 
 // All Tasks Tab Component
-function AllTasksTab({ tasks, formatDate, getPriorityColor, getStatusColor }) {
+function AllTasksTab({ tasks, formatDate, getPriorityColor, getStatusColor, currentUserEmpId, onEditTask }) {
   return (
     <div className="bg-white shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
@@ -348,43 +317,15 @@ function AllTasksTab({ tasks, formatDate, getPriorityColor, getStatusColor }) {
         ) : (
           <div className="space-y-4">
             {tasks.map((task) => (
-              <div
+              <TaskCard
                 key={task.id}
-                className="border border-gray-200 rounded-lg p-4"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h4 className="text-base font-medium text-gray-900">
-                        {task.title || 'Untitled Task'}
-                      </h4>
-                      {task.priority && (
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(task.priority)}`}>
-                          {task.priority}
-                        </span>
-                      )}
-                      {task.status && (
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                          {task.status.replace('_', ' ')}
-                        </span>
-                      )}
-                    </div>
-                    {task.description && (
-                      <p className="text-sm text-gray-600 mb-2">
-                        {task.description}
-                      </p>
-                    )}
-                    <div className="flex items-center text-xs text-gray-500 space-x-4">
-                      <span>Due: {formatDate(task.due_date)}</span>
-                      <span>Created by: {task.task_owner?.name || `Manager (ID: ${task.owner_id})`}</span>
-                      {task.collaborators && task.collaborators.length > 0 && (
-                        <span>Assigned to: {task.collaborators.length} staff member(s)</span>
-                      )}
-                      <span>Created: {formatDate(task.created_at)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                task={task}
+                formatDate={formatDate}
+                getPriorityColor={getPriorityColor}
+                getStatusColor={getStatusColor}
+                canEdit={currentUserEmpId === task.owner_id}
+                onEdit={(id, updates) => onEditTask(id, task.collaborators || [], updates)}
+              />
             ))}
           </div>
         )}

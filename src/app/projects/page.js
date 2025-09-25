@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useProjects } from "@/utils/hooks/useProjects";
 import { useAuth } from "@/utils/hooks/useAuth";
+import HeaderBar from "@/components/layout/HeaderBar";
+import SidebarLayout from "@/components/layout/SidebarLayout";
 
 export default function ProjectsPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -315,33 +317,21 @@ export default function ProjectsPage() {
   console.log("Projects data:", projects);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
-          <div className="flex justify-between h-12 sm:h-16 items-center">
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <Link
-                href="/dashboard"
-                className="text-blue-600 hover:text-blue-800 font-medium text-sm sm:text-base"
-              >
-                ← Dashboard
-              </Link>
-              <h1 className="text-lg sm:text-xl font-semibold">Projects</h1>
-            </div>
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <span className="text-gray-700 text-xs sm:text-sm hidden sm:block">
-                Welcome, {userProfile?.name || user?.email}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="bg-red-500 text-white px-2 py-1 sm:px-3 rounded hover:bg-red-600 text-xs sm:text-sm"
-              >
-                Logout
-              </button>
-            </div>
+    <SidebarLayout>
+      <div className="min-h-screen bg-gray-50">
+        <HeaderBar
+        title={
+          <div className="flex items-center space-x-3">
+            <Link href="/dashboard" className="text-blue-600 hover:text-blue-800 font-medium text-sm sm:text-base">← Dashboard</Link>
+            <span>Projects</span>
           </div>
-        </div>
-      </nav>
+        }
+        user={user}
+        userProfile={userProfile}
+        roleLabel={userProfile?.role || "User"}
+        roleColor="gray"
+        onLogout={handleLogout}
+        />
 
       <main className="max-w-7xl mx-auto py-2 sm:py-6 px-2 sm:px-6 lg:px-8">
         <div className="px-2 py-3 sm:px-4 sm:py-6">
@@ -872,6 +862,7 @@ export default function ProjectsPage() {
           </div>
         </div>
       </main>
-    </div>
+      </div>
+    </SidebarLayout>
   );
 }

@@ -48,3 +48,11 @@ const port = process.env.PORT || 4000;
 app.listen(port, () =>
   console.log(`Express API listening on http://localhost:${port}`)
 );
+
+app.get("/", (req, res) => {
+  res.json({ message: "Server is running!" });
+});
+
+app.get("/test", (req, res) => {
+  res.json({ message: "Test route works!" });
+});

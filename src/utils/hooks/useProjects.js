@@ -93,6 +93,42 @@ export function useProjects() {
     }
   };
 
+  // NEW FUNCTION: Get project members
+  const getProjectMembers = async (projectId) => {
+    try {
+      const token = await getAuthToken();
+
+      if (!token) {
+        throw new Error("User not authenticated");
+      }
+
+      if (!projectId) {
+        return { members: [] };
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/projects/${projectId}/members`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data; // Returns { members: [...] }
+    } catch (err) {
+      console.error("Get project members error:", err);
+      throw err;
+    }
+  };
+
   const updateProject = async (id, updates) => {
     try {
       const token = await getAuthToken();
@@ -185,5 +221,6 @@ export function useProjects() {
     updateProject,
     deleteProject,
     refetch: fetchProjects,
+    getProjectMembers,
   };
 }

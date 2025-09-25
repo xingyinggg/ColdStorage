@@ -5,36 +5,106 @@ import {
   getEmpIdForUserId,
 } from "../lib/supabase.js";
 import { TaskSchema } from "../schemas/task.js";
+import multer from "multer";
 
 const router = Router();
 
+// Configure multer for file upload
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'), false);
+    }
+  },
+});
+
 // Create task
-router.post("/", async (req, res) => {
+router.post("/", upload.single('file'), async (req, res) => {
   try {
     const supabase = getServiceClient();
     const authHeader = req.headers.authorization || "";
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
     if (!token) return res.status(401).json({ error: "Missing access token" });
 
     const user = await getUserFromToken(token);
     if (!user) return res.status(401).json({ error: "Invalid token" });
-
     const empId = await getEmpIdForUserId(user.id);
-    if (!empId) return res.status(400).json({ error: "emp_id not found" });
 
-    const parsed = TaskSchema.safeParse(req.body);
-    if (!parsed.success)
-      return res.status(400).json({ error: parsed.error.flatten() });
+    // Parse collaborators if it exists
+    const collaborators = req.body.collaborators 
+      ? JSON.parse(req.body.collaborators) 
+      : null;
 
-    const { data, error } = await supabase
+    // Prepare task data
+    const taskData = {
+      title: req.body.title,
+      description: req.body.description || null,
+      priority: req.body.priority || "medium",
+      status: req.body.status || "pending",
+      due_date: req.body.due_date || null,
+      project_id: req.body.project_id ? parseInt(req.body.project_id) : null,
+      collaborators,
+    };
+
+    // Handle file upload to Supabase Storage
+    let attachmentUrl = null;
+    if (req.file) {
+      const fileExt = req.file.originalname.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `task-attachment/${fileName}`;
+
+      // Upload file to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('task-attachment')
+        .upload(filePath, req.file.buffer, {
+          contentType: req.file.mimetype,
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        throw new Error(`File upload failed: ${uploadError.message}`);
+      }
+
+      // Get the public URL of the uploaded file
+      const { data: urlData } = supabase.storage
+        .from('task-attachment')
+        .getPublicUrl(filePath);
+      
+      attachmentUrl = urlData.publicUrl;
+      taskData.file = attachmentUrl;
+
+      console.log("📎 Public URL:", attachmentUrl);
+    }
+
+    // Validate the task data
+    const validatedData = TaskSchema.parse(taskData);
+
+    // Insert task into database
+    const { data: newTask, error: dbError } = await supabase
       .from("tasks")
-      .insert([{ ...parsed.data, owner_id: empId }])
+      .insert({
+        ...validatedData,
+        owner_id: empId,
+      })
       .select()
       .single();
-    if (error) return res.status(400).json({ error: error.message });
 
-    res.status(201).json(data);
+    if (dbError) {
+      throw new Error(`Database error: ${dbError.message}`);
+    }
+
+    res.status(201).json(newTask);
   } catch (e) {
+    console.error("Stack trace:", e.stack);
     res.status(500).json({ error: e.message });
   }
 });
@@ -57,7 +127,7 @@ router.get("/", async (req, res) => {
     const { data: tasksData, error: tasksError } = await supabase
       .from("tasks")
       .select("*")
-      .contains("collaborators", [empId])
+      .or(`owner_id.eq.${empId},collaborators.cs.{${empId}}`)
       .order("created_at", { ascending: false });
 
     if (tasksError) return res.status(400).json({ error: tasksError.message });

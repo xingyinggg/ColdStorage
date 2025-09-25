@@ -58,31 +58,52 @@ export const useTasks = () => {
         task.status !== "completed"
     );
   };
+  
+   // Helper function to get auth token
+  const getAuthToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token;
+  };
 
   // Create a new task via Express API
   const createTask = async (taskData) => {
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-      const res = await fetch(`${apiUrl}/tasks`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token || ""}`,
-        },
-        body: JSON.stringify(taskData),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error || `Request failed: ${res.status}`);
+      const token = await getAuthToken();
+
+      if (!token) {
+        throw new Error("User not authenticated");
       }
-      const created = await res.json();
-      setTasks((prev) => [created, ...prev]);
-      return { success: true, data: created };
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+      };
+
+      // FormData automatically sets Content-Type with boundary
+      if (!(taskData instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/tasks`,
+        {
+          method: "POST",
+          headers,
+          body: taskData instanceof FormData ? taskData : JSON.stringify(taskData),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
+      }
+
+      const newTask = await response.json();
+      setTasks((prev) => [newTask, ...prev]);
+      return { success: true, task: newTask };
     } catch (err) {
-      setError(err.message);
+      console.error("Create task error:", err);
       return { success: false, error: err.message };
     }
   };

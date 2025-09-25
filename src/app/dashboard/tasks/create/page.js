@@ -3,73 +3,31 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-// import { useTasks } from "@/utils/hooks/useTasks";
+import { useTasks } from "@/utils/hooks/useTasks";
+import { useProjects } from "@/utils/hooks/useProjects";
 import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@/utils/hooks/useAuth";
 
 export default function CreateTaskPage() {
   const router = useRouter();
-  const supabase = createClient();
+
+  const { createTask } = useTasks();
+  const { projects, loading: loadingProjects, getProjectMembers } = useProjects();
+  const { userProfile, isStaff } = useAuth()
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
-  const [projectId, setProjectId] = useState("");
   const [file, setFile] = useState(null);
-  const [status, setStatus] = useState("pending");
+  const [status, setStatus] = useState("on going");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [selectedProject, setSelectedProject] = useState("");
   const [collaborators, setCollaborators] = useState([]);
-
-  // Data states
-  const [projects, setProjects] = useState([]);
   const [projectMembers, setProjectMembers] = useState([]);
-  const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
 
-  // Fetch user's projects
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        setLoadingProjects(true);
-        setError(null); // Clear any previous errors
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session?.access_token) {
-          return;
-        }
-
-        const response = await fetch('http://localhost:4000/projects', {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          if (response.status !== 404) {
-            throw new Error('Failed to fetch projects');
-          }
-          // For 404 or no projects, just set empty array
-          setProjects([]);
-          return;
-        }
-
-        const data = await response.json();
-        setProjects(data.projects || []);
-      } catch (error) {
-        console.error('Error fetching projects:', error);
-        setProjects([])
-      } finally {
-        setLoadingProjects(false);
-      }
-    };
-
-    fetchProjects();
-  }, []);
-
-  // Fetch project members when project is selected
   useEffect(() => {
     const fetchProjectMembers = async () => {
       if (!selectedProject) {
@@ -77,26 +35,19 @@ export default function CreateTaskPage() {
         return;
       }
 
-      console.log('Selected project ID:', selectedProject); // Debug log
-      console.log('Type of selectedProject:', typeof selectedProject); // Debug log
-
       try {
         setLoadingMembers(true);
-        const { data: { session } } = await supabase.auth.getSession();
+        const data = await getProjectMembers(selectedProject);
         
-        const response = await fetch(`http://localhost:4000/projects/${selectedProject}/members`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch project members');
-        }
-
-        const data = await response.json();
-        setProjectMembers(data.members || []);
+        // Filter out current user from project members
+        const filteredMembers = (data.members || []).filter(
+          member => member.emp_id !== userProfile?.emp_id
+        );
+        
+        setProjectMembers(filteredMembers);
+        
+        // Clear collaborators when project changes
+        setCollaborators([]);
       } catch (error) {
         console.error('Error fetching project members:', error);
         setError('Failed to load project members');
@@ -106,7 +57,7 @@ export default function CreateTaskPage() {
     };
 
     fetchProjectMembers();
-  }, [selectedProject]);
+  }, [selectedProject, userProfile?.emp_id]);
 
   const handleCollaboratorToggle = (empId) => {
     setCollaborators(prev => 
@@ -123,80 +74,46 @@ export default function CreateTaskPage() {
     setError(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+
+      const formData = new FormData();
       
-      if (!session?.access_token) {
-        throw new Error('User not authenticated');
+      // ✅ Add all form fields to FormData
+      formData.append('title', title);
+      formData.append('description', description);
+      formData.append('priority', priority);
+      formData.append('status', status);
+      
+      if (selectedProject) {
+        formData.append('project_id', selectedProject);
       }
-
-      const taskData = {
-        title,
-        description,
-        priority,
-        status,
-        project_id: selectedProject ? parseInt(selectedProject) : null,
-        collaborators: collaborators.length > 0 ? collaborators : null,
-      };
-
+      
       if (dueDate && dueDate.trim() !== "") {
-        taskData.due_date = dueDate;
+        formData.append('due_date', dueDate);
+      }
+      
+      if (collaborators.length > 0) {
+        formData.append('collaborators', JSON.stringify(collaborators));
+      }
+      
+      if (file && file instanceof File) {
+        console.log("📎 Adding file to FormData:", file.name);
+        formData.append('file', file); 
       }
 
-      const response = await fetch('http://localhost:4000/tasks', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(taskData),
-      });
+      // ✅ Send FormData instead of regular object
+      const result = await createTask(formData);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create task');
+      if (result.success) {
+        router.push('/dashboard');
+      } else {
+        setError(result.error || 'Failed to create task');
       }
-
-      router.push('/dashboard');
     } catch (error) {
       console.error('Error creating task:', error);
       setError(error.message || 'Failed to create task');
     } finally {
       setSubmitting(false);
     }
-
-    // try {
-    //   const payload = {
-    //     title: title.trim() || null,
-    //     description: description.trim() || null,
-    //     priority: priority || null,
-    //     due_date: dueDate || null,
-    //     project_id: projectId ? Number(projectId) : null,
-    //     status: status || null,
-    //     file: file.trim() || null,
-    //   };
-
-    //   const { data: { session } } = await supabase.auth.getSession();
-    //   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-    //   const res = await fetch(`${apiUrl}/tasks`, {
-    //     method: "POST",
-    //     headers: {
-    //       "Content-Type": "application/json",
-    //       Authorization: `Bearer ${session?.access_token || ""}`,
-    //     },
-    //     body: JSON.stringify(payload),
-    //   });
-    //   if (!res.ok) {
-    //     const body = await res.json().catch(() => ({}));
-    //     throw new Error(body?.error || `Request failed: ${res.status}`);
-    //   }
-
-    //   await fetchTasks();
-    //   router.push("/dashboard/tasks");
-    // } catch (err) {
-    //   setError(err.message);
-    // } finally {
-    //   setSubmitting(false);
-    // }
   };
 
   return (
@@ -240,7 +157,7 @@ export default function CreateTaskPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Priority</label>
                 <select
@@ -261,9 +178,12 @@ export default function CreateTaskPage() {
                   onChange={(e) => setStatus(e.target.value)}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 >
-                  <option value="pending">Pending</option>
-                  <option value="in_progress">In progress</option>
+                  <option value="on going">On Going</option>
+                  <option value="pending review">Pending Review</option>
                   <option value="completed">Completed</option>
+                   {!isStaff && (
+                    <option value="unassigned">Unassigned</option>
+                  )}
                 </select>
               </div>
 
@@ -273,8 +193,24 @@ export default function CreateTaskPage() {
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Attachment (PDF)
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={(e) => setFile(e.target.files[0] || null)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  PDF files only, max 10MB
+                </p>
               </div>
             </div>
 
@@ -337,17 +273,6 @@ export default function CreateTaskPage() {
                   )}
                 </div>
               )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">File (URL or ref)</label>
-                <input
-                  type="text"
-                  value={file}
-                  onChange={(e) => setFile(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  placeholder="Optional"
-                />
-              </div>
             </div>
 
             <div className="flex items-center justify-end gap-3">

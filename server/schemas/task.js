@@ -6,8 +6,8 @@ export const TaskSchema = z.object({
   priority: z.enum(['low', 'medium', 'high']).optional().nullable(),
   due_date: z.string().optional().nullable(),
   project_id: z.number().optional().nullable(),
-  status: z.enum(['pending', 'in_progress', 'completed']).optional().nullable(),
-  file: z.string().optional().nullable(),
+  status: z.enum(['pending review', 'on going', 'completed', 'unassigned']).optional().nullable(),
+  file: z.string().nullable().optional(),
   collaborators: z.array(z.string()).optional().nullable(),
 });
 

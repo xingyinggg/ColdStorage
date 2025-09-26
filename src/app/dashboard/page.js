@@ -12,7 +12,7 @@ import Link from "next/link";
 import ManagerDashboard from "./ManagerDashboard";
 import HrDashboard from "./HrDashboard";
 import SidebarLayout from "@/components/layout/SidebarLayout";
-import StaffDashboard from "./StaffDashboard";
+import StaffDashboardComponent from "./StaffDashboard";
 import TaskCard from "@/components/tasks/TaskCard";
 
 export default function DashboardPage() {
@@ -28,6 +28,7 @@ export default function DashboardPage() {
     loading: tasksLoading,
     error: tasksError,
     toggleTaskComplete,
+    updateTask,
   } = useTasks();
 
   const {
@@ -126,7 +127,7 @@ export default function DashboardPage() {
   if (isStaff) {
     return (
       <SidebarLayout>
-        <StaffDashboard
+        <StaffDashboardComponent
           userProfile={userProfile}
           activeTasks={activeTasks}
           overdueTasks={overdueTasks}
@@ -139,6 +140,8 @@ export default function DashboardPage() {
           getProjectName={getProjectName}
           toggleTaskComplete={toggleTaskComplete}
           handleLogout={handleLogout}
+          currentUserEmpId={userProfile?.emp_id}
+          onEditTask={updateTask}
         />
       </SidebarLayout>
     );

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import TaskEditModal from "@/components/tasks/TaskEditModal";
 
-export default function TaskCard({ task, formatDate, getPriorityColor, getStatusColor, onMarkComplete, canEdit = false, onEdit }) {
+export default function TaskCard({ task, formatDate, getPriorityColor, getStatusColor, getProjectName, onMarkComplete, canEdit = false, onEdit }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   return (
@@ -41,6 +41,11 @@ export default function TaskCard({ task, formatDate, getPriorityColor, getStatus
             {task.manager && (
               <span className="text-blue-600">
                 • Assigned by: {task.manager.name} (ID: {task.manager.emp_id})
+              </span>
+            )}
+            {task.project_id && getProjectName && (
+              <span>
+                • Project: {getProjectName(task.project_id)}
               </span>
             )}
           </div>

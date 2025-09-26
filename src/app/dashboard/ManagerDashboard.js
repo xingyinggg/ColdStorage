@@ -75,6 +75,11 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
     }
   };
 
+  const getProjectName = (projectId) => {
+    const project = allProjects?.find((p) => p.id === projectId);
+    return project?.title || `ID: ${projectId}`;
+  };
+
   const activeTasks = getTasksByStatus('in_progress') || [];
   const completedTasks = getTasksByStatus('completed') || [];
   const overdueTasks = getOverdueTasks() || [];
@@ -246,8 +251,10 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
                           formatDate={formatDate}
                           getPriorityColor={getPriorityColor}
                           getStatusColor={getStatusColor}
+                          getProjectName={getProjectName}
                           canEdit={userProfile?.emp_id === task.owner_id}
                           onEdit={(id, updates) => updateTaskAssignment(id, task.collaborators || [], updates)}
+                          onMarkComplete={(id) => updateTaskAssignment(id, task.collaborators || [], { status: 'completed' })}
                         />
                       ))}
                     </div>
@@ -263,6 +270,7 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
               formatDate={formatDate}
               getPriorityColor={getPriorityColor}
               getStatusColor={getStatusColor}
+              getProjectName={getProjectName}
               currentUserEmpId={userProfile?.emp_id}
               onEditTask={(id, collaborators, updates) => updateTaskAssignment(id, collaborators, updates)}
             />

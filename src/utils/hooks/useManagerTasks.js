@@ -10,188 +10,176 @@ export const useManagerTasks = () => {
   const [error, setError] = useState(null);
   const supabase = createClient();
 
-  // Fetch all tasks (manager can see everything)
-  const fetchAllTasks = useCallback(async () => {
+  const getToken = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token;
+  }, [supabase]);
+
+  // Fallback: direct Supabase fetch for all tasks with owner enrichment
+  const fetchAllTasksViaSupabase = useCallback(async () => {
     try {
-      // First fetch all tasks
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select('*')
         .order('created_at', { ascending: false });
-
       if (tasksError) throw tasksError;
 
-      // If there are tasks, fetch owner information for each task
       if (tasksData && tasksData.length > 0) {
-        // Get unique owner_ids
-        const ownerIds = [...new Set(tasksData.map(task => task.owner_id).filter(Boolean))];
-        
+        const ownerIds = [...new Set(tasksData.map(t => t.owner_id).filter(Boolean))];
         if (ownerIds.length > 0) {
-          // Fetch owner info for all unique owner_ids
-          const { data: ownersData, error: ownersError } = await supabase
+          const { data: owners, error: ownersErr } = await supabase
             .from('users')
             .select('emp_id, name, role')
             .in('emp_id', ownerIds);
-          
-          if (!ownersError && ownersData) {
-            // Create a map of emp_id to owner info
+          if (!ownersErr && owners) {
             const ownersMap = {};
-            ownersData.forEach(owner => {
-              ownersMap[owner.emp_id] = owner;
-            });
-            
-            // Add owner info to each task
-            tasksData.forEach(task => {
-              if (task.owner_id && ownersMap[task.owner_id]) {
-                task.task_owner = ownersMap[task.owner_id];
+            owners.forEach(o => { ownersMap[o.emp_id] = o; });
+            tasksData.forEach(t => {
+              if (t.owner_id && ownersMap[t.owner_id]) {
+                t.task_owner = ownersMap[t.owner_id];
               }
             });
           }
         }
       }
-
       setAllTasks(tasksData || []);
+    } catch (fallbackErr) {
+      console.error('Fallback Supabase task fetch failed:', fallbackErr);
+      setAllTasks([]);
+      setError(fallbackErr.message);
+    }
+  }, [supabase]);
+
+  const fetchAllTasks = useCallback(async () => {
+    try {
+      const token = await getToken();
+      if (!token) throw new Error('No authentication token');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/tasks/manager/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        if (res.status === 404) {
+          // Fallback to Supabase direct if endpoint not available
+          await fetchAllTasksViaSupabase();
+          return;
+        }
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed: ${res.status}`);
+      }
+      const body = await res.json();
+      setAllTasks(body.tasks || []);
     } catch (err) {
       console.error('Error fetching all tasks:', err);
       setError(err.message);
+      // As a safety net, attempt fallback once more
+      await fetchAllTasksViaSupabase();
     }
-  }, [supabase]);
+  }, [getToken, fetchAllTasksViaSupabase]);
 
-  // Fetch all projects
   const fetchAllProjects = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setAllProjects(data || []);
+      const token = await getToken();
+      if (!token) throw new Error('No authentication token');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/projects`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+      const data = await res.json();
+      setAllProjects(Array.isArray(data) ? data : (data?.projects || []));
     } catch (err) {
       console.error('Error fetching all projects:', err);
       setError(err.message);
+      setAllProjects([]);
     }
-  }, [supabase]);
+  }, [getToken]);
 
-  // Fetch all staff members
-  const fetchStaffMembers = useCallback(async () => {
+  // Fallback: Supabase staff list
+  const fetchStaffMembersViaSupabase = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('users')
         .select('emp_id, name, role, department')
         .eq('role', 'staff')
         .order('name');
-
       if (error) throw error;
       setStaffMembers(data || []);
-    } catch (err) {
-      console.error('Error fetching staff members:', err);
-      setError(err.message);
+    } catch (fallbackErr) {
+      console.error('Fallback Supabase staff fetch failed:', fallbackErr);
+      setStaffMembers([]);
+      setError(fallbackErr.message);
     }
   }, [supabase]);
 
-  // Assign task to staff members
-  const assignTask = async (taskData, collaboratorEmpIds) => {
+  const fetchStaffMembers = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error('User not authenticated');
+      const token = await getToken();
+      if (!token) throw new Error('No authentication token');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/tasks/manager/staff-members`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        if (res.status === 404) {
+          await fetchStaffMembersViaSupabase();
+          return;
+        }
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed: ${res.status}`);
       }
-
-      // Get manager's emp_id to set as owner_id
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('emp_id')
-        .eq('id', user.id)
-        .single();
-
-      if (userError) throw userError;
-
-      const { data, error } = await supabase
-        .from('tasks')
-        .insert([
-          {
-            ...taskData,
-            owner_id: userData.emp_id,
-            collaborators: collaboratorEmpIds
-          }
-        ])
-        .select();
-
-      if (error) throw error;
-      
-      // Refresh tasks list
-      await fetchAllTasks();
-      return { success: true, data: data[0] };
+      const body = await res.json();
+      setStaffMembers(body.staffMembers || []);
     } catch (err) {
+      console.error('Error fetching staff members:', err);
       setError(err.message);
-      return { success: false, error: err.message };
+      await fetchStaffMembersViaSupabase();
     }
-  };
+  }, [getToken, fetchStaffMembersViaSupabase]);
 
-  // Update task assignment
-  const updateTaskAssignment = async (taskId, newCollaborators, updates = {}) => {
+  const updateTaskAssignment = async (taskId, _collaborators, updates = {}) => {
     try {
-      const { data, error } = await supabase
-        .from('tasks')
-        .update({
-          collaborators: newCollaborators,
-          ...updates
-        })
-        .eq('id', taskId)
-        .select();
-
-      if (error) throw error;
-      
-      // Refresh tasks list
+      const token = await getToken();
+      if (!token) throw new Error('No authentication token');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/tasks/manager/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed: ${res.status}`);
+      }
+      const updated = await res.json();
       await fetchAllTasks();
-      return { success: true, data: data[0] };
+      return { success: true, data: updated };
     } catch (err) {
       setError(err.message);
       return { success: false, error: err.message };
     }
   };
 
-  // Get tasks by status
-  const getTasksByStatus = (status) => {
-    return allTasks.filter(task => task.status === status);
-  };
-
-  // Get tasks by priority
-  const getTasksByPriority = (priority) => {
-    return allTasks.filter(task => task.priority === priority);
-  };
-
-  // Get overdue tasks
+  const getTasksByStatus = (status) => allTasks.filter((t) => t.status === status);
+  const getTasksByPriority = (priority) => allTasks.filter((t) => t.priority === priority);
   const getOverdueTasks = () => {
     const today = new Date();
-    return allTasks.filter(task => 
-      task.due_date && 
-      new Date(task.due_date) < today && 
-      task.status !== 'completed'
+    return allTasks.filter(
+      (t) => t.due_date && new Date(t.due_date) < today && t.status !== 'completed'
     );
   };
-
-  // Get tasks assigned to specific staff member
-  const getTasksByStaff = (empId) => {
-    return allTasks.filter(task => 
-      task.collaborators && task.collaborators.includes(empId)
-    );
-  };
+  const getTasksByStaff = (empId) => allTasks.filter((t) => t.collaborators && t.collaborators.includes(empId));
 
   useEffect(() => {
-    const loadData = async () => {
+    const load = async () => {
       setLoading(true);
-      await Promise.all([
-        fetchAllTasks(),
-        fetchAllProjects(),
-        fetchStaffMembers()
-      ]);
+      await Promise.all([fetchAllTasks(), fetchAllProjects(), fetchStaffMembers()]);
       setLoading(false);
     };
-
-    loadData();
+    load();
   }, [fetchAllTasks, fetchAllProjects, fetchStaffMembers]);
 
   return {
@@ -200,7 +188,6 @@ export const useManagerTasks = () => {
     staffMembers,
     loading,
     error,
-    assignTask,
     updateTaskAssignment,
     getTasksByStatus,
     getTasksByPriority,
@@ -210,6 +197,6 @@ export const useManagerTasks = () => {
       fetchAllTasks();
       fetchAllProjects();
       fetchStaffMembers();
-    }
+    },
   };
 };

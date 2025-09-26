@@ -38,11 +38,14 @@ export default function TaskCard({ task, formatDate, getPriorityColor, getStatus
           )}
           <div className="flex items-center text-xs text-gray-500 space-x-4">
             <span>Due: {formatDate(task.due_date)}</span>
-            {task.manager && (
-              <span className="text-blue-600">
-                • Assigned by: {task.manager.name} (ID: {task.manager.emp_id})
-              </span>
-            )}
+            {(() => {
+              const assignedBy = task.manager || task.task_owner;
+              return assignedBy ? (
+                <span className="text-blue-600">
+                  • Assigned by: {assignedBy.name} (ID: {assignedBy.emp_id})
+                </span>
+              ) : null;
+            })()}
             {task.project_id && getProjectName && (
               <span>
                 • Project: {getProjectName(task.project_id)}

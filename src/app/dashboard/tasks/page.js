@@ -6,119 +6,25 @@ import { useTasks } from "@/utils/hooks/useTasks";
 import { useProjects } from "@/utils/hooks/useProjects";
 import { useAuth } from "@/utils/hooks/useAuth";
 import Link from "next/link";
-import ManagerDashboard from "../ManagerDashboard";
 import HrDashboard from "../HrDashboard";
 import SidebarLayout from "@/components/layout/SidebarLayout";
 import TaskCard from "@/components/tasks/TaskCard";
 import Toast from "@/components/ui/Toast";
+import { useManagerTasks } from "@/utils/hooks/useManagerTasks";
+import StaffTasksView from "./components/StaffTasksView";
+import ManagerTasksView from "./components/ManagerTasksView";
 
-// ---- move these OUTSIDE the page component
-const statusOrder = ["unassigned", "todo", "in_progress", "done"];
-const statusLabels = {
-    unassigned: "Unassigned",
-    todo: "To-do",
-    in_progress: "In Progress",
-    done: "Done",
-};
-const statusColors = {
-    unassigned: "bg-gray-50",
-    todo: "bg-yellow-50",
-    in_progress: "bg-blue-50",
-    done: "bg-green-50",
-};
+// moved status constants into StaffTasksView component
 
-// ✅ Named (not default) Staff dashboard component
-function StaffDashboard({
-    tasks = [],
-    onLogout,
-}) {
-    const grouped = statusOrder.reduce((acc, status) => {
-        acc[status] = tasks.filter((t) => t.status === status);
-        return acc;
-    }, {});
-
-    return (
-        <div className="p-6">
-            <div className="mb-4 flex items-center justify-between">
-                <h1 className="text-xl font-semibold">My Tasks</h1>
-                <div className="flex items-center gap-3">
-                    <Link
-                        href="/dashboard"
-                        className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
-                    >
-                        Back to Dashboard
-                    </Link>
-                    <button
-                    onClick={onLogout}
-                    className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-                    >
-                        Logout
-                    </button>
-                </div>
-            </div>
-
-            <div className="flex gap-6">
-                {statusOrder.map((status) => (
-                    <div
-                        key={status}
-                        className={`flex-1 rounded-lg shadow p-4 ${statusColors[status]}`}
-                    >
-                        <div className="flex items-center mb-2">
-                            <span
-                                className={`w-3 h-3 rounded-full mr-2 ${status === "todo"
-                                    ? "bg-yellow-400"
-                                    : status === "in_progress"
-                                        ? "bg-blue-400"
-                                        : status === "done"
-                                            ? "bg-green-400"
-                                            : "bg-gray-400"
-                                    }`}
-                            />
-                            <span className="font-semibold">
-                                {statusLabels[status]}{" "}
-                                <span className="bg-white rounded-full px-2 py-0.5 text-xs ml-1 border">
-                                    {grouped[status]?.length || 0}
-                                </span>
-                            </span>
-                        </div>
-                        <div className="space-y-3">
-                            {grouped[status]?.map((task) => (
-                                <div key={task.id} className="bg-white border rounded-lg p-3 shadow-sm">
-                                    <div className="font-medium">{task.title}</div>
-                                    <div className="text-sm text-gray-500">{task.description}</div>
-                                    {task.due_date && (
-                                        <div className="text-xs text-gray-400">
-                                            Due: {new Date(task.due_date).toLocaleDateString()}
-                                        </div>
-                                    )}
-                                    {task.priority && (
-                                        <span
-                                            className={`inline-block mt-2 px-2 py-0.5 rounded-full text-xs ${task.priority === "High"
-                                                ? "bg-red-100 text-red-800"
-                                                : task.priority === "Medium"
-                                                    ? "bg-orange-100 text-orange-800"
-                                                    : "bg-blue-100 text-blue-800"
-                                                }`}
-                                        >
-                                            {task.priority}
-                                        </span>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
+// Staff inline view removed; using StaffTasksView component instead
 
 // ✅ Single default export (the page)
 export default function DashboardPage() {
     const router = useRouter();
     const { user, userProfile, loading: authLoading, isManager, isStaff, isHR, signOut } = useAuth();
     const { tasks = [], activeTasks = [], overdueTasks = [], toggleTaskComplete, updateTask } = useTasks(); // adapt to your hook
-    const { projects } = useProjects(); // keep if you actually use it
+    useProjects(); // keep hook initialised if needed elsewhere (no local use)
+    useManagerTasks();
 
     useEffect(() => {
         if (!authLoading && !user) router.push("/login");
@@ -141,7 +47,35 @@ export default function DashboardPage() {
     if (isManager) {
         return (
             <SidebarLayout>
-                <ManagerDashboard user={user} userProfile={userProfile} onLogout={handleLogout} />
+                <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                    <div className="px-4 py-6 sm:px-0">
+                        <div className="mb-4 flex items-center justify-between">
+                            <h1 className="text-xl font-semibold">Tasks</h1>
+                            <div className="flex items-center gap-3">
+                                <Link
+                                    href="/dashboard"
+                                    className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
+                                >
+                                    Back to Dashboard
+                                </Link>
+                                <Link
+                                    href="/dashboard#assign-task"
+                                    className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
+                                >
+                                    Assign Task
+                                </Link>
+                                <Link
+                                    href="/dashboard/tasks/create"
+                                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                                >
+                                    Create Task
+                                </Link>
+                            </div>
+                        </div>
+
+                        <ManagerTasksView currentUserEmpId={userProfile?.emp_id} />
+                    </div>
+                </div>
             </SidebarLayout>
         );
     }
@@ -160,7 +94,7 @@ export default function DashboardPage() {
         return (
             <SidebarLayout>
                 <div>
-                    <StaffDashboard tasks={allTasks} onLogout={handleLogout} />
+                    <StaffTasksView tasks={allTasks} onLogout={handleLogout} />
                     <AllTasksSection
                         tasks={tasks}
                         onMarkComplete={toggleTaskComplete}
@@ -273,3 +207,4 @@ function AllTasksSection({ tasks = [], onMarkComplete, currentUserEmpId, onEditT
     );
 }
  
+// manager/staff subviews moved to ./components

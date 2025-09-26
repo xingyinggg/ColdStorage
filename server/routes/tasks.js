@@ -169,6 +169,134 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Manager: Get all tasks (with owner info)
+router.get("/manager/all", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: "Missing access token" });
+
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: "Invalid token" });
+
+    // Verify role is manager
+    const { data: requester, error: reqErr } = await supabase
+      .from("users")
+      .select("id, emp_id, role")
+      .eq("id", user.id)
+      .single();
+    if (reqErr) return res.status(400).json({ error: reqErr.message });
+    if ((requester?.role || "").toLowerCase() !== "manager") {
+      return res.status(403).json({ error: "Forbidden: managers only" });
+    }
+
+    const { data: tasksData, error: tasksError } = await supabase
+      .from("tasks")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (tasksError) return res.status(400).json({ error: tasksError.message });
+
+    if (tasksData && tasksData.length > 0) {
+      const ownerIds = [
+        ...new Set(tasksData.map((t) => t.owner_id).filter(Boolean)),
+      ];
+      if (ownerIds.length > 0) {
+        const { data: owners, error: ownersErr } = await supabase
+          .from("users")
+          .select("emp_id, name, role")
+          .in("emp_id", ownerIds);
+        if (!ownersErr && owners) {
+          const ownersMap = {};
+          owners.forEach((o) => {
+            ownersMap[o.emp_id] = o;
+          });
+          tasksData.forEach((task) => {
+            if (task.owner_id && ownersMap[task.owner_id]) {
+              task.task_owner = ownersMap[task.owner_id];
+            }
+          });
+        }
+      }
+    }
+
+    res.json({ tasks: tasksData || [] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Manager: Update any task (e.g., collaborators, status) regardless of owner
+router.put("/manager/:id", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: "Missing access token" });
+
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: "Invalid token" });
+
+    // Verify manager role
+    const { data: requester, error: reqErr } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("id", user.id)
+      .single();
+    if (reqErr) return res.status(400).json({ error: reqErr.message });
+    if ((requester?.role || "").toLowerCase() !== "manager") {
+      return res.status(403).json({ error: "Forbidden: managers only" });
+    }
+
+    const { id } = req.params;
+    const updates = req.body || {};
+    const { data, error } = await supabase
+      .from("tasks")
+      .update({ ...updates })
+      .eq("id", Number(id))
+      .select()
+      .single();
+    if (error) return res.status(400).json({ error: error.message });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Manager: Get staff members list
+router.get("/manager/staff-members", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: "Missing access token" });
+
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: "Invalid token" });
+
+    // Verify manager role
+    const { data: requester, error: reqErr } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("id", user.id)
+      .single();
+    if (reqErr) return res.status(400).json({ error: reqErr.message });
+    if ((requester?.role || "").toLowerCase() !== "manager") {
+      return res.status(403).json({ error: "Forbidden: managers only" });
+    }
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("emp_id, name, role, department")
+      .eq("role", "staff")
+      .order("name");
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ staffMembers: data || [] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Update task
 router.put("/:id", async (req, res) => {
   try {

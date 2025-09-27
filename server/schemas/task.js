@@ -1,12 +1,15 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const TaskSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional().nullable(),
-  priority: z.enum(['low', 'medium', 'high']).optional().nullable(),
+  priority: z.enum(["low", "medium", "high"]).optional().nullable(),
   due_date: z.string().optional().nullable(),
   project_id: z.number().optional().nullable(),
-  status: z.enum(['pending review', 'on going', 'completed', 'unassigned']).optional().nullable(),
+  status: z
+    .enum(["under review", "ongoing", "completed", "unassigned"])
+    .optional()
+    .nullable(),
   file: z.string().nullable().optional(),
   collaborators: z.array(z.string()).optional().nullable(),
 });
@@ -23,5 +26,5 @@ export const RegisterSchema = z.object({
 export const ProjectSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional().nullable(),
-  members: z.array(z.string()).optional().nullable()
+  members: z.array(z.string()).optional().nullable(),
 });

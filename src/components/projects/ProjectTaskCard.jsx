@@ -60,19 +60,6 @@ export default function ProjectTaskCard({
     return memberNames[task.owner_id] || `User ${task.owner_id}`;
   };
 
-console.log("📋 Task Object:", {
-  id: task.id,
-  title: task.title,
-  description: task.description,
-  priority: task.priority,
-  status: task.status,
-  due_date: task.due_date,
-  owner_id: task.owner_id,
-  file: task.file, // This is what we want to see for file attachments
-  created_at: task.created_at,
-  updated_at: task.updated_at,
-  fullTask: task // Complete object
-});
   // Function to get file name from URL
   const getFileName = (fileUrl) => {
     if (!fileUrl) return null;
@@ -135,9 +122,9 @@ console.log("📋 Task Object:", {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-gray-700 truncate">
+                  {/* <p className="text-xs font-medium text-gray-700 truncate">
                     {getFileName(task.file)}
-                  </p>
+                  </p> */}
                   <p className="text-xs text-gray-500">
                     PDF Attachment
                   </p>
@@ -147,9 +134,6 @@ console.log("📋 Task Object:", {
                 onClick={() => handleFileDownload(task.file, getFileName(task.file))}
                 className="ml-2 inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 flex-shrink-0"
               >
-                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
                 Download
               </button>
             </div>

@@ -80,4 +80,37 @@ router.post("/bulk", async (req, res) => {
   }
 });
 
+router.get("/profile/:empId", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+    if (!token) {
+      return res.status(401).json({ error: "No token provided" });
+    }
+
+    const user = await getUserFromToken(token);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    const { empId } = req.params;
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("emp_id, name, email")
+      .eq("emp_id", empId)
+      .single();
+
+    if (error) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 export default router;

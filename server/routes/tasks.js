@@ -17,16 +17,16 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') {
+    if (file.mimetype === "application/pdf") {
       cb(null, true);
     } else {
-      cb(new Error('Only PDF files are allowed'), false);
+      cb(new Error("Only PDF files are allowed"), false);
     }
   },
 });
 
 // Create task
-router.post("/", upload.single('file'), async (req, res) => {
+router.post("/", upload.single("file"), async (req, res) => {
   try {
     const supabase = getServiceClient();
     const authHeader = req.headers.authorization || "";
@@ -39,8 +39,8 @@ router.post("/", upload.single('file'), async (req, res) => {
     const empId = await getEmpIdForUserId(user.id);
 
     // Parse collaborators if it exists
-    const collaborators = req.body.collaborators 
-      ? JSON.parse(req.body.collaborators) 
+    const collaborators = req.body.collaborators
+      ? JSON.parse(req.body.collaborators)
       : null;
 
     // Prepare task data
@@ -48,7 +48,7 @@ router.post("/", upload.single('file'), async (req, res) => {
       title: req.body.title,
       description: req.body.description || null,
       priority: req.body.priority || "medium",
-      status: req.body.status || "pending",
+      status: req.body.status || "unassigned",
       due_date: req.body.due_date || null,
       project_id: req.body.project_id ? parseInt(req.body.project_id) : null,
       collaborators,
@@ -57,17 +57,19 @@ router.post("/", upload.single('file'), async (req, res) => {
     // Handle file upload to Supabase Storage
     let attachmentUrl = null;
     if (req.file) {
-      const fileExt = req.file.originalname.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const fileExt = req.file.originalname.split(".").pop();
+      const fileName = `${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2)}.${fileExt}`;
       const filePath = `task-attachment/${fileName}`;
 
       // Upload file to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('task-attachment')
+        .from("task-attachment")
         .upload(filePath, req.file.buffer, {
           contentType: req.file.mimetype,
-          cacheControl: '3600',
-          upsert: false
+          cacheControl: "3600",
+          upsert: false,
         });
 
       if (uploadError) {
@@ -76,9 +78,9 @@ router.post("/", upload.single('file'), async (req, res) => {
 
       // Get the public URL of the uploaded file
       const { data: urlData } = supabase.storage
-        .from('task-attachment')
+        .from("task-attachment")
         .getPublicUrl(filePath);
-      
+
       attachmentUrl = urlData.publicUrl;
       taskData.file = attachmentUrl;
 
@@ -297,8 +299,11 @@ router.get("/manager/staff-members", async (req, res) => {
   }
 });
 
-// Update task
-router.put("/:id", async (req, res) => {
+// Replace the PUT route (lines 265-420) with this fixed version:
+router.put("/:id", upload.single("file"), async (req, res) => {
+  console.log("🚀 PUT ROUTE HIT! ID:", req.params.id);
+  console.log("🚀 REQUEST BODY:", req.body);
+  console.log("🚀 HAS FILE:", !!req.file);
   try {
     const supabase = getServiceClient();
     const authHeader = req.headers.authorization || "";
@@ -310,20 +315,167 @@ router.put("/:id", async (req, res) => {
     const empId = await getEmpIdForUserId(user.id);
     if (!empId) return res.status(400).json({ error: "emp_id not found" });
 
-    const { id } = req.params;
-    const updates = req.body || {};
+    console.log("User authentication:", {
+      userId: user.id,
+      empId: empId,
+      empIdType: typeof empId,
+    });
 
+    const { id } = req.params;
+    const { remove_file, ...updates } = req.body || {};
+
+    // Clean and validate updates object
+    const cleanUpdates = {};
+    if (updates.title && updates.title.trim()) {
+      cleanUpdates.title = updates.title.trim();
+    }
+    if (updates.description !== undefined) {
+      cleanUpdates.description = updates.description || null;
+    }
+    if (
+      updates.priority &&
+      ["low", "medium", "high"].includes(updates.priority)
+    ) {
+      cleanUpdates.priority = updates.priority;
+    }
+    if (
+      updates.status &&
+      ["unassigned", "ongoing", "under_review", "completed"].includes(
+        updates.status
+      )
+    ) {
+      cleanUpdates.status = updates.status;
+    }
+    if (updates.due_date) {
+      cleanUpdates.due_date = updates.due_date;
+    }
+
+    console.log("Task update request:", {
+      id,
+      empId,
+      originalUpdates: updates,
+      cleanUpdates,
+      remove_file,
+      hasFile: !!req.file,
+    });
+
+    // Get current task to check existing file and ownership
+    const { data: currentTask, error: fetchError } = await supabase
+      .from("tasks")
+      .select("file, owner_id")
+      .eq("id", Number(id))
+      .single();
+
+    if (fetchError || !currentTask) {
+      console.error("Fetch error:", fetchError);
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    // NOW we can use currentTask for logging
+    console.log("Current task ownership:", {
+      taskId: id,
+      currentTaskOwnerId: currentTask.owner_id,
+      currentUserEmpId: empId,
+      ownershipMatch: currentTask.owner_id == empId, // loose comparison
+      strictMatch: currentTask.owner_id === empId,
+      ownerIdType: typeof currentTask.owner_id,
+      empIdType: typeof empId,
+    });
+
+    // Check if user owns the task (use loose comparison for string/number)
+    if (currentTask.owner_id != empId) {
+      console.log("Ownership check failed:", {
+        taskOwnerId: currentTask.owner_id,
+        userEmpId: empId,
+        taskOwnerType: typeof currentTask.owner_id,
+        userEmpType: typeof empId,
+      });
+      return res
+        .status(403)
+        .json({ error: "You can only edit your own tasks" });
+    }
+
+    // Handle file operations
+    let newFileUrl = currentTask.file;
+
+    // Remove existing file if requested
+    if (remove_file === "true" && currentTask.file) {
+      try {
+        const fileName = currentTask.file.split("/").pop();
+        await supabase.storage.from("task-attachment").remove([fileName]); // Changed from "task-files"
+        newFileUrl = null;
+      } catch (error) {
+        console.error("Error removing old file:", error);
+      }
+    }
+
+    // Upload new file if provided
+    if (req.file) {
+      // Remove old file if exists (when new file is being uploaded)
+      if (currentTask.file && remove_file !== "true") {
+        try {
+          const fileName = currentTask.file.split("/").pop();
+          await supabase.storage.from("task-attachment").remove([fileName]); // Changed from "task-files"
+        } catch (error) {
+          console.error("Error removing old file:", error);
+        }
+      }
+
+      // Upload new file - use same structure as POST route
+      const fileExt = req.file.originalname.split(".").pop();
+      const fileName = `${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2)}.${fileExt}`;
+      const filePath = `task-attachment/${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("task-attachment") // Changed from "task-files"
+        .upload(filePath, req.file.buffer, {
+          contentType: req.file.mimetype,
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        return res.status(500).json({ error: "File upload failed" });
+      }
+
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage
+        .from("task-attachment") // Changed from "task-files"
+        .getPublicUrl(filePath);
+
+      newFileUrl = publicUrlData.publicUrl;
+    }
+
+    cleanUpdates.file = newFileUrl;
+
+    console.log("Final updates:", cleanUpdates);
+
+    // Update the task
     const { data, error } = await supabase
       .from("tasks")
-      .update({ ...updates })
+      .update(cleanUpdates)
       .eq("id", Number(id))
       .eq("owner_id", empId)
-      .select()
-      .single();
-    if (error) return res.status(400).json({ error: error.message });
+      .select();
 
-    res.json(data);
+    if (error) {
+      console.error("Update error:", error);
+      return res.status(400).json({ error: error.message });
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({
+        error: "Task not found or you don't have permission to edit it",
+      });
+    }
+
+    console.log("Task updated successfully:", data[0]);
+    res.json(data[0]);
   } catch (e) {
+    console.error("Unexpected error:", e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -379,7 +531,9 @@ router.post("/bulk", async (req, res) => {
 
     const { data, error } = await supabase
       .from("tasks")
-      .select("id, title, status, project_id, description, due_date, priority")
+      .select(
+        "id, title, status, project_id, description, due_date, priority, owner_id, created_at, file"
+      )
       .in("project_id", project_ids);
 
     if (error) {
@@ -414,7 +568,9 @@ router.get("/project/:projectId", async (req, res) => {
 
     const { data, error } = await supabase
       .from("tasks")
-      .select("id, title, status, project_id, description, due_date, priority")
+      .select(
+        "id, title, status, project_id, description, due_date, priority, owner_id, created_at, file"
+      )
       .eq("project_id", projectId);
 
     if (error) {

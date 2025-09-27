@@ -12,8 +12,12 @@ export default function CreateTaskPage() {
   const router = useRouter();
 
   const { createTask } = useTasks();
-  const { projects, loading: loadingProjects, getProjectMembers } = useProjects();
-  const { userProfile, isStaff } = useAuth()
+  const {
+    projects,
+    loading: loadingProjects,
+    getProjectMembers,
+  } = useProjects();
+  const { userProfile, isStaff } = useAuth();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -38,19 +42,19 @@ export default function CreateTaskPage() {
       try {
         setLoadingMembers(true);
         const data = await getProjectMembers(selectedProject);
-        
+
         // Filter out current user from project members
         const filteredMembers = (data.members || []).filter(
-          member => member.emp_id !== userProfile?.emp_id
+          (member) => member.emp_id !== userProfile?.emp_id
         );
-        
+
         setProjectMembers(filteredMembers);
-        
+
         // Clear collaborators when project changes
         setCollaborators([]);
       } catch (error) {
-        console.error('Error fetching project members:', error);
-        setError('Failed to load project members');
+        console.error("Error fetching project members:", error);
+        setError("Failed to load project members");
       } finally {
         setLoadingMembers(false);
       }
@@ -60,13 +64,12 @@ export default function CreateTaskPage() {
   }, [selectedProject, userProfile?.emp_id]);
 
   const handleCollaboratorToggle = (empId) => {
-    setCollaborators(prev => 
-      prev.includes(empId) 
-        ? prev.filter(id => id !== empId)
+    setCollaborators((prev) =>
+      prev.includes(empId)
+        ? prev.filter((id) => id !== empId)
         : [...prev, empId]
     );
   };
-
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -74,43 +77,42 @@ export default function CreateTaskPage() {
     setError(null);
 
     try {
-
       const formData = new FormData();
-      
+
       // ✅ Add all form fields to FormData
-      formData.append('title', title);
-      formData.append('description', description);
-      formData.append('priority', priority);
-      formData.append('status', status);
-      
+      formData.append("title", title);
+      formData.append("description", description);
+      formData.append("priority", priority);
+      formData.append("status", status);
+
       if (selectedProject) {
-        formData.append('project_id', selectedProject);
+        formData.append("project_id", selectedProject);
       }
-      
+
       if (dueDate && dueDate.trim() !== "") {
-        formData.append('due_date', dueDate);
+        formData.append("due_date", dueDate);
       }
-      
+
       if (collaborators.length > 0) {
-        formData.append('collaborators', JSON.stringify(collaborators));
+        formData.append("collaborators", JSON.stringify(collaborators));
       }
-      
+
       if (file && file instanceof File) {
         console.log("📎 Adding file to FormData:", file.name);
-        formData.append('file', file); 
+        formData.append("file", file);
       }
 
       // ✅ Send FormData instead of regular object
       const result = await createTask(formData);
 
       if (result.success) {
-        router.push('/dashboard');
+        router.push("/dashboard");
       } else {
-        setError(result.error || 'Failed to create task');
+        setError(result.error || "Failed to create task");
       }
     } catch (error) {
-      console.error('Error creating task:', error);
-      setError(error.message || 'Failed to create task');
+      console.error("Error creating task:", error);
+      setError(error.message || "Failed to create task");
     } finally {
       setSubmitting(false);
     }
@@ -121,7 +123,10 @@ export default function CreateTaskPage() {
       <nav className="bg-white shadow">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <h1 className="text-lg font-semibold">Create Task</h1>
-          <Link href="/dashboard/tasks" className="text-blue-600 hover:text-blue-800 text-sm">
+          <Link
+            href="/dashboard/tasks"
+            className="text-blue-600 hover:text-blue-800 text-sm"
+          >
             Back to tasks
           </Link>
         </div>
@@ -131,11 +136,15 @@ export default function CreateTaskPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <form onSubmit={onSubmit} className="space-y-6">
             {error && (
-              <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">{error}</div>
+              <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
+                {error}
+              </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Title</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Title
+              </label>
               <input
                 type="text"
                 value={title}
@@ -147,7 +156,9 @@ export default function CreateTaskPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Description</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Description
+              </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -159,7 +170,9 @@ export default function CreateTaskPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Priority</label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Priority
+                </label>
                 <select
                   value={priority}
                   onChange={(e) => setPriority(e.target.value)}
@@ -172,28 +185,30 @@ export default function CreateTaskPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Status</label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Status
+                </label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 >
                   <option value="on going">On Going</option>
-                  <option value="pending review">Pending Review</option>
+                  <option value="under review">Under Review</option>
                   <option value="completed">Completed</option>
-                   {!isStaff && (
-                    <option value="unassigned">Unassigned</option>
-                  )}
+                  {!isStaff && <option value="unassigned">Unassigned</option>}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Due date</label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Due date
+                </label>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={new Date().toISOString().split("T")[0]}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
@@ -253,15 +268,22 @@ export default function CreateTaskPage() {
                     Collaborators
                   </label>
                   {loadingMembers ? (
-                    <div className="text-gray-500">Loading project members...</div>
+                    <div className="text-gray-500">
+                      Loading project members...
+                    </div>
                   ) : (
                     <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md p-3">
                       {projectMembers.map((member) => (
-                        <label key={member.emp_id} className="flex items-center space-x-2">
+                        <label
+                          key={member.emp_id}
+                          className="flex items-center space-x-2"
+                        >
                           <input
                             type="checkbox"
                             checked={collaborators.includes(member.emp_id)}
-                            onChange={() => handleCollaboratorToggle(member.emp_id)}
+                            onChange={() =>
+                              handleCollaboratorToggle(member.emp_id)
+                            }
                             className="rounded border-gray-300"
                           />
                           <span className="text-sm">
@@ -296,5 +318,3 @@ export default function CreateTaskPage() {
     </div>
   );
 }
-
-

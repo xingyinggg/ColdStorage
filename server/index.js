@@ -25,6 +25,7 @@ const managerProjectsRouter = (await import("./routes/manager-projects.js"))
   .default;
 const hrRoutes = (await import("./routes/hr.js")).default;
 const usersRoutes = (await import("./routes/users.js")).default;
+const notificationRoutes = (await import("./routes/notification.js")).default;
 
 // // Import routes AFTER loading env variables
 // import authRoutes from './routes/auth.js';
@@ -43,6 +44,9 @@ app.use("/projects", projectsRouter);
 app.use("/manager-projects", managerProjectsRouter);
 app.use("/hr", hrRoutes);
 app.use("/users", usersRoutes);
+app.use("/notification", notificationRoutes);
+
+app.use((req, res) => res.status(404).type("application/json").send(JSON.stringify({ error: "Not found" })));
 
 const port = process.env.PORT || 4000;
 app.listen(port, () =>

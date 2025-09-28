@@ -38,24 +38,19 @@ router.post("/", upload.single("file"), async (req, res) => {
     if (!user) return res.status(401).json({ error: "Invalid token" });
     const empId = await getEmpIdForUserId(user.id);
 
-    // Parse collaborators if it exists
-    const collaborators = req.body.collaborators
-      ? JSON.parse(req.body.collaborators)
-      : null;
-
-    // Check if task is being assigned to someone else
-    const assignedOwnerId = req.body.owner_id; // Get the assigned owner from form data
-
-    // Determine the actual owner
-    let taskOwnerId;
-    if (assignedOwnerId && assignedOwnerId !== "") {
-      // Task is assigned to someone else
-      taskOwnerId = assignedOwnerId;
-    } else {
-      // Task is assigned to the creator (current user)
-      taskOwnerId = empId;
+    // Parse collaborators if it exists and is a string (from FormData)
+    // If it's already an array (from JSON), use it directly
+    let collaborators = null;
+    if (req.body.collaborators) {
+      if (typeof req.body.collaborators === 'string') {
+        // From FormData - needs parsing
+        collaborators = JSON.parse(req.body.collaborators);
+      } else {
+        // From JSON - already parsed
+        collaborators = req.body.collaborators;
+      }
     }
-    
+
     // Prepare task data
     const taskData = {
       title: req.body.title,
@@ -65,7 +60,6 @@ router.post("/", upload.single("file"), async (req, res) => {
       due_date: req.body.due_date || null,
       project_id: req.body.project_id ? parseInt(req.body.project_id) : null,
       collaborators,
-      owner_id: taskOwnerId,
     };
 
     // Handle file upload to Supabase Storage
@@ -104,11 +98,15 @@ router.post("/", upload.single("file"), async (req, res) => {
     // Validate the task data
     const validatedData = TaskSchema.parse(taskData);
 
+    // Use provided owner_id or default to current user's empId
+    const ownerId = req.body.owner_id || empId;
+
     // Insert task into database
     const { data: newTask, error: dbError } = await supabase
       .from("tasks")
       .insert({
         ...validatedData,
+        owner_id: ownerId,
       })
       .select()
       .single();

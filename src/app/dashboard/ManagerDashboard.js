@@ -62,9 +62,11 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
     switch (status?.toLowerCase()) {
       case "completed":
         return "bg-green-100 text-green-800";
-      case "in_progress":
+      case "ongoing":
         return "bg-blue-100 text-blue-800";
-      case "pending":
+      case "under review":
+        return "bg-purple-100 text-purple-800";
+      case "unassigned":
         return "bg-yellow-100 text-yellow-800";
       default:
         return "bg-gray-100 text-gray-800";
@@ -83,7 +85,7 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
   const buildCompleteHandler = (task) => (id) =>
     updateTaskAssignment(id, task.collaborators || [], { status: 'completed' });
 
-  const activeTasks = getTasksByStatus('in_progress') || [];
+  const activeTasks = getTasksByStatus('ongoing') || [];
   const overdueTasks = getOverdueTasks() || [];
 
   if (loading) {
@@ -306,7 +308,6 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
 
           {selectedTab === 'assign-task' && (
             <AssignTaskTab 
-              staffMembers={staffMembers}
               assignTask={assignTask}
               onSuccess={() => setSelectedTab('all-tasks')}
             />
@@ -397,29 +398,190 @@ function StaffTab({ staffMembers, getTasksByStaff, formatDate }) {
 }
 
 // Assign Task Tab Component
-function AssignTaskTab({ staffMembers, assignTask, onSuccess }) {
+function AssignTaskTab({ assignTask, onSuccess }) {
   const [taskData, setTaskData] = useState({
     title: '',
     description: '',
     priority: 'medium',
-    status: 'pending',
+    status: 'unassigned',
     due_date: ''
   });
+  const [selectedOwner, setSelectedOwner] = useState('');
+  const [selectedOwnerData, setSelectedOwnerData] = useState(null);
+  const [ownerSearch, setOwnerSearch] = useState('');
+  const [ownerSearchResults, setOwnerSearchResults] = useState([]);
+  const [ownerSearchLoading, setOwnerSearchLoading] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState([]);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [allUsers, setAllUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const supabase = createClient();
+
+  // Fetch all users from the company
+  const fetchAllUsers = useCallback(async () => {
+    try {
+      setUsersLoading(true);
+      const { data, error } = await supabase
+        .from('users')
+        .select('emp_id, name, email, role, department')
+        .order('name');
+
+      if (error) {
+        console.error('Error fetching users:', error);
+        setAllUsers([]);
+        return;
+      }
+
+      setAllUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setAllUsers([]);
+    } finally {
+      setUsersLoading(false);
+    }
+  }, [supabase]);
+
+  // Load all users when component mounts
+  useEffect(() => {
+    fetchAllUsers();
+  }, [fetchAllUsers]);
+
+  // Search for task owners by name or department
+  const searchOwners = async (searchTerm) => {
+    if (!searchTerm.trim()) {
+      setOwnerSearchResults([]);
+      return;
+    }
+
+    try {
+      setOwnerSearchLoading(true);
+      const searchLower = searchTerm.toLowerCase();
+      
+      const filteredUsers = allUsers.filter(user =>
+        user.name.toLowerCase().includes(searchLower) ||
+        user.department.toLowerCase().includes(searchLower) ||
+        user.role.toLowerCase().includes(searchLower) ||
+        user.emp_id.toString().includes(searchTerm)
+      );
+
+      setOwnerSearchResults(filteredUsers.slice(0, 10)); // Limit to 10 results
+    } catch (error) {
+      console.error('Error searching owners:', error);
+      setOwnerSearchResults([]);
+    } finally {
+      setOwnerSearchLoading(false);
+    }
+  };
+
+  // Handle owner search input
+  const handleOwnerSearchChange = (e) => {
+    const value = e.target.value;
+    setOwnerSearch(value);
+    searchOwners(value);
+  };
+
+  // Select owner from search results
+  const selectOwner = (user) => {
+    setSelectedOwner(user.emp_id);
+    setSelectedOwnerData(user);
+    setOwnerSearch(user.name);
+    setOwnerSearchResults([]);
+    setSelectedStaff([]); // Clear selected staff when owner changes
+    setMemberSearch('');
+    setSearchResults([]);
+  };
+
+  // Clear owner selection
+  const clearOwnerSelection = () => {
+    setSelectedOwner('');
+    setSelectedOwnerData(null);
+    setOwnerSearch('');
+    setOwnerSearchResults([]);
+    setSelectedStaff([]);
+    setMemberSearch('');
+    setSearchResults([]);
+  };
+
+  // Get eligible team members (same department as owner)
+  const getEligibleMembers = () => {
+    if (!selectedOwner) return [];
+    
+    const owner = allUsers.find(user => user.emp_id === selectedOwner);
+    if (!owner) return [];
+    
+    return allUsers.filter(user => 
+      user.department === owner.department && user.emp_id !== selectedOwner
+    );
+  };
+
+  // Search for team members
+  const searchMembers = async (searchTerm) => {
+    if (!searchTerm.trim() || !selectedOwner) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setSearchLoading(true);
+      const eligibleMembers = getEligibleMembers();
+      
+      const filteredResults = eligibleMembers.filter(member =>
+        member.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !selectedStaff.some(selected => selected.emp_id === member.emp_id)
+      );
+
+      setSearchResults(filteredResults);
+    } catch (error) {
+      console.error('Error searching members:', error);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Handle member search input
+  const handleMemberSearchChange = (e) => {
+    const value = e.target.value;
+    setMemberSearch(value);
+    searchMembers(value);
+  };
+
+  // Add member to selected staff
+  const addMember = (member) => {
+    setSelectedStaff(prev => [...prev, member]);
+    setMemberSearch('');
+    setSearchResults([]);
+  };
+
+  // Remove member from selected staff
+  const removeMember = (empId) => {
+    setSelectedStaff(prev => prev.filter(member => member.emp_id !== empId));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!selectedOwner) {
+      setError('Please select a task owner');
+      return;
+    }
+    
     if (selectedStaff.length === 0) {
-      setError('Please select at least one staff member');
+      setError('Please assign at least one team member');
       return;
     }
 
     setLoading(true);
     setError('');
 
-    const result = await assignTask(taskData, selectedStaff);
+    // Convert selected staff to emp_ids as strings
+    const staffIds = selectedStaff.map(staff => staff.emp_id.toString());
+    
+    const result = await assignTask(taskData, staffIds, selectedOwner);
     
     if (result.success) {
       // Reset form
@@ -427,10 +589,16 @@ function AssignTaskTab({ staffMembers, assignTask, onSuccess }) {
         title: '',
         description: '',
         priority: 'medium',
-        status: 'pending',
+        status: 'unassigned',
         due_date: ''
       });
+      setSelectedOwner('');
+      setSelectedOwnerData(null);
+      setOwnerSearch('');
+      setOwnerSearchResults([]);
       setSelectedStaff([]);
+      setMemberSearch('');
+      setSearchResults([]);
       onSuccess();
     } else {
       setError(result.error || 'Failed to assign task');
@@ -480,6 +648,95 @@ function AssignTaskTab({ staffMembers, assignTask, onSuccess }) {
             />
           </div>
 
+          {/* Task Owner Selection with Search */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Task Owner *
+            </label>
+            {usersLoading ? (
+              <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                Loading users...
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={ownerSearch}
+                    onChange={handleOwnerSearchChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Search by name, department, role, or ID..."
+                  />
+                  
+                  {/* Clear button */}
+                  {selectedOwner && (
+                    <button
+                      type="button"
+                      onClick={clearOwnerSelection}
+                      className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                    >
+                      ×
+                    </button>
+                  )}
+
+                  {/* Search Results */}
+                  {ownerSearchResults.length > 0 && (
+                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {ownerSearchResults.map((user) => (
+                        <button
+                          key={user.emp_id}
+                          type="button"
+                          onClick={() => selectOwner(user)}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <div className="font-medium text-gray-900">{user.name}</div>
+                              <div className="text-sm text-gray-500">
+                                {user.role} • {user.department} • ID: {user.emp_id}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {ownerSearchLoading && (
+                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-3">
+                      <div className="text-center text-gray-500">Searching...</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Selected Owner Display */}
+                {selectedOwnerData && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-blue-900">{selectedOwnerData.name}</div>
+                        <div className="text-sm text-blue-700">
+                          {selectedOwnerData.role} • {selectedOwnerData.department} • ID: {selectedOwnerData.emp_id}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={clearOwnerSelection}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              Search by name, department, role, or employee ID. Team members will be filtered based on the owner&apos;s department.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -505,8 +762,10 @@ function AssignTaskTab({ staffMembers, assignTask, onSuccess }) {
                 onChange={(e) => setTaskData(prev => ({ ...prev, status: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
+                <option value="unassigned">Unassigned</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="under review">Under Review</option>
+                <option value="completed">Completed</option>
               </select>
             </div>
 
@@ -524,34 +783,84 @@ function AssignTaskTab({ staffMembers, assignTask, onSuccess }) {
             </div>
           </div>
 
+          {/* Team Member Assignment with Search */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Assign to Staff Members *
+              Assign to Team Members *
             </label>
-            <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2">
-              {staffMembers.map((staff) => (
-                <label key={staff.emp_id} className="flex items-center space-x-2 hover:bg-gray-50 p-1 rounded">
+            {!selectedOwner ? (
+              <div className="text-sm text-gray-500 italic p-3 bg-gray-50 rounded-md">
+                Please select a task owner first to see eligible team members
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="relative">
                   <input
-                    type="checkbox"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    checked={selectedStaff.includes(staff.emp_id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedStaff([...selectedStaff, staff.emp_id]);
-                      } else {
-                        setSelectedStaff(selectedStaff.filter(id => id !== staff.emp_id));
-                      }
-                    }}
+                    type="text"
+                    value={memberSearch}
+                    onChange={handleMemberSearchChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Search for team members by name..."
                   />
-                  <span className="text-sm text-gray-700">
-                    {staff.name} (ID: {staff.emp_id}, {staff.department})
-                  </span>
-                </label>
-              ))}
-            </div>
-            {selectedStaff.length > 0 && (
-              <div className="mt-2 text-sm text-gray-600">
-                Selected: {selectedStaff.length} staff member{selectedStaff.length !== 1 ? 's' : ''}
+
+                  {/* Search Results */}
+                  {searchResults.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                      {searchResults.map((member) => (
+                        <button
+                          key={member.emp_id}
+                          type="button"
+                          onClick={() => addMember(member)}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-100 flex justify-between items-center"
+                        >
+                          <span>{member.name}</span>
+                          <span className="text-sm text-gray-500">
+                            ID: {member.emp_id}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {searchLoading && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-3">
+                      <div className="text-center text-gray-500">Searching...</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Selected Members */}
+                {selectedStaff.length > 0 && (
+                  <div>
+                    <div className="text-sm font-medium text-gray-700 mb-2">
+                      Selected Team Members:
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedStaff.map((member) => (
+                        <span
+                          key={member.emp_id}
+                          className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
+                        >
+                          {member.name}
+                          <button
+                            type="button"
+                            onClick={() => removeMember(member.emp_id)}
+                            className="ml-2 text-blue-600 hover:text-blue-800"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Department Info */}
+                {selectedOwnerData && (
+                  <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded">
+                    <strong>Eligible members:</strong> Users from {selectedOwnerData.department} department ({getEligibleMembers().length} available)
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -571,10 +880,16 @@ function AssignTaskTab({ staffMembers, assignTask, onSuccess }) {
                   title: '',
                   description: '',
                   priority: 'medium',
-                  status: 'pending',
+                  status: 'unassigned',
                   due_date: ''
                 });
-                setSelectedStaff('');
+                setSelectedOwner('');
+                setSelectedOwnerData(null);
+                setOwnerSearch('');
+                setOwnerSearchResults([]);
+                setSelectedStaff([]);
+                setMemberSearch('');
+                setSearchResults([]);
                 setError('');
               }}
               className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"

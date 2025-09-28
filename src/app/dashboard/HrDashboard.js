@@ -47,13 +47,11 @@ export default function HrDashboard({ user, userProfile, onLogout }) {
     orgOverdueTasks,
     deptLoads,
     performanceRankings,
-    trends,
-    regions,
-    regionLoads,
+    trends
   } = useHrInsights();
 
   // Update tabs to include analytics
-  const tabs = ["overview", "analytics", "departments", "regions", "reports"];
+  const tabs = ["overview", "analytics", "departments", "reports"];
 
   // Department headcount pie chart
   const departmentChartData = {
@@ -134,10 +132,6 @@ export default function HrDashboard({ user, userProfile, onLogout }) {
 
         {selectedTab === "departments" && (
           <LoadTable title="Department Load" rows={deptLoads} />
-        )}
-
-        {selectedTab === "regions" && (
-          <LoadTable title="Regional Load" rows={regionLoads} />
         )}
 
         {selectedTab === "reports" && (

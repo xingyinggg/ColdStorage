@@ -43,6 +43,19 @@ router.post("/", upload.single("file"), async (req, res) => {
       ? JSON.parse(req.body.collaborators)
       : null;
 
+    // Check if task is being assigned to someone else
+    const assignedOwnerId = req.body.owner_id; // Get the assigned owner from form data
+
+    // Determine the actual owner
+    let taskOwnerId;
+    if (assignedOwnerId && assignedOwnerId !== "") {
+      // Task is assigned to someone else
+      taskOwnerId = assignedOwnerId;
+    } else {
+      // Task is assigned to the creator (current user)
+      taskOwnerId = empId;
+    }
+    
     // Prepare task data
     const taskData = {
       title: req.body.title,
@@ -52,6 +65,7 @@ router.post("/", upload.single("file"), async (req, res) => {
       due_date: req.body.due_date || null,
       project_id: req.body.project_id ? parseInt(req.body.project_id) : null,
       collaborators,
+      owner_id: taskOwnerId,
     };
 
     // Handle file upload to Supabase Storage
@@ -95,7 +109,6 @@ router.post("/", upload.single("file"), async (req, res) => {
       .from("tasks")
       .insert({
         ...validatedData,
-        owner_id: empId,
       })
       .select()
       .single();

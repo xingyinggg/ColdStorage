@@ -7,9 +7,11 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
     title: "",
     description: "",
     priority: "medium",
-    status: "pending",
+    status: "unassigned",
     due_date: "",
   });
+  const [file, setFile] = useState(null);
+  const [removeExistingFile, setRemoveExistingFile] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -20,8 +22,53 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
         status: task.status || "pending",
         due_date: task.due_date ? task.due_date.slice(0, 10) : "",
       });
+      setFile(null);
+      setRemoveExistingFile(false);
     }
   }, [task]);
+
+  const handleSave = () => {
+    if (!onSave) return;
+    console.log("Editing task ID:", task.id);
+
+    // Create FormData to handle file upload
+    const formData = new FormData();
+    
+    // Add form fields (only add non-empty values)
+    if (form.title && form.title.trim()) {
+      formData.append("title", form.title.trim());
+    }
+    if (form.description) {
+      formData.append("description", form.description);
+    }
+    if (form.priority) {
+      formData.append("priority", form.priority);
+    }
+    if (form.status) {
+      formData.append("status", form.status);
+    }
+    if (form.due_date) {
+      formData.append("due_date", form.due_date);
+    }
+
+    // Handle file operations
+    if (file && file instanceof File) {
+      formData.append("file", file);
+    }
+
+    if (removeExistingFile) {
+      formData.append("remove_file", "true");
+    }
+
+    // Debug: log what we're sending
+    console.log("Sending form data:");
+    for (let [key, value] of formData.entries()) {
+      console.log(key, value);
+    }
+
+    // Call onSave with FormData instead of form object
+    onSave(task.id, formData);
+  };
 
   if (!open) return null;
 
@@ -84,8 +131,9 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
                 onChange={(e) => setForm({ ...form, status: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
+                <option value="unassigned">Unassigned</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="under_review">Under Review</option>
                 <option value="completed">Completed</option>
               </select>
             </div>
@@ -100,6 +148,61 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
               />
             </div>
           </div>
+
+          {/* File Upload Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Attachment (PDF)
+            </label>
+            
+            {/* Show existing file if present */}
+            {task?.file && !removeExistingFile && (
+              <div className="mb-2 p-2 bg-gray-50 rounded border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <svg className="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="text-sm text-gray-700">Current file attached</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRemoveExistingFile(true)}
+                    className="text-xs text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* File input */}
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              onChange={(e) => {
+                setFile(e.target.files[0] || null);
+                setRemoveExistingFile(false); // Reset remove flag when new file is selected
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              PDF files only, max 10MB
+            </p>
+            
+            {/* Show selected file name */}
+            {file && (
+              <div className="mt-2 text-sm text-green-600">
+                New file selected: {file.name}
+              </div>
+            )}
+            
+            {removeExistingFile && (
+              <div className="mt-2 text-sm text-red-600">
+                Current file will be removed
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
@@ -107,7 +210,7 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
             Cancel
           </button>
           <button
-            onClick={() => onSave && onSave(task.id, form)}
+            onClick={handleSave}
             disabled={saving}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
           >
@@ -118,5 +221,3 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
     </div>
   );
 }
-
-

@@ -5,21 +5,17 @@ import { useState, useEffect, useCallback } from "react";
 import { useManagerTasks } from "@/utils/hooks/useManagerTasks";
 import { useManagerProjects } from "@/utils/hooks/useManagerProjects";
 import { createClient } from "@/utils/supabase/client";
-import Link from "next/link";
 import TaskCard from "@/components/tasks/TaskCard";
 import HeaderBar from "@/components/layout/HeaderBar";
-import { Badge } from "@/components/ui/Badge";
 
 export default function ManagerDashboard({ user, userProfile, onLogout }) {
   const [selectedTab, setSelectedTab] = useState('overview');
-  const [showAssignModal, setShowAssignModal] = useState(false);
   
   const {
     allTasks,
     allProjects,
     staffMembers,
     loading,
-    error,
     assignTask,
     updateTaskAssignment,
     getTasksByStatus,
@@ -75,10 +71,20 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
     }
   };
 
+  const getProjectName = (projectId) => {
+    const project = allProjects?.find((p) => p.id === projectId);
+    return project?.title || `ID: ${projectId}`;
+  };
+
+  // Reusable handlers for editing and completing tasks
+  const buildEditHandler = (task) => (id, updates) =>
+    updateTaskAssignment(id, task.collaborators || [], updates);
+
+  const buildCompleteHandler = (task) => (id) =>
+    updateTaskAssignment(id, task.collaborators || [], { status: 'completed' });
+
   const activeTasks = getTasksByStatus('in_progress') || [];
-  const completedTasks = getTasksByStatus('completed') || [];
   const overdueTasks = getOverdueTasks() || [];
-  const pendingTasks = getTasksByStatus('pending') || [];
 
   if (loading) {
     return (
@@ -214,13 +220,19 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
                           <dt className="text-sm font-medium text-gray-500 truncate">
                             Quick Actions
                           </dt>
-                          <dd className="text-lg font-medium text-gray-900">
+                          <dd className="text-lg font-medium text-gray-900 space-x-4">
                             <button
                               onClick={() => setSelectedTab('assign-task')}
                               className="text-purple-600 hover:text-purple-800"
                             >
                               Assign Task
                             </button>
+                            <a
+                              href="/dashboard/tasks/create"
+                              className="text-green-600 hover:text-green-800"
+                            >
+                              New Task
+                            </a>
                           </dd>
                         </dl>
                       </div>
@@ -246,8 +258,10 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
                           formatDate={formatDate}
                           getPriorityColor={getPriorityColor}
                           getStatusColor={getStatusColor}
+                          getProjectName={getProjectName}
                           canEdit={userProfile?.emp_id === task.owner_id}
-                          onEdit={(id, updates) => updateTaskAssignment(id, task.collaborators || [], updates)}
+                          onEdit={buildEditHandler(task)}
+                          onMarkComplete={buildCompleteHandler(task)}
                         />
                       ))}
                     </div>
@@ -263,6 +277,7 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
               formatDate={formatDate}
               getPriorityColor={getPriorityColor}
               getStatusColor={getStatusColor}
+              getProjectName={getProjectName}
               currentUserEmpId={userProfile?.emp_id}
               onEditTask={(id, collaborators, updates) => updateTaskAssignment(id, collaborators, updates)}
             />
@@ -303,7 +318,7 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
 }
 
 // All Tasks Tab Component
-function AllTasksTab({ tasks, formatDate, getPriorityColor, getStatusColor, currentUserEmpId, onEditTask }) {
+function AllTasksTab({ tasks, formatDate, getPriorityColor, getStatusColor, getProjectName, currentUserEmpId, onEditTask }) {
   return (
     <div className="bg-white shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
@@ -323,8 +338,10 @@ function AllTasksTab({ tasks, formatDate, getPriorityColor, getStatusColor, curr
                 formatDate={formatDate}
                 getPriorityColor={getPriorityColor}
                 getStatusColor={getStatusColor}
+                  getProjectName={getProjectName}
                 canEdit={currentUserEmpId === task.owner_id}
-                onEdit={(id, updates) => onEditTask(id, task.collaborators || [], updates)}
+                  onEdit={(id, updates) => onEditTask(id, task.collaborators || [], updates)}
+                  onMarkComplete={(id) => onEditTask(id, task.collaborators || [], { status: 'completed' })}
               />
             ))}
           </div>

@@ -25,6 +25,7 @@ const managerProjectsRouter = (await import("./routes/manager-projects.js"))
   .default;
 const hrRoutes = (await import("./routes/hr.js")).default;
 const usersRoutes = (await import("./routes/users.js")).default;
+const directorRoutes = (await import("./routes/director.js")).default;
 
 // // Import routes AFTER loading env variables
 // import authRoutes from './routes/auth.js';
@@ -43,6 +44,7 @@ app.use("/projects", projectsRouter);
 app.use("/manager-projects", managerProjectsRouter);
 app.use("/hr", hrRoutes);
 app.use("/users", usersRoutes);
+app.use("/director", directorRoutes);
 
 const port = process.env.PORT || 4000;
 app.listen(port, () =>

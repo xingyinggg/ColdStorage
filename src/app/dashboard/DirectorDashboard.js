@@ -28,7 +28,10 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
   } = useDirectorInsights();
 
   const formatPercentage = (value) => `${value}%`;
-  const formatDecimal = (value) => value?.toFixed(1) || '0.0';
+  const formatDecimal = (value) => {
+    const num = parseFloat(value);
+    return !isNaN(num) ? num.toFixed(1) : '0.0';
+  };
 
   const getRiskColor = (riskLevel) => {
     switch (riskLevel) {

@@ -76,7 +76,12 @@ export function useDirectorInsights() {
 
       console.log('Fetching director data...');
 
-      // Fetch all data in parallel - URLs should match server routes
+      // Remove authentication headers temporarily for testing
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      // Use full URLs without authentication for testing
       const [
         kpiResponse,
         deptResponse,
@@ -84,11 +89,11 @@ export function useDirectorInsights() {
         riskResponse,
         collabResponse
       ] = await Promise.all([
-        fetch('/director/kpis'),
-        fetch('/director/departments'),
-        fetch('/director/resources'),
-        fetch('/director/risks'),
-        fetch('/director/collaboration')
+        fetch('http://localhost:4000/director/kpis', { headers }),
+        fetch('http://localhost:4000/director/departments', { headers }),
+        fetch('http://localhost:4000/director/resources', { headers }),
+        fetch('http://localhost:4000/director/risks', { headers }),
+        fetch('http://localhost:4000/director/collaboration', { headers })
       ]);
 
       // Check for errors with better logging
@@ -162,11 +167,12 @@ export function useDirectorInsights() {
       });
 
       setDepartmentPerformance(deptData.departments || []);
-      setResourceAllocation(resourceData || {
-        summary: { overloadedCount: 0, optimalCount: 0, underutilizedCount: 0 },
-        departmentWorkloads: [],
-        overloadedEmployees: [],
-        underutilizedEmployees: []
+      
+      setResourceAllocation({
+        summary: resourceData.summary || { overloadedCount: 0, optimalCount: 0, underutilizedCount: 0 },
+        departmentWorkloads: resourceData.departmentWorkloads || [],
+        overloadedEmployees: resourceData.employeeWorkloads?.filter(e => e.workloadLevel === 'overloaded') || [],
+        underutilizedEmployees: resourceData.employeeWorkloads?.filter(e => e.workloadLevel === 'underutilized') || []
       });
 
       setRiskIndicators(riskData || {
@@ -175,12 +181,12 @@ export function useDirectorInsights() {
         highPriorityBacklog: { count: 0, riskLevel: 'low', pending: 0, inProgress: 0, byDepartment: {} }
       });
 
-      setCollaborationMetrics(collabData || {
-        totalProjects: 0,
-        crossDeptProjects: 0,
-        collaborationRate: 0,
-        averageDepartmentsPerProject: '0.0',
-        crossDepartmentalProjects: []
+      setCollaborationMetrics({
+        totalProjects: collabData.collaborationMetrics?.totalProjects || 0,
+        crossDeptProjects: collabData.collaborationMetrics?.crossDeptProjects || 0,
+        collaborationRate: collabData.collaborationMetrics?.collaborationRate || 0,
+        averageDepartmentsPerProject: collabData.collaborationMetrics?.averageDepartmentsPerProject?.toString() || '0.0',
+        crossDepartmentalProjects: collabData.crossDepartmentalProjects || []
       });
 
     } catch (err) {

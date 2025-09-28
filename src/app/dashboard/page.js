@@ -11,6 +11,7 @@ import Link from "next/link";
 // Import manager/HR dashboard component
 import ManagerDashboard from "./ManagerDashboard";
 import HrDashboard from "./HrDashboard";
+import DirectorDashboard from "./DirectorDashboard";
 import SidebarLayout from "@/components/layout/SidebarLayout";
 import StaffDashboardComponent from "./StaffDashboard";
 import TaskCard from "@/components/tasks/TaskCard";
@@ -19,7 +20,7 @@ export default function DashboardPage() {
   const router = useRouter();
 
   // Use auth hook to get user role
-  const { user, userProfile, loading: authLoading, isManager, isStaff, isHR, signOut } = useAuth();
+  const { user, userProfile, loading: authLoading, isManager, isStaff, isHR, isDirector, signOut } = useAuth();
 
   // Use the tasks hook for staff
   const {
@@ -119,6 +120,14 @@ export default function DashboardPage() {
     return (
       <SidebarLayout>
         <HrDashboard user={user} userProfile={userProfile} onLogout={handleLogout} />
+      </SidebarLayout>
+    );
+  }
+
+  if (isDirector) {
+    return (
+      <SidebarLayout>
+        <DirectorDashboard user={user} userProfile={userProfile} onLogout={handleLogout} />
       </SidebarLayout>
     );
   }

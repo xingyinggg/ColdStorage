@@ -69,8 +69,6 @@ export function useHrInsights() {
     orgOverdueTasks,
     deptLoads,
     performanceRankings,
-    trends,
-    regions: [],
-    regionLoads: []
+    trends
   };
 }

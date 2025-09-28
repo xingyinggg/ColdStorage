@@ -7,11 +7,12 @@ export const TaskSchema = z.object({
   due_date: z.string().optional().nullable(),
   project_id: z.number().optional().nullable(),
   status: z
-    .enum(["under review", "ongoing", "completed", "unassigned"])
+    .enum(["under review", "on going", "completed", "unassigned"])
     .optional()
     .nullable(),
   file: z.string().nullable().optional(),
   collaborators: z.array(z.string()).optional().nullable(),
+  owner_id: z.string().optional().nullable()
 });
 
 export const RegisterSchema = z.object({

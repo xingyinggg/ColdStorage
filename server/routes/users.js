@@ -1,7 +1,51 @@
 import { Router } from "express";
-import { getServiceClient, getUserFromToken } from "../lib/supabase.js";
+import { getServiceClient, getUserFromToken, getEmpIdForUserId} from "../lib/supabase.js";
 
 const router = Router();
+
+// GET /users?roles=staff,manager&exclude_self=true
+router.get("/", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+    if (!token) return res.status(401).json({ error: "No token provided" });
+
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: "Invalid token" });
+
+    const currentEmpId = await getEmpIdForUserId(user.id);
+
+    // Parse query parameters
+    const rolesParam = req.query.roles;
+    const excludeSelf = req.query.exclude_self === "true";
+
+    let query = supabase
+      .from("users")
+      .select("emp_id, name, email, role, department")
+      .order("name");
+
+    // Filter by roles if specified
+    if (rolesParam) {
+      const roles = rolesParam.split(",");
+      query = query.in("role", roles);
+    }
+
+    // Exclude current user if requested
+    if (excludeSelf && currentEmpId) {
+      query = query.neq("emp_id", currentEmpId);
+    }
+
+    const { data, error } = await query;
+    
+    if (error) throw error;
+    res.json({ users: data || [] });
+  } catch (e) {
+    console.error("Error fetching users:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // Search users by name
 router.get("/search", async (req, res) => {

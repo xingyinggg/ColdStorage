@@ -15,6 +15,7 @@ export default function SidebarLayout({ children }) {
       { label: "Projects", href: "/projects", icon: ProjectsIcon },
       { label: "Schedule", href: "/schedule", icon: ScheduleIcon },
       { label: "Report", href: "/report", icon: ReportIcon },
+      { label: "Mailbox", href: "/notifications", icon: MailboxIcon },
     ],
     []
   );
@@ -45,11 +46,10 @@ export default function SidebarLayout({ children }) {
                 <li key={href}>
                   <Link
                     href={href}
-                    className={`group flex items-center ${collapsed ? "justify-center" : "px-3"} h-10 mx-2 rounded transition-colors ${
-                      active
-                        ? "bg-blue-50 text-blue-700"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
+                    className={`group flex items-center ${collapsed ? "justify-center" : "px-3"} h-10 mx-2 rounded transition-colors ${active
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-gray-700 hover:bg-gray-50"
+                      }`}
                     title={collapsed ? label : undefined}
                   >
                     <Icon className={`w-5 h-5 ${collapsed ? "" : "mr-3"}`} />
@@ -127,4 +127,10 @@ function ReportIcon({ className = "w-5 h-5" }) {
   );
 }
 
-
+function MailboxIcon({ className = "w-5 h-5" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 8l1-1h16l1 1M4 8v12a2 2 0 002 2h12a2 2 0 002-2V8M4 8h16" />
+    </svg>
+  );
+}

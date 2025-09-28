@@ -16,39 +16,40 @@ export const useManagerTasks = () => {
   }, [supabase]);
 
   // Fallback: direct Supabase fetch for all tasks with owner enrichment
-  const fetchAllTasksViaSupabase = useCallback(async () => {
-    try {
-      const { data: tasksData, error: tasksError } = await supabase
-        .from('tasks')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (tasksError) throw tasksError;
+  // COMMENTED OUT - App should fully rely on API calls
+  // const fetchAllTasksViaSupabase = useCallback(async () => {
+  //   try {
+  //     const { data: tasksData, error: tasksError } = await supabase
+  //       .from('tasks')
+  //       .select('*')
+  //       .order('created_at', { ascending: false });
+  //     if (tasksError) throw tasksError;
 
-      if (tasksData && tasksData.length > 0) {
-        const ownerIds = [...new Set(tasksData.map(t => t.owner_id).filter(Boolean))];
-        if (ownerIds.length > 0) {
-          const { data: owners, error: ownersErr } = await supabase
-            .from('users')
-            .select('emp_id, name, role')
-            .in('emp_id', ownerIds);
-          if (!ownersErr && owners) {
-            const ownersMap = {};
-            owners.forEach(o => { ownersMap[o.emp_id] = o; });
-            tasksData.forEach(t => {
-              if (t.owner_id && ownersMap[t.owner_id]) {
-                t.task_owner = ownersMap[t.owner_id];
-              }
-            });
-          }
-        }
-      }
-      setAllTasks(tasksData || []);
-    } catch (fallbackErr) {
-      console.error('Fallback Supabase task fetch failed:', fallbackErr);
-      setAllTasks([]);
-      setError(fallbackErr.message);
-    }
-  }, [supabase]);
+  //     if (tasksData && tasksData.length > 0) {
+  //       const ownerIds = [...new Set(tasksData.map(t => t.owner_id).filter(Boolean))];
+  //       if (ownerIds.length > 0) {
+  //         const { data: owners, error: ownersErr } = await supabase
+  //           .from('users')
+  //           .select('emp_id, name, role')
+  //           .in('emp_id', ownerIds);
+  //         if (!ownersErr && owners) {
+  //           const ownersMap = {};
+  //           owners.forEach(o => { ownersMap[o.emp_id] = o; });
+  //           tasksData.forEach(t => {
+  //             if (t.owner_id && ownersMap[t.owner_id]) {
+  //               t.task_owner = ownersMap[t.owner_id];
+  //             }
+  //           });
+  //         }
+  //       }
+  //     }
+  //     setAllTasks(tasksData || []);
+  //   } catch (fallbackErr) {
+  //     console.error('Fallback Supabase task fetch failed:', fallbackErr);
+  //     setAllTasks([]);
+  //     setError(fallbackErr.message);
+  //   }
+  // }, [supabase]);
 
   const fetchAllTasks = useCallback(async () => {
     try {
@@ -59,11 +60,6 @@ export const useManagerTasks = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
-        if (res.status === 404) {
-          // Fallback to Supabase direct if endpoint not available
-          await fetchAllTasksViaSupabase();
-          return;
-        }
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.error || `Request failed: ${res.status}`);
       }
@@ -72,10 +68,9 @@ export const useManagerTasks = () => {
     } catch (err) {
       console.error('Error fetching all tasks:', err);
       setError(err.message);
-      // As a safety net, attempt fallback once more
-      await fetchAllTasksViaSupabase();
+      setAllTasks([]); // Set empty array instead of fallback
     }
-  }, [getToken, fetchAllTasksViaSupabase]);
+  }, [getToken]);
 
   const fetchAllProjects = useCallback(async () => {
     try {
@@ -96,21 +91,22 @@ export const useManagerTasks = () => {
   }, [getToken]);
 
   // Fallback: Supabase staff list
-  const fetchStaffMembersViaSupabase = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('emp_id, name, role, department')
-        .eq('role', 'staff')
-        .order('name');
-      if (error) throw error;
-      setStaffMembers(data || []);
-    } catch (fallbackErr) {
-      console.error('Fallback Supabase staff fetch failed:', fallbackErr);
-      setStaffMembers([]);
-      setError(fallbackErr.message);
-    }
-  }, [supabase]);
+  // COMMENTED OUT - App should fully rely on API calls
+  // const fetchStaffMembersViaSupabase = useCallback(async () => {
+  //   try {
+  //     const { data, error } = await supabase
+  //       .from('users')
+  //       .select('emp_id, name, role, department')
+  //       .eq('role', 'staff')
+  //       .order('name');
+  //     if (error) throw error;
+  //     setStaffMembers(data || []);
+  //   } catch (fallbackErr) {
+  //     console.error('Fallback Supabase staff fetch failed:', fallbackErr);
+  //     setStaffMembers([]);
+  //     setError(fallbackErr.message);
+  //   }
+  // }, [supabase]);
 
   const fetchStaffMembers = useCallback(async () => {
     try {
@@ -121,10 +117,6 @@ export const useManagerTasks = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
-        if (res.status === 404) {
-          await fetchStaffMembersViaSupabase();
-          return;
-        }
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.error || `Request failed: ${res.status}`);
       }
@@ -133,9 +125,9 @@ export const useManagerTasks = () => {
     } catch (err) {
       console.error('Error fetching staff members:', err);
       setError(err.message);
-      await fetchStaffMembersViaSupabase();
+      setStaffMembers([]); // Set empty array instead of fallback
     }
-  }, [getToken, fetchStaffMembersViaSupabase]);
+  }, [getToken]);
 
   const updateTaskAssignment = async (taskId, _collaborators, updates = {}) => {
     try {
@@ -173,6 +165,44 @@ export const useManagerTasks = () => {
   };
   const getTasksByStaff = (empId) => allTasks.filter((t) => t.collaborators && t.collaborators.includes(empId));
 
+  // Assign task function for managers
+  const assignTask = useCallback(async (taskData, selectedStaff, ownerId = null) => {
+    try {
+      const token = await getToken();
+      if (!token) throw new Error('No authentication token');
+
+      const payload = {
+        ...taskData,
+        collaborators: selectedStaff,
+        owner_id: ownerId || null // Allow setting owner_id or default to null (manager as owner)
+      };
+
+      const response = await fetch('http://localhost:4000/tasks', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to assign task');
+      }
+
+      const newTask = await response.json();
+      
+      // Refresh tasks after assignment
+      await fetchAllTasks();
+      
+      return { success: true, task: newTask };
+    } catch (err) {
+      setError(err.message);
+      return { success: false, error: err.message };
+    }
+  }, [getToken, fetchAllTasks]);
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -188,6 +218,7 @@ export const useManagerTasks = () => {
     staffMembers,
     loading,
     error,
+    assignTask,
     updateTaskAssignment,
     getTasksByStatus,
     getTasksByPriority,

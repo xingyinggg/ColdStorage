@@ -7,32 +7,15 @@ import { useNotification } from "@/utils/hooks/useNotification";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-export default function NotificationsPage() {
+export default function NotificationPage() {
     const router = useRouter();
     const { user, userProfile } = useAuth();
-    const { notification, loading, error, refresh } = useNotification();
+    const { notification = [], loading, error, refresh } = useNotification();
 
-    // useEffect(() => {
-    //     // Redirect to login if not authenticated
-    //     if (!authLoading && !user) {
-    //         router.push("/login");
-    //     }
-    // }, [user, authLoading, router]);
-
-    // const handleLogout = async () => {
-    //     await signOut();
-    //     router.push("/login");
-    // };
-
-    // // Show loading state
-    // if (authLoading) {
-    //     return (
-    //         <div className="min-h-screen flex items-center justify-center">
-    //             <div className="text-lg">Loading...</div>
-    //         </div>
-    //     );
-    // }
-
+    const pill = (read) =>
+        read
+            ? "bg-green-100 text-green-800"
+            : "bg-yellow-100 text-yellow-800";
 
     return (
         <SidebarLayout>

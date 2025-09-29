@@ -8,20 +8,18 @@ export default function DebugToken() {
     useEffect(() => {
         (async () => {
             const { data: { session } } = await supabase.auth.getSession();
-            console.log("JWT:", session?.access_token);   // <- copy this from DevTools console
         })();
     }, [supabase]);
 
     return <div>Open the console. Log in first if needed.</div>;
 }
 
-export const useNotification = async () => {
+export function useNotification() {
     const [notification, setNotification] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log("ACCESS TOKEN:", session?.access_token);
+    //const { data: { session } } = await supabase.auth.getSession();
 
     // Fetch all notifications via Express API
     const fetchNotification = useCallback(async () => {
@@ -42,6 +40,9 @@ export const useNotification = async () => {
 
             const text = await res.text();
             const body = text ? JSON.parse(text) : []; // your API returns an array
+            // inside fetchNotification(), after parsing:
+            console.log("notifications fetched:", Array.isArray(body) ? body.length : 0, body);
+
             if (!res.ok) throw new Error(body?.error || `Request failed: ${res.status}`);
 
             setNotification(Array.isArray(body) ? body : []); // <-- expect array

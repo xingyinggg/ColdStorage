@@ -21,7 +21,7 @@ import ManagerTasksView from "./components/ManagerTasksView";
 // ✅ Single default export (the page)
 export default function DashboardPage() {
     const router = useRouter();
-    const { user, userProfile, loading: authLoading, isManager, isStaff, isHR, signOut } = useAuth();
+    const { user, userProfile, loading: authLoading, isManager, isStaff, isHR, isDirector, signOut } = useAuth();
     const { tasks = [], activeTasks = [], overdueTasks = [], toggleTaskComplete, updateTask } = useTasks(); // adapt to your hook
     useProjects(); // keep hook initialised if needed elsewhere (no local use)
     useManagerTasks();
@@ -44,7 +44,7 @@ export default function DashboardPage() {
     }
     if (!user) return null;
 
-    if (isManager) {
+    if (isManager || isDirector) {
         return (
             <SidebarLayout>
                 <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -88,7 +88,7 @@ export default function DashboardPage() {
         );
     }
 
-    if (isStaff) {
+    if (isStaff || isDirector) {
         // combine whatever lists your hook gives you
         const allTasks = [...activeTasks, ...overdueTasks];
         return (

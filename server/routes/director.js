@@ -4,31 +4,8 @@ import { getServiceClient, getUserFromToken } from '../lib/supabase.js';
 
 const router = express.Router();
 
-// Authentication middleware
-const authenticateToken = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
-    if (!token) {
-      return res.status(401).json({ error: "No token provided" });
-    }
-
-    const user = await getUserFromToken(token);
-    if (!user) {
-      return res.status(401).json({ error: "Invalid token" });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    console.error('Authentication error:', error);
-    return res.status(401).json({ error: "Authentication failed" });
-  }
-};
-
 // Get executive overview metrics
-router.get('/overview', authenticateToken, async (req, res) => {
+router.get('/overview', async (req, res) => {
   try {
     const supabase = getServiceClient();
     // Parallel queries for better performance
@@ -207,7 +184,7 @@ router.get('/departments', async (req, res) => {
   }
 });
 
-// Get resource allocation metrics - Remove authentication temporarily
+// Get resource allocation metrics
 router.get('/resources', async (req, res) => {
   try {
     const supabase = getServiceClient();
@@ -307,7 +284,7 @@ router.get('/resources', async (req, res) => {
   }
 });
 
-// Get risk indicators - Remove authentication temporarily  
+// Get risk indicators 
 router.get('/risks', async (req, res) => {
   try {
     const supabase = getServiceClient();
@@ -489,7 +466,7 @@ router.get('/collaboration', async (req, res) => {
   }
 });
 
-// Get company-wide KPIs - Remove authentication temporarily for testing
+// Get company-wide KPIs
 router.get('/kpis', async (req, res) => {
   try {
     const supabase = getServiceClient();

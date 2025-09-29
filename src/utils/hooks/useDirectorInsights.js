@@ -76,12 +76,10 @@ export function useDirectorInsights() {
 
       console.log('Fetching director data...');
 
-      // Remove authentication headers temporarily for testing
       const headers = {
         'Content-Type': 'application/json'
       };
 
-      // Use full URLs without authentication for testing
       const [
         kpiResponse,
         deptResponse,

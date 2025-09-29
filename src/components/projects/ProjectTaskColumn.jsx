@@ -13,10 +13,11 @@ export default function TaskColumn({
   borderColor,
   onTaskUpdate,
   currentUserId,
-  memberNames
+  memberNames,
+  projectNames
 }) {
   const filteredTasks = tasks.filter(task => task.status === status);
-  console.log("Rendering TaskColumn with tasks:", tasks, "Filtered tasks:", filteredTasks);
+  // console.log("Rendering TaskColumn with tasks:", tasks, "Filtered tasks:", filteredTasks);
 
   return (
     <div className={`${bgColor} rounded-lg p-3 sm:p-4`}>
@@ -41,6 +42,7 @@ export default function TaskColumn({
             onTaskUpdate={onTaskUpdate}
             currentUserId={currentUserId}
             memberNames={memberNames}
+            projectNames={projectNames}
           />
         ))}
       </div>

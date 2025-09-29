@@ -1,11 +1,12 @@
 // app/dashboard/page.js
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/utils/hooks/useTasks";
 import { useProjects } from "@/utils/hooks/useProjects";
 import { useAuth } from "@/utils/hooks/useAuth";
+import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 
 // Import manager/HR dashboard component
@@ -18,9 +19,21 @@ import TaskCard from "@/components/tasks/TaskCard";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const supabase = createClient();
+  const [memberNames, setMemberNames] = useState({});
+  const [projectNames, setProjectNames] = useState({});
 
   // Use auth hook to get user role
-  const { user, userProfile, loading: authLoading, isManager, isStaff, isHR, isDirector, signOut } = useAuth();
+  const {
+    user,
+    userProfile,
+    loading: authLoading,
+    isManager,
+    isStaff,
+    isHR,
+    isDirector,
+    signOut,
+  } = useAuth();
 
   // Use the tasks hook for staff
   const {
@@ -36,6 +49,7 @@ export default function DashboardPage() {
     projects,
     loading: projectsLoading,
     error: projectsError,
+    getProjectNames,
   } = useProjects();
 
   useEffect(() => {
@@ -44,6 +58,75 @@ export default function DashboardPage() {
       router.push("/login");
     }
   }, [user, authLoading, router]);
+
+  // Fetch member names for task owners
+  useEffect(() => {
+    const fetchMemberNames = async () => {
+      if (!activeTasks.length && !overdueTasks.length) return;
+
+      const allEmpIds = new Set();
+
+      // Collect task owner IDs
+      [...activeTasks, ...overdueTasks].forEach((task) => {
+        if (task.owner_id) {
+          allEmpIds.add(task.owner_id);
+        }
+      });
+
+      if (allEmpIds.size === 0) return;
+
+      try {
+        const token = await getAuthToken();
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/users/bulk`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ emp_ids: Array.from(allEmpIds) }),
+          }
+        );
+
+        if (!response.ok) throw new Error("Failed to fetch users");
+        const usersData = await response.json();
+
+        const namesMap = {};
+        usersData.forEach((user) => {
+          namesMap[user.emp_id] = user.name;
+        });
+        setMemberNames(namesMap);
+      } catch (error) {
+        console.error("Error fetching member names:", error);
+      }
+    };
+
+    fetchMemberNames();
+  }, [activeTasks, overdueTasks]);
+
+  // Fetch project names using hook
+  useEffect(() => {
+    const fetchProjectNames = async () => {
+      try {
+        const projectNamesMap = await getProjectNames();
+        setProjectNames(projectNamesMap);
+        console.log("Fetched project names:", projectNamesMap);
+      } catch (error) {
+        console.error("Error fetching project names:", error);
+      }
+    };
+
+    fetchProjectNames();
+  }, []);
+
+  // Helper function to get auth token
+  const getAuthToken = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.access_token;
+  };
 
   // Utility functions
   const formatDate = (dateString) => {
@@ -110,7 +193,11 @@ export default function DashboardPage() {
   if (isManager) {
     return (
       <SidebarLayout>
-        <ManagerDashboard user={user} userProfile={userProfile} onLogout={handleLogout} />
+        <ManagerDashboard
+          user={user}
+          userProfile={userProfile}
+          onLogout={handleLogout}
+        />
       </SidebarLayout>
     );
   }
@@ -119,7 +206,11 @@ export default function DashboardPage() {
   if (isHR) {
     return (
       <SidebarLayout>
-        <HrDashboard user={user} userProfile={userProfile} onLogout={handleLogout} />
+        <HrDashboard
+          user={user}
+          userProfile={userProfile}
+          onLogout={handleLogout}
+        />
       </SidebarLayout>
     );
   }
@@ -127,13 +218,22 @@ export default function DashboardPage() {
   if (isDirector) {
     return (
       <SidebarLayout>
-        <DirectorDashboard user={user} userProfile={userProfile} onLogout={handleLogout} />
+        <DirectorDashboard
+          user={user}
+          userProfile={userProfile}
+          onLogout={handleLogout}
+        />
       </SidebarLayout>
     );
   }
 
   // Render staff dashboard (using extracted component)
   if (isStaff) {
+    console.log("Dashboard Debug:", {
+      projects: projects,
+      "projectNames from state": projectNames,
+    });
+
     return (
       <SidebarLayout>
         <StaffDashboardComponent
@@ -151,6 +251,8 @@ export default function DashboardPage() {
           handleLogout={handleLogout}
           currentUserEmpId={userProfile?.emp_id}
           onEditTask={updateTask}
+          memberNames={memberNames}
+          projectNames={projectNames}
         />
       </SidebarLayout>
     );
@@ -179,9 +281,13 @@ export default function DashboardPage() {
         <nav className="bg-white shadow">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16 items-center">
-              <h1 className="text-xl font-semibold">Task Management Dashboard</h1>
+              <h1 className="text-xl font-semibold">
+                Task Management Dashboard
+              </h1>
               <div className="flex items-center space-x-4">
-                <span className="text-gray-700">Welcome, {userProfile?.name || user?.email}</span>
+                <span className="text-gray-700">
+                  Welcome, {userProfile?.name || user?.email}
+                </span>
                 <button
                   onClick={handleLogout}
                   className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
@@ -271,8 +377,8 @@ export default function DashboardPage() {
                             {projectsLoading
                               ? "Loading..."
                               : projectsError
-                                ? "Error loading"
-                                : `${projects.length} projects`}
+                              ? "Error loading"
+                              : `${projects.length} projects`}
                           </Link>
                         </dd>
                       </dl>
@@ -386,14 +492,14 @@ export default function DashboardPage() {
                               <span>Due: {formatDate(task.due_date)}</span>
                               {task.manager && (
                                 <span className="text-blue-600">
-                                  • Assigned by: {task.manager.name} (ID: {task.manager.emp_id})
+                                  • Assigned by: {task.manager.name}
                                 </span>
                               )}
-                              {/* {task.project_id && (
-                              <span>Project: {task.project_id}</span>
-                            )} */task.project_id && (
-                                  <span>Project: {getProjectName(task.project_id)}</span>
-                                )}
+                              {task.project_id && (
+                                <span>
+                                  Project: {getProjectName(task.project_id)}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center space-x-2 ml-4">

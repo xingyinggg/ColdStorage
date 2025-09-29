@@ -47,6 +47,51 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Get project names (id and title mapping) - optimized for dropdown/references
+router.get("/names", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+    if (!token) {
+      return res.status(401).json({ error: "No token provided" });
+    }
+
+    const user = await getUserFromToken(token);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    const empId = await getEmpIdForUserId(user.id);
+    if (!empId) {
+      return res.status(404).json({ error: "Employee ID not found" });
+    }
+
+    // Get only id and title for projects where user is owner or member
+    const { data, error } = await supabase
+      .from("projects")
+      .select("id, title")
+      .or(`owner_id.eq.${empId},members.cs.{${empId}}`);
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Convert to object mapping: { 1: "Project Name", 2: "Another Project" }
+    const projectNamesMap = {};
+    (data || []).forEach((project) => {
+      projectNamesMap[project.id] = project.title;
+    });
+
+    res.json(projectNamesMap);
+  } catch (e) {
+    console.error("Error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Create a new project
 router.post("/", async (req, res) => {
   try {
@@ -299,7 +344,5 @@ router.get("/:id/members", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-
-
 
 export default router;

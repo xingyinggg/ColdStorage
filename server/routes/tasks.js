@@ -42,7 +42,7 @@ router.post("/", upload.single("file"), async (req, res) => {
     // If it's already an array (from JSON), use it directly
     let collaborators = null;
     if (req.body.collaborators) {
-      if (typeof req.body.collaborators === 'string') {
+      if (typeof req.body.collaborators === "string") {
         // From FormData - needs parsing
         collaborators = JSON.parse(req.body.collaborators);
       } else {
@@ -200,8 +200,9 @@ router.get("/manager/all", async (req, res) => {
       .eq("id", user.id)
       .single();
     if (reqErr) return res.status(400).json({ error: reqErr.message });
-    if ((requester?.role || "").toLowerCase() !== "manager") {
-      return res.status(403).json({ error: "Forbidden: managers only" });
+    const userRole = (requester?.role || "").toLowerCase();
+    if (userRole !== "manager" && userRole !== "director") {
+      return res.status(403).json({ error: "Forbidden: managers and directors only" });
     }
 
     const { data: tasksData, error: tasksError } = await supabase
@@ -257,8 +258,9 @@ router.put("/manager/:id", async (req, res) => {
       .eq("id", user.id)
       .single();
     if (reqErr) return res.status(400).json({ error: reqErr.message });
-    if ((requester?.role || "").toLowerCase() !== "manager") {
-      return res.status(403).json({ error: "Forbidden: managers only" });
+    const userRole = (requester?.role || "").toLowerCase();
+    if (userRole !== "manager" && userRole !== "director") {
+      return res.status(403).json({ error: "Forbidden: managers and directors only" });
     }
 
     const { id } = req.params;
@@ -294,9 +296,10 @@ router.get("/manager/staff-members", async (req, res) => {
       .eq("id", user.id)
       .single();
     if (reqErr) return res.status(400).json({ error: reqErr.message });
-    if ((requester?.role || "").toLowerCase() !== "manager") {
-      return res.status(403).json({ error: "Forbidden: managers only" });
-    }
+    const userRole = (requester?.role || "").toLowerCase();
+    if (userRole !== "manager" && userRole !== "director") {
+      return res.status(403).json({ error: "Forbidden: managers and directors only" });
+    } 
 
     const { data, error } = await supabase
       .from("users")
@@ -351,7 +354,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     }
     if (
       updates.status &&
-      ["unassigned", "ongoing", "under_review", "completed"].includes(
+      ["unassigned", "on going", "under_review", "completed"].includes(
         updates.status
       )
     ) {
@@ -543,7 +546,7 @@ router.post("/bulk", async (req, res) => {
     const { data, error } = await supabase
       .from("tasks")
       .select(
-        "id, title, status, project_id, description, due_date, priority, owner_id, created_at, file"
+        "id, title, status, project_id, description, due_date, priority, owner_id, created_at, file, collaborators"
       )
       .in("project_id", project_ids);
 

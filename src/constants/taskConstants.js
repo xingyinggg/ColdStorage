@@ -37,14 +37,14 @@ export const PRIORITY_COLORS = {
 
 export const TASK_STATUSES = {
   UNASSIGNED: "unassigned",
-  ONGOING: "ongoing",
+  ONGOING: "on going",
   UNDER_REVIEW: "under_review",
   COMPLETED: "completed",
 };
 
 export const STATUS_LEVELS = [
   "unassigned",
-  "ongoing",
+  "on going",
   "under_review",
   "completed",
 ];

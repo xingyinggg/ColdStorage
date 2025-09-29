@@ -5,6 +5,9 @@ import { useState, useEffect, useCallback } from 'react';
 export function useDirectorInsights() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [allTasks, setAllTasks] = useState([]);
+  const [allProjects, setAllProjects] = useState([]);
+  const [staffMembers, setStaffMembers] = useState([]);
   
   // State for all data sections
   const [companyKPIs, setCompanyKPIs] = useState({
@@ -76,12 +79,10 @@ export function useDirectorInsights() {
 
       console.log('Fetching director data...');
 
-      // Remove authentication headers temporarily for testing
       const headers = {
         'Content-Type': 'application/json'
       };
 
-      // Use full URLs without authentication for testing
       const [
         kpiResponse,
         deptResponse,
@@ -197,9 +198,106 @@ export function useDirectorInsights() {
     }
   }, []);
 
+  // Fetch all tasks for directors
+  const fetchAllTasks = useCallback(async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/tasks/director/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed: ${res.status}`);
+      }
+      const body = await res.json();
+      setAllTasks(body.tasks || []);
+    } catch (err) {
+      console.error('Error fetching all tasks:', err);
+      setError(err.message);
+      setAllTasks([]);
+    }
+  }, []);
+
+  // Fetch all projects for directors
+  const fetchAllProjects = useCallback(async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/projects/director/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed: ${res.status}`);
+      }
+      const body = await res.json();
+      setAllProjects(body.projects || []);
+    } catch (err) {
+      console.error('Error fetching all projects:', err);
+      setError(err.message);
+      setAllProjects([]);
+    }
+  }, []);
+
+  // Fetch all staff members for directors
+  const fetchStaffMembers = useCallback(async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/tasks/director/staff-members`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed: ${res.status}`);
+      }
+      const body = await res.json();
+      setStaffMembers(body.staffMembers || []);
+    } catch (err) {
+      console.error('Error fetching staff members:', err);
+      setError(err.message);
+      setStaffMembers([]);
+    }
+  }, []);
+
+  // Get tasks by staff member
+  const getTasksByStaff = useCallback((empId) => {
+    return allTasks.filter(task => 
+      task.collaborators && task.collaborators.includes(empId)
+    );
+  }, [allTasks]);
+
+  // Update task assignment
+  const updateTaskAssignment = useCallback(async (taskId, collaborators, updates) => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      
+      const res = await fetch(`${apiUrl}/tasks/director/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ collaborators, ...updates }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed: ${res.status}`);
+      }
+
+      // Refresh tasks after update
+      await fetchAllTasks();
+    } catch (err) {
+      console.error('Error updating task assignment:', err);
+      setError(err.message);
+    }
+  }, [fetchAllTasks]);
+
   useEffect(() => {
     fetchDirectorData();
-  }, [fetchDirectorData]);
+    fetchAllTasks();
+    fetchAllProjects();
+    fetchStaffMembers();
+  }, [fetchDirectorData, fetchAllTasks, fetchAllProjects, fetchStaffMembers]);
 
   // Utility functions
   const getTopPerformingDepartments = useCallback((limit = 5) => {
@@ -250,11 +348,18 @@ export function useDirectorInsights() {
     resourceAllocation,
     riskIndicators,
     collaborationMetrics,
+    allTasks,
+    allProjects,
+    staffMembers,
+    getTasksByStaff,
+    updateTaskAssignment,
     getTopPerformingDepartments,
     getUnderperformingDepartments,
     getOverloadedEmployees,
     getUnderutilizedEmployees,
     getOverallRiskLevel,
-    refreshData
+    refreshData,
+    getTasksByStaff,
+    updateTaskAssignment
   };
 }

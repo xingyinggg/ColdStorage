@@ -18,6 +18,8 @@ export default function StaffDashboard({
   handleLogout,
   currentUserEmpId,
   onEditTask,
+  memberNames = {},
+  projectNames = {},
 }) {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -26,7 +28,9 @@ export default function StaffDashboard({
           <div className="flex justify-between h-16 items-center">
             <h1 className="text-xl font-semibold">Task Management Dashboard</h1>
             <div className="flex items-center space-x-4">
-              <span className="text-gray-700">Welcome, {userProfile?.name}</span>
+              <span className="text-gray-700">
+                Welcome, {userProfile?.name}
+              </span>
               <button
                 onClick={handleLogout}
                 className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
@@ -116,8 +120,8 @@ export default function StaffDashboard({
                           {projectsLoading
                             ? "Loading..."
                             : projectsError
-                              ? "Error loading"
-                              : `${projects.length} projects`}
+                            ? "Error loading"
+                            : `${projects.length} projects`}
                         </Link>
                       </dd>
                     </dl>
@@ -161,8 +165,13 @@ export default function StaffDashboard({
           <div className="bg-white shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Active Tasks</h3>
-                <Link href="/dashboard/tasks" className="text-sm text-blue-600 hover:text-blue-800">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  Active Tasks
+                </h3>
+                <Link
+                  href="/dashboard/tasks"
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
                   View all tasks →
                 </Link>
               </div>
@@ -183,19 +192,24 @@ export default function StaffDashboard({
                     <TaskCard
                       key={task.id}
                       task={task}
+                      onTaskUpdate={onEditTask}
                       formatDate={formatDate}
                       getPriorityColor={getPriorityColor}
                       getStatusColor={getStatusColor}
                       getProjectName={getProjectName}
                       onMarkComplete={toggleTaskComplete}
                       canEdit={currentUserEmpId === task.owner_id}
-                      onEdit={(id, updates) => onEditTask && onEditTask(id, updates)}
+                      memberNames={memberNames}
+                      projectNames={projectNames}
                     />
                   ))}
 
                   {activeTasks.length > 5 && (
                     <div className="text-center pt-4">
-                      <Link href="/dashboard/tasks" className="text-blue-600 hover:text-blue-800 text-sm">
+                      <Link
+                        href="/dashboard/tasks"
+                        className="text-blue-600 hover:text-blue-800 text-sm"
+                      >
                         View {activeTasks.length - 5} more tasks →
                       </Link>
                     </div>
@@ -209,5 +223,3 @@ export default function StaffDashboard({
     </div>
   );
 }
-
-

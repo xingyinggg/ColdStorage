@@ -2,14 +2,25 @@
 
 import { useState} from "react";
 import ManagerTasksView from "@/app/dashboard/tasks/components/ManagerTasksView";
+import { useManagerTasks } from '@/utils/hooks/useManagerTasks';
 import { useDirectorInsights } from "@/utils/hooks/useDirectorInsights";
 import HeaderBar from "@/components/layout/HeaderBar";
 import { StatCard } from "@/components/ui/StatCard";
 import { Th, Td } from "@/components/ui/Table";
 
 export default function DirectorDashboard({ user, userProfile, onLogout }) {
-  // const [activeSection, setactiveSection] = useState('overview');
   const [activeSection, setActiveSection] = useState('overview');
+
+  // existing manager hook
+  const {
+    allTasks,
+    allProjects, 
+    staffMembers,
+    getTasksByStaff,
+    updateTaskAssignment,
+    loading: tasksLoading,
+    error: tasksError
+  } = useManagerTasks();
   
   const {
     loading,

@@ -60,7 +60,7 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
     switch (status?.toLowerCase()) {
       case "completed":
         return "bg-green-100 text-green-800";
-      case "ongoing":
+      case "on going":
         return "bg-blue-100 text-blue-800";
       case "under review":
         return "bg-purple-100 text-purple-800";
@@ -82,7 +82,7 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
   const buildCompleteHandler = (task) => (id) =>
     updateTaskAssignment(id, task.collaborators || [], { status: 'completed' });
 
-  const activeTasks = getTasksByStatus('ongoing') || [];
+  const activeTasks = getTasksByStatus('on going') || [];
   const overdueTasks = getOverdueTasks() || [];
 
   if (loading) {

@@ -200,8 +200,9 @@ router.get("/manager/all", async (req, res) => {
       .eq("id", user.id)
       .single();
     if (reqErr) return res.status(400).json({ error: reqErr.message });
-    if ((requester?.role || "").toLowerCase() !== "manager") {
-      return res.status(403).json({ error: "Forbidden: managers only" });
+    const userRole = (requester?.role || "").toLowerCase();
+    if (userRole !== "manager" && userRole !== "director") {
+      return res.status(403).json({ error: "Forbidden: managers and directors only" });
     }
 
     const { data: tasksData, error: tasksError } = await supabase
@@ -257,8 +258,9 @@ router.put("/manager/:id", async (req, res) => {
       .eq("id", user.id)
       .single();
     if (reqErr) return res.status(400).json({ error: reqErr.message });
-    if ((requester?.role || "").toLowerCase() !== "manager") {
-      return res.status(403).json({ error: "Forbidden: managers only" });
+    const userRole = (requester?.role || "").toLowerCase();
+    if (userRole !== "manager" && userRole !== "director") {
+      return res.status(403).json({ error: "Forbidden: managers and directors only" });
     }
 
     const { id } = req.params;
@@ -294,9 +296,10 @@ router.get("/manager/staff-members", async (req, res) => {
       .eq("id", user.id)
       .single();
     if (reqErr) return res.status(400).json({ error: reqErr.message });
-    if ((requester?.role || "").toLowerCase() !== "manager") {
-      return res.status(403).json({ error: "Forbidden: managers only" });
-    }
+    const userRole = (requester?.role || "").toLowerCase();
+    if (userRole !== "manager" && userRole !== "director") {
+      return res.status(403).json({ error: "Forbidden: managers and directors only" });
+    } 
 
     const { data, error } = await supabase
       .from("users")

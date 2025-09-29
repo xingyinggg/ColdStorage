@@ -21,9 +21,10 @@ export default function ProjectsPage() {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [memberNames, setMemberNames] = useState({});
-  const [projectTasks, setProjectTasks] = useState({}); // New state for tasks
+  const [projectTasks, setProjectTasks] = useState({});
   const [loadingTasks, setLoadingTasks] = useState(false);
-  const [expandedProjects, setExpandedProjects] = useState({}); // New state for collapsed/expanded
+  const [expandedProjects, setExpandedProjects] = useState({});
+  const [projectNames, setProjectNames] = useState({});
   const router = useRouter();
   const supabase = createClient();
 
@@ -35,6 +36,7 @@ export default function ProjectsPage() {
     loading: projectsLoading,
     error: projectsError,
     createProject,
+    getProjectNames,
   } = useProjects();
 
   useEffect(() => {
@@ -43,6 +45,20 @@ export default function ProjectsPage() {
       fetchProjectTasks();
     }
   }, [projects]);
+
+  // Fetch project names using hook
+  useEffect(() => {
+    const fetchProjectNames = async () => {
+      try {
+        const projectNamesMap = await getProjectNames();
+        setProjectNames(projectNamesMap);
+      } catch (error) {
+        console.error("Error fetching project names:", error);
+      }
+    };
+
+    fetchProjectNames();
+  }, []);
 
   // Toggle project expansion
   const toggleProjectExpansion = (projectId) => {
@@ -102,6 +118,29 @@ export default function ProjectsPage() {
         "📋 Current tasks statuses:",
         tasksData.map((t) => ({ id: t.id, title: t.title, status: t.status }))
       );
+
+      // Debug: Check for tasks with invalid statuses
+      const validStatuses = [
+        "unassigned",
+        "on going",
+        "under_review",
+        "completed",
+      ];
+
+      const invalidTasks = tasksData.filter(
+        (task) => !validStatuses.includes(task.status)
+      );
+      if (invalidTasks.length > 0) {
+        console.warn(
+          "⚠️ Found tasks with invalid statuses:",
+          invalidTasks.map((t) => ({
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            statusType: typeof t.status,
+          }))
+        );
+      }
 
       setProjectTasks(tasksGrouped);
     } catch (error) {
@@ -204,7 +243,7 @@ export default function ProjectsPage() {
   const getTaskCounts = (tasks) => {
     const counts = {
       unassigned: 0,
-      ongoing: 0,
+      "on going": 0,
       under_review: 0,
       completed: 0,
     };
@@ -676,7 +715,7 @@ export default function ProjectsPage() {
                                 <div className="flex items-center">
                                   <div className="w-2 h-2 sm:w-3 sm:h-3 bg-yellow-400 rounded-full mr-1"></div>
                                   <span className="text-xs">
-                                    Ongoing: {taskCounts.ongoing}
+                                    On going: {taskCounts["on going"]}
                                   </span>
                                 </div>
                                 <div className="flex items-center">
@@ -713,9 +752,19 @@ export default function ProjectsPage() {
                                 </div>
                               ) : (
                                 <div>
-                                  <h5 className="text-base sm:text-lg font-medium text-gray-900 mb-3 sm:mb-4">
-                                    Project Tasks ({tasks.length})
-                                  </h5>
+                                  {(() => {
+                                    const taskCounts = getTaskCounts(tasks);
+                                    const validTasksCount =
+                                      taskCounts.unassigned +
+                                      taskCounts["on going"] +
+                                      taskCounts.under_review +
+                                      taskCounts.completed;
+                                    return (
+                                      <h5 className="text-base sm:text-lg font-medium text-gray-900 mb-3 sm:mb-4">
+                                        Project Tasks ({validTasksCount})
+                                      </h5>
+                                    );
+                                  })()}
                                   {/* Task Columns Grid */}
                                   <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
                                     <TaskColumn
@@ -730,13 +779,14 @@ export default function ProjectsPage() {
                                       onTaskUpdate={handleTaskUpdate}
                                       currentUserId={userProfile?.emp_id}
                                       memberNames={memberNames}
+                                      projectNames={projectNames}
                                     />
 
                                     <TaskColumn
-                                      title="Ongoing"
-                                      status="ongoing"
+                                      title="On going"
+                                      status="on going"
                                       tasks={tasks}
-                                      count={taskCounts.ongoing}
+                                      count={taskCounts["on going"]}
                                       bgColor="bg-yellow-50"
                                       dotColor="bg-yellow-400"
                                       countBadgeColor="bg-yellow-200 text-yellow-800"
@@ -744,6 +794,7 @@ export default function ProjectsPage() {
                                       onTaskUpdate={handleTaskUpdate}
                                       currentUserId={userProfile?.emp_id}
                                       memberNames={memberNames}
+                                      projectNames={projectNames}
                                     />
 
                                     <TaskColumn
@@ -758,6 +809,7 @@ export default function ProjectsPage() {
                                       onTaskUpdate={handleTaskUpdate}
                                       currentUserId={userProfile?.emp_id}
                                       memberNames={memberNames}
+                                      projectNames={projectNames}
                                     />
 
                                     <TaskColumn
@@ -772,6 +824,7 @@ export default function ProjectsPage() {
                                       onTaskUpdate={handleTaskUpdate}
                                       currentUserId={userProfile?.emp_id}
                                       memberNames={memberNames}
+                                      projectNames={projectNames}
                                     />
                                   </div>
                                 </div>

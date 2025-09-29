@@ -129,6 +129,38 @@ export function useProjects() {
     }
   };
 
+  // NEW FUNCTION: Get project names mapping
+  const getProjectNames = async () => {
+    try {
+      const token = await getAuthToken();
+
+      if (!token) {
+        throw new Error("User not authenticated");
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/projects/names`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const projectNamesMap = await response.json();
+      return projectNamesMap; // Returns { 1: "Project Name", 2: "Another Project" }
+    } catch (err) {
+      console.error("Get project names error:", err);
+      throw err;
+    }
+  };
+
   const updateProject = async (id, updates) => {
     try {
       const token = await getAuthToken();
@@ -222,5 +254,6 @@ export function useProjects() {
     deleteProject,
     refetch: fetchProjects,
     getProjectMembers,
+    getProjectNames,
   };
 }

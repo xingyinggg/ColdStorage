@@ -42,7 +42,7 @@ router.post("/", upload.single("file"), async (req, res) => {
     // If it's already an array (from JSON), use it directly
     let collaborators = null;
     if (req.body.collaborators) {
-      if (typeof req.body.collaborators === 'string') {
+      if (typeof req.body.collaborators === "string") {
         // From FormData - needs parsing
         collaborators = JSON.parse(req.body.collaborators);
       } else {
@@ -351,7 +351,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     }
     if (
       updates.status &&
-      ["unassigned", "ongoing", "under_review", "completed"].includes(
+      ["unassigned", "on going", "under_review", "completed"].includes(
         updates.status
       )
     ) {
@@ -543,7 +543,7 @@ router.post("/bulk", async (req, res) => {
     const { data, error } = await supabase
       .from("tasks")
       .select(
-        "id, title, status, project_id, description, due_date, priority, owner_id, created_at, file"
+        "id, title, status, project_id, description, due_date, priority, owner_id, created_at, file, collaborators"
       )
       .in("project_id", project_ids);
 

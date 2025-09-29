@@ -12,7 +12,9 @@ export function useUsers() {
       setError(null);
 
       const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
         throw new Error("No authentication token");
@@ -41,7 +43,6 @@ export function useUsers() {
       const result = await response.json();
       setUsers(result.users || []);
       return { success: true, users: result.users || [] };
-
     } catch (error) {
       console.error("Error fetching users:", error);
       setError(error.message);
@@ -52,23 +53,30 @@ export function useUsers() {
   }, []);
 
   // Helper functions for specific use cases
-  const getAllStaff = useCallback((excludeSelf = true) => {
-    return fetchUsers({ roles: ["staff"], excludeSelf });
-  }, [fetchUsers]);
+  const getAllStaff = useCallback(
+    (excludeSelf = true) => {
+      return fetchUsers({ roles: ["staff"], excludeSelf });
+    },
+    [fetchUsers]
+  );
 
-  const getAssignableUsers = useCallback((currentUserRole, excludeSelf = true) => {
-    let roles = [];
-    
-    if (currentUserRole === "director") {
-      roles = ["manager", "staff"];
-    } else if (currentUserRole === "manager") {
-      roles = ["staff"];
-    }
+  const getAssignableUsers = useCallback(
+    (currentUserRole, excludeSelf = true) => {
+      let roles = [];
 
-    if (roles.length === 0) return Promise.resolve({ success: true, users: [] });
-    
-    return fetchUsers({ roles, excludeSelf });
-  }, [fetchUsers]);
+      if (currentUserRole === "director") {
+        roles = ["manager", "staff"];
+      } else if (currentUserRole === "manager") {
+        roles = ["staff"];
+      }
+
+      if (roles.length === 0)
+        return Promise.resolve({ success: true, users: [] });
+
+      return fetchUsers({ roles, excludeSelf });
+    },
+    [fetchUsers]
+  );
 
   return {
     users,

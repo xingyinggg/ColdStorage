@@ -12,7 +12,7 @@ export const TaskSchema = z.object({
     .nullable(),
   file: z.string().nullable().optional(),
   collaborators: z.array(z.string()).optional().nullable(),
-  owner_id: z.string().optional().nullable()
+  owner_id: z.string().optional().nullable(),
 });
 
 export const RegisterSchema = z.object({

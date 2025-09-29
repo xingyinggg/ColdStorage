@@ -16,7 +16,7 @@ export default function ManagerTasksView({ currentUserEmpId, tasks: expressTasks
   } = useManagerTasks();
 
   const tasksForView = Array.isArray(expressTasks) ? expressTasks : allTasks;
-
+  
   return (
     <div>
       <div className="border-b border-gray-200 mb-4">

@@ -1,13 +1,15 @@
 "use client";
 
 import { useState} from "react";
+import ManagerTasksView from "@/app/dashboard/tasks/components/ManagerTasksView";
 import { useDirectorInsights } from "@/utils/hooks/useDirectorInsights";
 import HeaderBar from "@/components/layout/HeaderBar";
 import { StatCard } from "@/components/ui/StatCard";
 import { Th, Td } from "@/components/ui/Table";
 
 export default function DirectorDashboard({ user, userProfile, onLogout }) {
-  const [selectedTab, setSelectedTab] = useState('overview');
+  // const [activeSection, setactiveSection] = useState('overview');
+  const [activeSection, setActiveSection] = useState('overview');
   
   const {
     loading,
@@ -95,12 +97,12 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
-            {['overview', 'departments', 'resources', 'risks', 'collaboration'].map((tab) => (
+            {['overview', 'tasks', 'departments', 'resources', 'risks', 'collaboration'].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setSelectedTab(tab)}
+                onClick={() => setActiveSection(tab)}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  selectedTab === tab
+                  activeSection === tab
                     ? 'border-purple-500 text-purple-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
@@ -116,7 +118,7 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
         <div className="px-4 py-6 sm:px-0">
           
           {/* Overview Tab */}
-          {selectedTab === 'overview' && (
+          {activeSection === 'overview' && (
             <div className="space-y-8">
               {/* Company-wide KPIs */}
               <div>
@@ -291,8 +293,21 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
             </div>
           )}
 
+          {/* Tasks Tab */}
+          {activeSection === 'tasks' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">Task Management</h2>
+              </div>
+              <ManagerTasksView 
+                currentUserEmpId={userProfile?.emp_id}
+                userRole="director"
+              />
+            </div>
+          )}
+
           {/* Departments Tab */}
-          {selectedTab === 'departments' && (
+          {activeSection === 'departments' && (
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Department Performance Analysis</h2>
               <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -362,7 +377,7 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
           )}
 
           {/* Resources Tab */}
-          {selectedTab === 'resources' && (
+          {activeSection === 'resources' && (
             <div className="space-y-8">
               <h2 className="text-2xl font-bold text-gray-900">Resource Utilization Analysis</h2>
               
@@ -467,7 +482,7 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
           )}
 
           {/* Risks Tab */}
-          {selectedTab === 'risks' && (
+          {activeSection === 'risks' && (
             <div className="space-y-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900">Risk Management Dashboard</h2>
@@ -563,7 +578,7 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
           )}
 
           {/* Collaboration Tab */}
-          {selectedTab === 'collaboration' && (
+          {activeSection === 'collaboration' && (
             <div className="space-y-8">
               <h2 className="text-2xl font-bold text-gray-900">Cross-Departmental Collaboration</h2>
               

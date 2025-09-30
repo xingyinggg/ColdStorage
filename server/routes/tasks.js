@@ -124,8 +124,45 @@ router.post("/", upload.single("file"), async (req, res) => {
       .select()
       .single();
 
-    if (dbError) {
-      throw new Error(`Database error: ${dbError.message}`);
+    if (taskError) {
+      throw new Error(`Database error: ${taskError.message}`);
+    }
+
+     // 2. CREATE SUBTASKS IF PROVIDED
+    let createdSubtasks = [];
+    if (Array.isArray(subtasksToCreate) && subtasksToCreate.length > 0) {
+      console.log(`📝 Creating ${subtasksToCreate.length} subtasks...`);
+
+      try {
+        // Prepare subtask data for bulk insert
+        const subtaskInserts = subtasksToCreate.map(subtask => ({
+          parent_task_id: newTask.id,
+          title: subtask.title,
+          description: subtask.description || null,
+          priority: subtask.priority || "medium",
+          status: subtask.status || "ongoing",
+          due_date: subtask.dueDate || null, // Note: frontend uses 'dueDate', backend uses 'due_date'
+          collaborators: subtask.collaborators || [],
+          owner_id: finalOwnerId, // Subtasks inherit the main task owner
+        }));
+
+        // Bulk create subtasks
+        const { data: subtasksData, error: subtasksError } = await supabase
+          .from("sub_task")
+          .insert(subtaskInserts)
+          .select();
+
+        if (subtasksError) {
+          console.error("Subtasks creation error:", subtasksError);
+          // Don't fail the entire request, just log the error
+        } else {
+          createdSubtasks = subtasksData || [];
+          console.log(`✅ Created ${createdSubtasks.length} subtasks`);
+        }
+      } catch (subtaskError) {
+        console.error("Error in subtask creation process:", subtaskError);
+        // Continue without failing the main task creation
+      }
     }
 
     // Record history (create)
@@ -134,7 +171,7 @@ router.post("/", upload.single("file"), async (req, res) => {
         .from('task_edit_history')
         .insert([{
           task_id: newTask.id,
-          editor_emp_id: ownerId,
+          editor_emp_id: finalOwnerId,
           editor_user_id: user.id,
           action: 'create',
           details: { task: { id: newTask.id, title: newTask.title, status: newTask.status, priority: newTask.priority, due_date: newTask.due_date, project_id: newTask.project_id } }

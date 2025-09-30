@@ -19,7 +19,7 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
         title: task.title || "",
         description: task.description || "",
         priority: (task.priority || "medium").toLowerCase(),
-        status: task.status || "pending",
+  status: task.status || "ongoing",
         due_date: task.due_date ? task.due_date.slice(0, 10) : "",
       });
       setFile(null);
@@ -29,7 +29,6 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
 
   const handleSave = () => {
     if (!onSave) return;
-    console.log("Editing task ID:", task.id);
 
     // Create FormData to handle file upload
     const formData = new FormData();
@@ -58,12 +57,6 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
 
     if (removeExistingFile) {
       formData.append("remove_file", "true");
-    }
-
-    // Debug: log what we're sending
-    console.log("Sending form data:");
-    for (let [key, value] of formData.entries()) {
-      console.log(key, value);
     }
 
     // Call onSave with FormData instead of form object
@@ -133,7 +126,7 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
               >
                 <option value="unassigned">Unassigned</option>
                 <option value="ongoing">Ongoing</option>
-                <option value="under_review">Under Review</option>
+                <option value="under review">Under Review</option>
                 <option value="completed">Completed</option>
               </select>
             </div>

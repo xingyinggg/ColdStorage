@@ -77,8 +77,6 @@ export function useDirectorInsights() {
       setLoading(true);
       setError(null);
 
-      console.log('Fetching director data...');
-
       const headers = {
         'Content-Type': 'application/json'
       };
@@ -96,15 +94,6 @@ export function useDirectorInsights() {
         fetch('http://localhost:4000/director/risks', { headers }),
         fetch('http://localhost:4000/director/collaboration', { headers })
       ]);
-
-      // Check for errors with better logging
-      console.log('Response status:', {
-        kpi: kpiResponse.status,
-        dept: deptResponse.status,
-        resource: resourceResponse.status,
-        risk: riskResponse.status,
-        collab: collabResponse.status
-      });
 
       if (!kpiResponse.ok) {
         const errorText = await kpiResponse.text();
@@ -142,8 +131,6 @@ export function useDirectorInsights() {
       const resourceData = await resourceResponse.json();
       const riskData = await riskResponse.json();
       const collabData = await collabResponse.json();
-
-      console.log('Parsed data:', { kpiData, deptData, resourceData, riskData, collabData });
 
       // Update state with fetched data
       setCompanyKPIs(kpiData.companyKPIs || {

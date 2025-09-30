@@ -93,10 +93,18 @@ export const useTasks = () => {
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
-        );
+        // Surface server error message if available
+        let message = `HTTP error! status: ${response.status}`;
+        try {
+          const text = await response.text();
+          if (text) {
+            const body = JSON.parse(text);
+            message = body?.error || body?.message || message;
+          }
+        } catch {
+          // ignore JSON parse errors; keep default message
+        }
+        throw new Error(message);
       }
 
       const newTask = await response.json();
@@ -166,7 +174,7 @@ export const useTasks = () => {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    const newStatus = task.status === "completed" ? "in_progress" : "completed";
+  const newStatus = task.status === "completed" ? "ongoing" : "completed";
     return await updateTask(taskId, { status: newStatus });
   };
 

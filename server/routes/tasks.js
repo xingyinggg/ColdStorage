@@ -41,23 +41,39 @@ router.post("/", upload.single("file"), async (req, res) => {
     // Parse collaborators if it exists and is a string (from FormData)
     // If it's already an array (from JSON), use it directly
     let collaborators = null;
-    if (req.body.collaborators) {
-      if (typeof req.body.collaborators === "string") {
-        // From FormData - needs parsing
-        collaborators = JSON.parse(req.body.collaborators);
-      } else {
-        // From JSON - already parsed
-        collaborators = req.body.collaborators;
+    if (req.body.collaborators !== undefined && req.body.collaborators !== null) {
+      try {
+        if (typeof req.body.collaborators === "string") {
+          // From FormData - needs parsing
+          const parsed = JSON.parse(req.body.collaborators);
+          collaborators = Array.isArray(parsed) ? parsed : [];
+        } else {
+          // From JSON - already parsed
+          collaborators = Array.isArray(req.body.collaborators) ? req.body.collaborators : [];
+        }
+      } catch {
+        // Bad payload should not 500; return 400 with message
+        return res.status(400).json({ error: "Invalid collaborators format" });
       }
     }
 
     // Prepare task data
+    const rawStatus = (req.body.status || "unassigned");
+    const normalizedStatus = typeof rawStatus === 'string'
+      ? rawStatus
+          .toLowerCase()
+          .replace(/_/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+      : rawStatus;
     const taskData = {
       title: req.body.title,
       description: req.body.description || null,
       priority: req.body.priority || "medium",
-      status: req.body.status || "unassigned",
-      due_date: req.body.due_date || null,
+      // normalizedStatus handles cases where the client sends different casing
+      status: normalizedStatus,
+      // accept both snake_case and camelCase from clients
+      due_date: req.body.due_date || req.body.dueDate || null,
       project_id: req.body.project_id ? parseInt(req.body.project_id) : null,
       collaborators,
     };
@@ -72,7 +88,7 @@ router.post("/", upload.single("file"), async (req, res) => {
       const filePath = `task-attachment/${fileName}`;
 
       // Upload file to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("task-attachment")
         .upload(filePath, req.file.buffer, {
           contentType: req.file.mimetype,
@@ -91,15 +107,28 @@ router.post("/", upload.single("file"), async (req, res) => {
 
       attachmentUrl = urlData.publicUrl;
       taskData.file = attachmentUrl;
+    }
 
-      console.log("📎 Public URL:", attachmentUrl);
+    // Validate empId exists
+    if (!empId) {
+      throw new Error("Employee ID not found for user");
     }
 
     // Validate the task data
-    const validatedData = TaskSchema.parse(taskData);
+    let validatedData;
+    try {
+      validatedData = TaskSchema.parse(taskData);
+    } catch (zErr) {
+      return res.status(400).json({ error: `Validation error: ${zErr.message}` });
+    }
 
     // Use provided owner_id or default to current user's empId
     const ownerId = req.body.owner_id || empId;
+
+    // Ensure owner_id is a string (emp_id format)
+    if (ownerId && typeof ownerId !== 'string') {
+      return res.status(400).json({ error: "Invalid owner_id format - must be string" });
+    }
 
     // Insert task into database
     const { data: newTask, error: dbError } = await supabase
@@ -414,9 +443,6 @@ router.get("/manager/staff-members", async (req, res) => {
 
 // Replace the PUT route (lines 265-420) with this fixed version:
 router.put("/:id", upload.single("file"), async (req, res) => {
-  console.log("🚀 PUT ROUTE HIT! ID:", req.params.id);
-  console.log("🚀 REQUEST BODY:", req.body);
-  console.log("🚀 HAS FILE:", !!req.file);
   try {
     const supabase = getServiceClient();
     const authHeader = req.headers.authorization || "";
@@ -427,12 +453,6 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     if (!user) return res.status(401).json({ error: "Invalid token" });
     const empId = await getEmpIdForUserId(user.id);
     if (!empId) return res.status(400).json({ error: "emp_id not found" });
-
-    console.log("User authentication:", {
-      userId: user.id,
-      empId: empId,
-      empIdType: typeof empId,
-    });
 
     const { id } = req.params;
     const { remove_file, ...updates } = req.body || {};
@@ -451,26 +471,20 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     ) {
       cleanUpdates.priority = updates.priority;
     }
-    if (
-      updates.status &&
-      ["unassigned", "ongoing", "under_review", "completed"].includes(
-        updates.status
-      )
-    ) {
-      cleanUpdates.status = updates.status;
+    if (updates.status) {
+      const normalizedUpdateStatus = String(updates.status)
+        .toLowerCase()
+        .replace(/_/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const allowedStatuses = ["unassigned", "ongoing", "under review", "completed"];
+      if (allowedStatuses.includes(normalizedUpdateStatus)) {
+        cleanUpdates.status = normalizedUpdateStatus;
+      }
     }
     if (updates.due_date) {
       cleanUpdates.due_date = updates.due_date;
     }
-
-    console.log("Task update request:", {
-      id,
-      empId,
-      originalUpdates: updates,
-      cleanUpdates,
-      remove_file,
-      hasFile: !!req.file,
-    });
 
     // Get current task to check existing file and ownership
     const { data: currentTask, error: fetchError } = await supabase
@@ -485,24 +499,8 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     }
 
     // NOW we can use currentTask for logging
-    console.log("Current task ownership:", {
-      taskId: id,
-      currentTaskOwnerId: currentTask.owner_id,
-      currentUserEmpId: empId,
-      ownershipMatch: currentTask.owner_id == empId, // loose comparison
-      strictMatch: currentTask.owner_id === empId,
-      ownerIdType: typeof currentTask.owner_id,
-      empIdType: typeof empId,
-    });
-
     // Check if user owns the task (use loose comparison for string/number)
     if (currentTask.owner_id != empId) {
-      console.log("Ownership check failed:", {
-        taskOwnerId: currentTask.owner_id,
-        userEmpId: empId,
-        taskOwnerType: typeof currentTask.owner_id,
-        userEmpType: typeof empId,
-      });
       return res
         .status(403)
         .json({ error: "You can only edit your own tasks" });
@@ -541,7 +539,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
         .substring(2)}.${fileExt}`;
       const filePath = `task-attachment/${fileName}`;
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("task-attachment") // Changed from "task-files"
         .upload(filePath, req.file.buffer, {
           contentType: req.file.mimetype,
@@ -564,8 +562,6 @@ router.put("/:id", upload.single("file"), async (req, res) => {
 
     cleanUpdates.file = newFileUrl;
 
-    console.log("Final updates:", cleanUpdates);
-
     // Update the task
     const { data, error } = await supabase
       .from("tasks")
@@ -584,8 +580,6 @@ router.put("/:id", upload.single("file"), async (req, res) => {
         error: "Task not found or you don't have permission to edit it",
       });
     }
-
-    console.log("Task updated successfully:", data[0]);
 
     // Record history (owner updates)
     try {

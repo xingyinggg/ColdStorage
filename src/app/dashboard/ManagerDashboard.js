@@ -1,10 +1,8 @@
 // app/dashboard/ManagerDashboard.js
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import { useManagerTasks } from "@/utils/hooks/useManagerTasks";
 import { useManagerProjects } from "@/utils/hooks/useManagerProjects";
-import { createClient } from "@/utils/supabase/client";
 import TaskCard from "@/components/tasks/TaskCard";
 import HeaderBar from "@/components/layout/HeaderBar";
 
@@ -15,22 +13,13 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
     allProjects,
     staffMembers,
     loading,
-    assignTask,
     updateTaskAssignment,
     getTasksByStatus,
-    getOverdueTasks,
-    getTasksByStaff
+    getOverdueTasks
   } = useManagerTasks();
 
-  const {
-    projects,
-    loading: projectsLoading,
-    error: projectsError,
-    createProject,
-    deleteProject,
-    activeProjects,
-    completedProjects,
-  } = useManagerProjects();
+  // Keep useManagerProjects for potential future use
+  const {} = useManagerProjects();
 
   // Utility functions
   const formatDate = (dateString) => {
@@ -194,23 +183,13 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
                         <dt className="text-sm font-medium text-gray-500 truncate">
                           Quick Actions
                         </dt>
-                        <dd className="text-lg font-medium text-gray-900 space-y-px">
-                          <div>
-                            <a
-                              href="/dashboard/tasks/assign"
-                              className="text-purple-600 hover:text-purple-800"
-                            >
-                              Assign Task
-                            </a>
-                          </div>
-                          <div>
-                            <a
-                              href="/dashboard/tasks/create"
-                              className="text-green-600 hover:text-green-800"
-                            >
-                              New Task
-                            </a>
-                          </div>
+                        <dd className="text-lg font-medium text-gray-900">
+                          <a
+                            href="/dashboard/tasks/create"
+                            className="text-green-600 hover:text-green-800"
+                          >
+                            New Task
+                          </a>
                         </dd>
                       </dl>
                     </div>

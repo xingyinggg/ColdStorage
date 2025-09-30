@@ -165,43 +165,7 @@ export const useManagerTasks = () => {
   };
   const getTasksByStaff = (empId) => allTasks.filter((t) => t.collaborators && t.collaborators.includes(empId));
 
-  // Assign task function for managers
-  const assignTask = useCallback(async (taskData, selectedStaff, ownerId = null) => {
-    try {
-      const token = await getToken();
-      if (!token) throw new Error('No authentication token');
 
-      const payload = {
-        ...taskData,
-        collaborators: selectedStaff,
-        owner_id: ownerId || null // Allow setting owner_id or default to null (manager as owner)
-      };
-
-      const response = await fetch('http://localhost:4000/tasks', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to assign task');
-      }
-
-      const newTask = await response.json();
-      
-      // Refresh tasks after assignment
-      await fetchAllTasks();
-      
-      return { success: true, task: newTask };
-    } catch (err) {
-      setError(err.message);
-      return { success: false, error: err.message };
-    }
-  }, [getToken, fetchAllTasks]);
 
   useEffect(() => {
     const load = async () => {
@@ -218,7 +182,6 @@ export const useManagerTasks = () => {
     staffMembers,
     loading,
     error,
-    assignTask,
     updateTaskAssignment,
     getTasksByStatus,
     getTasksByPriority,

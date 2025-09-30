@@ -13,7 +13,6 @@ import Toast from "@/components/ui/Toast";
 import { useManagerTasks } from "@/utils/hooks/useManagerTasks";
 import StaffTasksView from "./components/StaffTasksView";
 import ManagerTasksView from "./components/ManagerTasksView";
-import { is } from "zod/locales";
 
 // moved status constants into StaffTasksView component
 
@@ -73,12 +72,6 @@ export default function DashboardPage() {
                   className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
                 >
                   Back to Dashboard
-                </Link>
-                <Link
-                  href="/dashboard#assign-task"
-                  className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
-                >
-                  Assign Task
                 </Link>
                 <Link
                   href="/dashboard/tasks/create"

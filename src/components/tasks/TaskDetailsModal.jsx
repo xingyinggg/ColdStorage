@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createClient } from "@/utils/supabase/client";
 
 export default function TaskDetailsModal({ 
   open, 
@@ -10,6 +11,10 @@ export default function TaskDetailsModal({
   projectNames = {} // Add this prop
 }) {
   const [collaboratorNames, setCollaboratorNames] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState("");
 
   // Get collaborator names when task changes
   useEffect(() => {
@@ -108,7 +113,6 @@ export default function TaskDetailsModal({
       case 'under review':
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'ongoing':
-      case 'on going':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'unassigned':
         return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -127,7 +131,45 @@ export default function TaskDetailsModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div className="relative bg-white w-full max-w-2xl rounded-lg shadow-lg p-6 max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Task Details</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium text-gray-900">Task Details</h3>
+          <button
+            title="View edit log"
+            onClick={async () => {
+              if (!task?.id) return;
+              try {
+                setShowHistory(true);
+                setLoadingHistory(true);
+                setHistoryError("");
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+                const supabase = createClient();
+                const { data: { session } } = await supabase.auth.getSession();
+                const token = session?.access_token || "";
+                const res = await fetch(`${apiUrl}/tasks/${task.id}/history`, {
+                  headers: {
+                    'Authorization': `Bearer ${token}`
+                  }
+                });
+                if (!res.ok) {
+                  const body = await res.json().catch(() => ({}));
+                  throw new Error(body?.error || `Request failed: ${res.status}`);
+                }
+                const body = await res.json();
+                setHistory(body.history || []);
+              } catch (e) {
+                setHistoryError(e.message);
+              } finally {
+                setLoadingHistory(false);
+              }
+            }}
+            className="inline-flex items-center px-2 py-1 text-xs rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            Edit Log
+          </button>
+        </div>
 
         <div className="space-y-4">
           {/* Project Name - Add this section */}
@@ -273,6 +315,36 @@ export default function TaskDetailsModal({
             </div>
           )}
         </div>
+
+        {showHistory && (
+          <div className="mt-6">
+            <h4 className="text-md font-medium mb-2">Edit Log</h4>
+            <div className="border rounded-md divide-y">
+              {loadingHistory ? (
+                <div className="p-3 text-sm text-gray-500">Loading history...</div>
+              ) : historyError ? (
+                <div className="p-3 text-sm text-red-600">{historyError}</div>
+              ) : history.length === 0 ? (
+                <div className="p-3 text-sm text-gray-500">No history yet</div>
+              ) : (
+                history.map((h) => (
+                  <div key={h.id} className="p-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium">{h.action}</span>
+                        <span className="text-gray-500 ml-2">by {h.editor_emp_id || h.editor_user_id}</span>
+                      </div>
+                      <span className="text-gray-400">{new Date(h.created_at).toLocaleString()}</span>
+                    </div>
+                    {h.details && (
+                      <pre className="mt-2 bg-gray-50 p-2 rounded text-xs text-gray-700 overflow-x-auto">{JSON.stringify(h.details, null, 2)}</pre>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 flex justify-end gap-2">
           <button 

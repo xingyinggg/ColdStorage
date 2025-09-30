@@ -115,6 +115,21 @@ router.post("/", upload.single("file"), async (req, res) => {
       throw new Error(`Database error: ${dbError.message}`);
     }
 
+    // Record history (create)
+    try {
+      await supabase
+        .from('task_edit_history')
+        .insert([{
+          task_id: newTask.id,
+          editor_emp_id: ownerId,
+          editor_user_id: user.id,
+          action: 'create',
+          details: { task: { id: newTask.id, title: newTask.title, status: newTask.status, priority: newTask.priority, due_date: newTask.due_date, project_id: newTask.project_id } }
+        }]);
+    } catch (hErr) {
+      console.error('Failed to write task history (create):', hErr);
+    }
+
     res.status(201).json(newTask);
   } catch (e) {
     console.error("Stack trace:", e.stack);
@@ -145,34 +160,72 @@ router.get("/", async (req, res) => {
 
     if (tasksError) return res.status(400).json({ error: tasksError.message });
 
-    // If there are tasks, fetch manager information for each task
+    // If there are tasks, fetch owner (manager) information and assignee (collaborator) names
     if (tasksData && tasksData.length > 0) {
-      // Get unique owner_ids
-      const ownerIds = [
-        ...new Set(tasksData.map((task) => task.owner_id).filter(Boolean)),
-      ];
+      // Get unique owner_ids and collaborator emp_ids
+      const ownerIds = new Set();
+      const collaboratorIds = new Set();
+      tasksData.forEach((task) => {
+        if (task.owner_id) ownerIds.add(task.owner_id);
+        if (Array.isArray(task.collaborators)) {
+          task.collaborators.forEach((id) => collaboratorIds.add(id));
+        }
+      });
 
-      if (ownerIds.length > 0) {
-        // Fetch manager info for all unique owner_ids
+      // Fetch owners (managers)
+      if (ownerIds.size > 0) {
         const { data: managersData, error: managersError } = await supabase
           .from("users")
           .select("emp_id, name, department")
-          .in("emp_id", ownerIds);
+          .in("emp_id", Array.from(ownerIds));
 
         if (!managersError && managersData) {
-          // Create a map of emp_id to manager info
           const managersMap = {};
           managersData.forEach((manager) => {
             managersMap[manager.emp_id] = manager;
           });
-
-          // Add manager info to each task
           tasksData.forEach((task) => {
             if (task.owner_id && managersMap[task.owner_id]) {
               task.manager = managersMap[task.owner_id];
+              task.owner_name = managersMap[task.owner_id]?.name || null;
+            } else {
+              task.owner_name = null;
             }
           });
         }
+      }
+
+      // Fetch collaborator user names and attach to each task as assignees
+      if (collaboratorIds.size > 0) {
+        const { data: collaboratorsData, error: collabErr } = await supabase
+          .from("users")
+          .select("emp_id, name, department")
+          .in("emp_id", Array.from(collaboratorIds));
+
+        if (!collabErr && collaboratorsData) {
+          const collabMap = {};
+          collaboratorsData.forEach((u) => {
+            collabMap[u.emp_id] = u;
+          });
+          tasksData.forEach((task) => {
+            if (Array.isArray(task.collaborators) && task.collaborators.length > 0) {
+              task.assignees = task.collaborators
+                .map((id) => collabMap[id])
+                .filter(Boolean);
+            } else {
+              task.assignees = [];
+            }
+          });
+        } else {
+          // Ensure assignees is at least an empty array
+          tasksData.forEach((task) => {
+            if (!Array.isArray(task.assignees)) task.assignees = [];
+          });
+        }
+      } else {
+        tasksData.forEach((task) => {
+          task.assignees = [];
+        });
       }
     }
 
@@ -212,25 +265,50 @@ router.get("/manager/all", async (req, res) => {
     if (tasksError) return res.status(400).json({ error: tasksError.message });
 
     if (tasksData && tasksData.length > 0) {
-      const ownerIds = [
-        ...new Set(tasksData.map((t) => t.owner_id).filter(Boolean)),
-      ];
-      if (ownerIds.length > 0) {
+      const ownerIds = new Set();
+      const collaboratorIds = new Set();
+      tasksData.forEach((t) => {
+        if (t.owner_id) ownerIds.add(t.owner_id);
+        if (Array.isArray(t.collaborators)) t.collaborators.forEach((id) => collaboratorIds.add(id));
+      });
+
+      if (ownerIds.size > 0) {
         const { data: owners, error: ownersErr } = await supabase
           .from("users")
           .select("emp_id, name, role")
-          .in("emp_id", ownerIds);
+          .in("emp_id", Array.from(ownerIds));
         if (!ownersErr && owners) {
           const ownersMap = {};
-          owners.forEach((o) => {
-            ownersMap[o.emp_id] = o;
-          });
+          owners.forEach((o) => { ownersMap[o.emp_id] = o; });
           tasksData.forEach((task) => {
             if (task.owner_id && ownersMap[task.owner_id]) {
               task.task_owner = ownersMap[task.owner_id];
+              task.owner_name = ownersMap[task.owner_id]?.name || null;
+            } else {
+              task.owner_name = null;
             }
           });
         }
+      }
+
+      if (collaboratorIds.size > 0) {
+        const { data: collaboratorsData, error: collabErr } = await supabase
+          .from("users")
+          .select("emp_id, name, department")
+          .in("emp_id", Array.from(collaboratorIds));
+        if (!collabErr && collaboratorsData) {
+          const collabMap = {};
+          collaboratorsData.forEach((u) => { collabMap[u.emp_id] = u; });
+          tasksData.forEach((task) => {
+            if (Array.isArray(task.collaborators) && task.collaborators.length > 0) {
+              task.assignees = task.collaborators.map((id) => collabMap[id]).filter(Boolean);
+            } else {
+              task.assignees = [];
+            }
+          });
+        }
+      } else {
+        tasksData.forEach((task) => { task.assignees = []; });
       }
     }
 
@@ -272,6 +350,27 @@ router.put("/manager/:id", async (req, res) => {
       .select()
       .single();
     if (error) return res.status(400).json({ error: error.message });
+    // Find editor emp_id
+    let editorEmpId = null;
+    try {
+      editorEmpId = await getEmpIdForUserId(user.id);
+    } catch {}
+
+    // Record history (manager/director update)
+    try {
+      await supabase
+        .from('task_edit_history')
+        .insert([{
+          task_id: data.id,
+          editor_emp_id: editorEmpId,
+          editor_user_id: user.id,
+          action: 'update',
+          details: { updates }
+        }]);
+    } catch (hErr) {
+      console.error('Failed to write task history (manager update):', hErr);
+    }
+
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -354,7 +453,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     }
     if (
       updates.status &&
-      ["unassigned", "on going", "under_review", "completed"].includes(
+      ["unassigned", "ongoing", "under_review", "completed"].includes(
         updates.status
       )
     ) {
@@ -487,6 +586,22 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     }
 
     console.log("Task updated successfully:", data[0]);
+
+    // Record history (owner updates)
+    try {
+      await supabase
+        .from('task_edit_history')
+        .insert([{
+          task_id: data[0].id,
+          editor_emp_id: empId,
+          editor_user_id: user.id,
+          action: 'update',
+          details: { updates: cleanUpdates }
+        }]);
+    } catch (hErr) {
+      console.error('Failed to write task history (update):', hErr);
+    }
+
     res.json(data[0]);
   } catch (e) {
     console.error("Unexpected error:", e);
@@ -595,6 +710,30 @@ router.get("/project/:projectId", async (req, res) => {
     res.json(data || []);
   } catch (e) {
     console.error("Error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get edit history for a task
+router.get("/:id/history", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: "Missing access token" });
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: "Invalid token" });
+
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('task_edit_history')
+      .select('id, task_id, editor_emp_id, editor_user_id, action, details, created_at')
+      .eq('task_id', Number(id))
+      .order('created_at', { ascending: false });
+
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ history: data || [] });
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });

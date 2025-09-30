@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import TaskCard from "@/components/tasks/TaskCard";
+import { formatDate, getPriorityColor, getStatusColor } from "./taskUtils";
 
 const statusOrder = ["unassigned", "todo", "in_progress", "done"];
 const statusLabels = {
@@ -69,28 +71,13 @@ export default function StaffTasksView({ tasks = [], onLogout }) {
             </div>
             <div className="space-y-3">
               {grouped[status]?.map((task) => (
-                <div key={task.id} className="bg-white border rounded-lg p-3 shadow-sm">
-                  <div className="font-medium">{task.title}</div>
-                  <div className="text-sm text-gray-500">{task.description}</div>
-                  {task.due_date && (
-                    <div className="text-xs text-gray-400">
-                      Due: {new Date(task.due_date).toLocaleDateString()}
-                    </div>
-                  )}
-                  {task.priority && (
-                    <span
-                      className={`inline-block mt-2 px-2 py-0.5 rounded-full text-xs ${
-                        task.priority === "High"
-                          ? "bg-red-100 text-red-800"
-                          : task.priority === "Medium"
-                          ? "bg-orange-100 text-orange-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {task.priority}
-                    </span>
-                  )}
-                </div>
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  formatDate={formatDate}
+                  getPriorityColor={getPriorityColor}
+                  getStatusColor={getStatusColor}
+                />
               ))}
             </div>
           </div>

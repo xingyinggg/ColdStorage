@@ -122,7 +122,7 @@ export default function ProjectsPage() {
       // Debug: Check for tasks with invalid statuses
       const validStatuses = [
         "unassigned",
-        "on going",
+        "ongoing",
         "under_review",
         "completed",
       ];
@@ -243,7 +243,7 @@ export default function ProjectsPage() {
   const getTaskCounts = (tasks) => {
     const counts = {
       unassigned: 0,
-      "on going": 0,
+      "ongoing": 0,
       under_review: 0,
       completed: 0,
     };
@@ -715,7 +715,7 @@ export default function ProjectsPage() {
                                 <div className="flex items-center">
                                   <div className="w-2 h-2 sm:w-3 sm:h-3 bg-yellow-400 rounded-full mr-1"></div>
                                   <span className="text-xs">
-                                    On going: {taskCounts["on going"]}
+                                    Ongoing: {taskCounts["ongoing"]}
                                   </span>
                                 </div>
                                 <div className="flex items-center">
@@ -756,7 +756,7 @@ export default function ProjectsPage() {
                                     const taskCounts = getTaskCounts(tasks);
                                     const validTasksCount =
                                       taskCounts.unassigned +
-                                      taskCounts["on going"] +
+                                      taskCounts["ongoing"] +
                                       taskCounts.under_review +
                                       taskCounts.completed;
                                     return (
@@ -783,10 +783,10 @@ export default function ProjectsPage() {
                                     />
 
                                     <TaskColumn
-                                      title="On going"
-                                      status="on going"
+                                      title="Ongoing"
+                                      status="ongoing"
                                       tasks={tasks}
-                                      count={taskCounts["on going"]}
+                                      count={taskCounts["ongoing"]}
                                       bgColor="bg-yellow-50"
                                       dotColor="bg-yellow-400"
                                       countBadgeColor="bg-yellow-200 text-yellow-800"

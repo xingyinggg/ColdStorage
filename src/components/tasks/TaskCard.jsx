@@ -5,9 +5,10 @@ import TaskEditModal from "@/components/tasks/TaskEditModal";
 import TaskDetailsModal from "@/components/tasks/TaskDetailsModal";
 import { getPriorityConfig } from "@/constants/taskConstants";
 
-export default function ProjectTaskCard({ 
+export default function TaskCard({ 
   task, 
-  onTaskUpdate,
+  onTaskUpdate, // new prop name used in some places
+  onEdit,        // backwards-compatible prop used elsewhere
   canEdit, // ← Use this prop instead of calculating internally
   borderColor = "border-gray-200", 
   currentUserId, // Keep for backwards compatibility
@@ -42,22 +43,31 @@ export default function ProjectTaskCard({
     setDetailsModalOpen(false);
   };
 
-  const handleEditTask = async (taskId, formData) => {
+  const handleEditTask = async (taskId, formOrFormData) => {
     try {
       setEditSaving(true);
       setEditError("");
       
-      // Convert FormData to regular object for useTasks updateTask function
-      const updates = {};
-      for (let [key, value] of formData.entries()) {
-        if (key !== 'file' && key !== 'remove_file') {
-          updates[key] = value;
+      // Convert FormData to plain object when needed
+      let updates = {};
+      if (formOrFormData && typeof formOrFormData.entries === 'function') {
+        for (let [key, value] of formOrFormData.entries()) {
+          if (key !== 'file' && key !== 'remove_file') {
+            updates[key] = value;
+          }
         }
+      } else if (formOrFormData && typeof formOrFormData === 'object') {
+        updates = { ...formOrFormData };
       }
       
       console.log('TaskCard: Converting FormData to JSON:', updates);
       
-      await onTaskUpdate(taskId, updates);
+      const updateFn = typeof onTaskUpdate === 'function' ? onTaskUpdate : onEdit;
+      if (typeof updateFn !== 'function') {
+        throw new Error('TaskCard: No update handler provided (onTaskUpdate/onEdit)');
+      }
+
+      await updateFn(taskId, updates);
       
       setEditSuccess("Task updated successfully!");
       setTimeout(() => {
@@ -85,9 +95,25 @@ export default function ProjectTaskCard({
   const daysUntilDue = dueDate ? Math.ceil((dueDate - now) / msInDay) : null;
   const isApproaching = dueDate && daysUntilDue > 0 && daysUntilDue <= 3;
 
-  const getAssignedUserName = () => {
-    if (!task.owner_id) return "Unassigned";
-    return memberNames[task.owner_id] || `User ${task.owner_id}`;
+  const getAssignedToDisplay = () => {
+    // Assigned to = task owner
+    const ownerName = task.owner_name || task.manager?.name || task.task_owner?.name;
+    if (ownerName) return ownerName;
+    if (task.owner_id) return `User ${task.owner_id}`;
+    return 'Unassigned';
+  };
+
+  const getCollaboratorsDisplay = () => {
+    if (Array.isArray(task.assignees) && task.assignees.length > 0) {
+      const names = task.assignees.map((u) => u?.name).filter(Boolean);
+      if (names.length > 0) return names.join(', ');
+    }
+    if (Array.isArray(task.collaborators) && task.collaborators.length > 0) {
+      const names = task.collaborators.map((id) => memberNames?.[id]).filter(Boolean);
+      if (names.length > 0) return names.join(', ');
+      return task.collaborators.map((id) => `User ${id}`).join(', ');
+    }
+    return '';
   };
 
   const priorityConfig = getPriorityConfig(task.priority);
@@ -150,9 +176,20 @@ export default function ProjectTaskCard({
             <span className={`font-medium truncate ${
               userCanEdit ? "text-blue-700" : "text-gray-700"
             }`}>
-              {getAssignedUserName()}
+              {getAssignedToDisplay()}
             </span>
           </div>
+
+          {/* Collaborators */}
+          {getCollaboratorsDisplay() && (
+            <div className="flex items-center text-xs">
+              <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M9 20H4v-2a3 3 0 015.356-1.857M15 11a3 3 0 110-6 3 3 0 010 6zM6 11a3 3 0 110-6 3 3 0 010 6z" />
+              </svg>
+              <span className="text-gray-500 font-medium mr-1 flex-shrink-0">Collaborators:</span>
+              <span className="font-medium text-gray-700 truncate">{getCollaboratorsDisplay()}</span>
+            </div>
+          )}
 
           {/* Due Date */}
           {task.due_date && (

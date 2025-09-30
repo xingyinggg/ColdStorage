@@ -354,7 +354,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     }
     if (
       updates.status &&
-      ["unassigned", "on going", "under_review", "completed"].includes(
+      ["unassigned", "ongoing", "under_review", "completed"].includes(
         updates.status
       )
     ) {

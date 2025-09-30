@@ -26,7 +26,7 @@ export default function CreateTaskPage() {
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
   const [file, setFile] = useState(null);
-  const [status, setStatus] = useState("on going");
+  const [status, setStatus] = useState("ongoing");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   
@@ -66,7 +66,7 @@ export default function CreateTaskPage() {
     if (canAssignTasks) {
       setStatus("unassigned"); // Managers/Directors default to unassigned
     } else {
-      setStatus("on going"); // Staff create tasks for themselves
+      setStatus("ongoing"); // Staff create tasks for themselves
     }
   }, [canAssignTasks]);
 
@@ -150,8 +150,8 @@ export default function CreateTaskPage() {
       // Handle status and assignment logic
       if (canAssignTasks) {
         if (assignTo && assignTo !== "") {
-          // Status "unassigned" + someone selected = assign to them, status becomes "on going"
-          formData.append("status", "on going");
+          // Status "unassigned" + someone selected = assign to them, status becomes "ongoing"
+          formData.append("status", "ongoing");
           formData.append("owner_id", assignTo);
           console.log("🎯 Assigning to someone:", assignTo);
         } else if (status === "unassigned") {
@@ -160,7 +160,7 @@ export default function CreateTaskPage() {
           // owner_id will be set to current user in backend (you own it but it's unassigned status)
           console.log("🎯 Creating unassigned task for yourself");
         } else {
-          // Any other status selection (on going, under review, etc.) = assign to yourself
+          // Any other status selection (on oing, under review, etc.) = assign to yourself
           formData.append("status", status);
           // owner_id will be set to current user in backend
           console.log("🎯 Assigning to self with status:", status);
@@ -316,7 +316,7 @@ export default function CreateTaskPage() {
                   onChange={(e) => setStatus(e.target.value)}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 >
-                  <option value="on going">On Going</option>
+                  <option value="ongoing">Ongoing</option>
                   <option value="under review">Under Review</option>
                   <option value="completed">Completed</option>
                   {canAssignTasks && <option value="unassigned">Unassigned</option>}

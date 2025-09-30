@@ -111,7 +111,6 @@ export default function DashboardPage() {
       try {
         const projectNamesMap = await getProjectNames();
         setProjectNames(projectNamesMap);
-        console.log("Fetched project names:", projectNamesMap);
       } catch (error) {
         console.error("Error fetching project names:", error);
       }
@@ -229,11 +228,6 @@ export default function DashboardPage() {
 
   // Render staff dashboard (using extracted component)
   if (isStaff) {
-    console.log("Dashboard Debug:", {
-      projects: projects,
-      "projectNames from state": projectNames,
-    });
-
     return (
       <SidebarLayout>
         <StaffDashboardComponent

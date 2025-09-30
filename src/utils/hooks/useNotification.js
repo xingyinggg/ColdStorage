@@ -40,8 +40,6 @@ export function useNotification() {
 
             const text = await res.text();
             const body = text ? JSON.parse(text) : []; // your API returns an array
-            // inside fetchNotification(), after parsing:
-            console.log("notifications fetched:", Array.isArray(body) ? body.length : 0, body);
 
             if (!res.ok) throw new Error(body?.error || `Request failed: ${res.status}`);
 

@@ -101,6 +101,7 @@ export default function CreateTaskPage() {
       const formData = new FormData();
 
       // Add task fields (including subtasks if present)
+      // Skip fields that are handled separately (status, assignTo, dueDate)
       Object.keys(taskData).forEach(key => {
       if (key === 'collaborators') {
         formData.append('collaborators', JSON.stringify(taskData[key]));
@@ -122,17 +123,18 @@ export default function CreateTaskPage() {
         if (taskData.assignTo && taskData.assignTo !== "") {
           formData.append("status", "ongoing");
           formData.append("owner_id", taskData.assignTo);
-          console.log("🎯 Assigning to someone:", taskData.assignTo);
         } else if (taskData.status === "unassigned") {
           formData.append("status", "unassigned");
-          console.log("🎯 Creating unassigned task for yourself");
         } else {
           formData.append("status", taskData.status);
-          console.log("🎯 Assigning to self with status:", taskData.status);
         }
       } else {
         formData.append("status", taskData.status);
-        console.log("🎯 Staff creating task for self");
+      }
+
+      // Ensure due date is properly formatted
+      if (taskData.dueDate) {
+        formData.append("due_date", taskData.dueDate);
       }
 
       // Add project if selected
@@ -142,7 +144,6 @@ export default function CreateTaskPage() {
 
       // Add file if selected
       if (file && file instanceof File) {
-        console.log("📎 Adding file to FormData:", file.name);
         formData.append("file", file);
       }
 

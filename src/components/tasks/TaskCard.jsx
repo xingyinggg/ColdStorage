@@ -60,8 +60,6 @@ export default function TaskCard({
         updates = { ...formOrFormData };
       }
       
-      console.log('TaskCard: Converting FormData to JSON:', updates);
-      
       const updateFn = typeof onTaskUpdate === 'function' ? onTaskUpdate : onEdit;
       if (typeof updateFn !== 'function') {
         throw new Error('TaskCard: No update handler provided (onTaskUpdate/onEdit)');
@@ -117,14 +115,6 @@ export default function TaskCard({
   };
 
   const priorityConfig = getPriorityConfig(task.priority);
-
-  console.log('Debug - Edit button check:', {
-    canEditProp: canEdit,
-    currentUserId,
-    'task.owner_id': task.owner_id,
-    userCanEdit,
-    'calculated': currentUserId && task.owner_id && String(currentUserId) === String(task.owner_id)
-  });
 
   return (
     <>

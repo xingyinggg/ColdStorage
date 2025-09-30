@@ -124,73 +124,29 @@ router.post("/", upload.single("file"), async (req, res) => {
       .select()
       .single();
 
-    if (taskError) {
-      console.error("Task creation error:", taskError);
-      throw taskError;
+    if (dbError) {
+      throw new Error(`Database error: ${dbError.message}`);
     }
 
-    console.log("✅ Main task created:", newTask.id);
-
-    // 2. CREATE SUBTASKS IF PROVIDED
-    let createdSubtasks = [];
-    if (Array.isArray(subtasksToCreate) && subtasksToCreate.length > 0) {
-      console.log(`📝 Creating ${subtasksToCreate.length} subtasks...`);
-
-      try {
-        // Prepare subtask data for bulk insert
-        const subtaskInserts = subtasksToCreate.map(subtask => ({
-          parent_task_id: newTask.id,
-          title: subtask.title,
-          description: subtask.description || null,
-          priority: subtask.priority || "medium",
-          status: subtask.status || "ongoing",
-          due_date: subtask.dueDate || null, // Note: frontend uses 'dueDate', backend uses 'due_date'
-          collaborators: subtask.collaborators || [],
-          owner_id: finalOwnerId, // Subtasks inherit the main task owner
-        }));
-
-        // Bulk create subtasks
-        const { data: subtasksData, error: subtasksError } = await supabase
-          .from("sub_task")
-          .insert(subtaskInserts)
-          .select();
-
-        if (subtasksError) {
-          console.error("Subtasks creation error:", subtasksError);
-          // Don't fail the entire request, just log the error
-        } else {
-          createdSubtasks = subtasksData || [];
-          console.log(`✅ Created ${createdSubtasks.length} subtasks`);
-        }
-      } catch (subtaskError) {
-        console.error("Error in subtask creation process:", subtaskError);
-        // Continue without failing the main task creation
-      }
+    // Record history (create)
+    try {
+      await supabase
+        .from('task_edit_history')
+        .insert([{
+          task_id: newTask.id,
+          editor_emp_id: ownerId,
+          editor_user_id: user.id,
+          action: 'create',
+          details: { task: { id: newTask.id, title: newTask.title, status: newTask.status, priority: newTask.priority, due_date: newTask.due_date, project_id: newTask.project_id } }
+        }]);
+    } catch (hErr) {
+      console.error('Failed to write task history (create):', hErr);
     }
 
-    // 3. RETURN SUCCESS RESPONSE WITH TASK AND SUBTASKS
-    const response = {
-      success: true,
-      task: {
-        ...newTask,
-        subtasks: createdSubtasks, // Include created subtasks in response
-      },
-      message: `Task created successfully${createdSubtasks.length > 0 ? ` with ${createdSubtasks.length} subtasks` : ''}`,
-    };
-
-    console.log("🎉 Task creation completed:", {
-      taskId: newTask.id,
-      subtaskCount: createdSubtasks.length,
-    });
-
-    res.status(201).json(response);
-
-  } catch (error) {
-    console.error("Task creation error:", error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || "Failed to create task" 
-    });
+    res.status(201).json(newTask);
+  } catch (e) {
+    console.error("Stack trace:", e.stack);
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -211,117 +167,6 @@ async function getUserRole(empId) {
     return "staff"; // Default fallback
   }
 }
-// router.post("/", upload.single("file"), async (req, res) => {
-//   try {
-//     const supabase = getServiceClient();
-//     const authHeader = req.headers.authorization || "";
-//     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
-//     if (!token) return res.status(401).json({ error: "Missing access token" });
-
-//     const user = await getUserFromToken(token);
-//     if (!user) return res.status(401).json({ error: "Invalid token" });
-//     const empId = await getEmpIdForUserId(user.id);
-
-//     // Parse collaborators if it exists and is a string (from FormData)
-//     // If it's already an array (from JSON), use it directly
-//     let collaborators = null;
-//     if (req.body.collaborators) {
-//       if (typeof req.body.collaborators === "string") {
-//         // From FormData - needs parsing
-//         collaborators = JSON.parse(req.body.collaborators);
-//       } else {
-//         // From JSON - already parsed
-//         collaborators = req.body.collaborators;
-//       }
-//     }
-
-//     // Prepare task data
-//     const taskData = {
-//       title: req.body.title,
-//       description: req.body.description || null,
-//       priority: req.body.priority || "medium",
-//       status: req.body.status || "unassigned",
-//       due_date: req.body.due_date || null,
-//       project_id: req.body.project_id ? parseInt(req.body.project_id) : null,
-//       collaborators,
-//     };
-
-//     // Handle file upload to Supabase Storage
-//     let attachmentUrl = null;
-//     if (req.file) {
-//       const fileExt = req.file.originalname.split(".").pop();
-//       const fileName = `${Date.now()}-${Math.random()
-//         .toString(36)
-//         .substring(2)}.${fileExt}`;
-//       const filePath = `task-attachment/${fileName}`;
-
-//       // Upload file to Supabase Storage
-//       const { data: uploadData, error: uploadError } = await supabase.storage
-//         .from("task-attachment")
-//         .upload(filePath, req.file.buffer, {
-//           contentType: req.file.mimetype,
-//           cacheControl: "3600",
-//           upsert: false,
-//         });
-
-//       if (uploadError) {
-//         throw new Error(`File upload failed: ${uploadError.message}`);
-//       }
-
-//       // Get the public URL of the uploaded file
-//       const { data: urlData } = supabase.storage
-//         .from("task-attachment")
-//         .getPublicUrl(filePath);
-
-//       attachmentUrl = urlData.publicUrl;
-//       taskData.file = attachmentUrl;
-
-//       console.log("📎 Public URL:", attachmentUrl);
-//     }
-
-//     // Validate the task data
-//     const validatedData = TaskSchema.parse(taskData);
-
-//     // Use provided owner_id or default to current user's empId
-//     const ownerId = req.body.owner_id || empId;
-
-//     // Insert task into database
-//     const { data: newTask, error: dbError } = await supabase
-//       .from("tasks")
-//       .insert({
-//         ...validatedData,
-//         owner_id: ownerId,
-//       })
-//       .select()
-//       .single();
-
-//     if (dbError) {
-//       throw new Error(`Database error: ${dbError.message}`);
-//     }
-
-//     // Record history (create)
-//     try {
-//       await supabase
-//         .from('task_edit_history')
-//         .insert([{
-//           task_id: newTask.id,
-//           editor_emp_id: ownerId,
-//           editor_user_id: user.id,
-//           action: 'create',
-//           details: { task: { id: newTask.id, title: newTask.title, status: newTask.status, priority: newTask.priority, due_date: newTask.due_date, project_id: newTask.project_id } }
-//         }]);
-//     } catch (hErr) {
-//       console.error('Failed to write task history (create):', hErr);
-//     }
-
-//     res.status(201).json(newTask);
-//   } catch (e) {
-//     console.error("Stack trace:", e.stack);
-//     res.status(500).json({ error: e.message });
-//   }
-// });
-
 // List tasks
 router.get("/", async (req, res) => {
   try {
@@ -599,9 +444,6 @@ router.get("/manager/staff-members", async (req, res) => {
 
 // Replace the PUT route (lines 265-420) with this fixed version:
 router.put("/:id", upload.single("file"), async (req, res) => {
-  console.log("🚀 PUT ROUTE HIT! ID:", req.params.id);
-  console.log("🚀 REQUEST BODY:", req.body);
-  console.log("🚀 HAS FILE:", !!req.file);
   try {
     const supabase = getServiceClient();
     const authHeader = req.headers.authorization || "";
@@ -612,12 +454,6 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     if (!user) return res.status(401).json({ error: "Invalid token" });
     const empId = await getEmpIdForUserId(user.id);
     if (!empId) return res.status(400).json({ error: "emp_id not found" });
-
-    console.log("User authentication:", {
-      userId: user.id,
-      empId: empId,
-      empIdType: typeof empId,
-    });
 
     const { id } = req.params;
     const { remove_file, ...updates } = req.body || {};
@@ -636,26 +472,20 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     ) {
       cleanUpdates.priority = updates.priority;
     }
-    if (
-      updates.status &&
-      ["unassigned", "ongoing", "under_review", "completed"].includes(
-        updates.status
-      )
-    ) {
-      cleanUpdates.status = updates.status;
+    if (updates.status) {
+      const normalizedUpdateStatus = String(updates.status)
+        .toLowerCase()
+        .replace(/_/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const allowedStatuses = ["unassigned", "ongoing", "under review", "completed"];
+      if (allowedStatuses.includes(normalizedUpdateStatus)) {
+        cleanUpdates.status = normalizedUpdateStatus;
+      }
     }
     if (updates.due_date) {
       cleanUpdates.due_date = updates.due_date;
     }
-
-    console.log("Task update request:", {
-      id,
-      empId,
-      originalUpdates: updates,
-      cleanUpdates,
-      remove_file,
-      hasFile: !!req.file,
-    });
 
     // Get current task to check existing file and ownership
     const { data: currentTask, error: fetchError } = await supabase
@@ -670,24 +500,8 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     }
 
     // NOW we can use currentTask for logging
-    console.log("Current task ownership:", {
-      taskId: id,
-      currentTaskOwnerId: currentTask.owner_id,
-      currentUserEmpId: empId,
-      ownershipMatch: currentTask.owner_id == empId, // loose comparison
-      strictMatch: currentTask.owner_id === empId,
-      ownerIdType: typeof currentTask.owner_id,
-      empIdType: typeof empId,
-    });
-
     // Check if user owns the task (use loose comparison for string/number)
     if (currentTask.owner_id != empId) {
-      console.log("Ownership check failed:", {
-        taskOwnerId: currentTask.owner_id,
-        userEmpId: empId,
-        taskOwnerType: typeof currentTask.owner_id,
-        userEmpType: typeof empId,
-      });
       return res
         .status(403)
         .json({ error: "You can only edit your own tasks" });
@@ -726,7 +540,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
         .substring(2)}.${fileExt}`;
       const filePath = `task-attachment/${fileName}`;
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("task-attachment") // Changed from "task-files"
         .upload(filePath, req.file.buffer, {
           contentType: req.file.mimetype,
@@ -749,8 +563,6 @@ router.put("/:id", upload.single("file"), async (req, res) => {
 
     cleanUpdates.file = newFileUrl;
 
-    console.log("Final updates:", cleanUpdates);
-
     // Update the task
     const { data, error } = await supabase
       .from("tasks")
@@ -769,8 +581,6 @@ router.put("/:id", upload.single("file"), async (req, res) => {
         error: "Task not found or you don't have permission to edit it",
       });
     }
-
-    console.log("Task updated successfully:", data[0]);
 
     // Record history (owner updates)
     try {

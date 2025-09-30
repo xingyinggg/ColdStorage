@@ -78,13 +78,6 @@ export default function TaskDetailsModal({
 
   // Get project name
   const getProjectName = () => {
-    console.log('TaskDetailsModal Debug:', {
-      'task.project_id': task.project_id,
-      'projectNames': projectNames,
-      'projectNames keys': Object.keys(projectNames),
-      'lookup result': projectNames[task.project_id]
-    });
-    
     if (!task.project_id) return "No Project";
     return projectNames[task.project_id] || `Project ${task.project_id}`;
   };
@@ -103,14 +96,13 @@ export default function TaskDetailsModal({
     }
   };
 
-  console.log("TaskDetailsModal Debug:", { task, memberNames, projectNames });
   // Get status styling
   const getStatusStyle = (status) => {
     switch (status?.toLowerCase()) {
       case 'completed':
         return 'bg-green-100 text-green-800 border-green-200';
       case 'under_review':
-      case 'under review':
+      case 'under review': // Updated to ensure consistent display
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'ongoing':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';

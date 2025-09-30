@@ -17,7 +17,6 @@ export default function TaskColumn({
   projectNames
 }) {
   const filteredTasks = tasks.filter(task => task.status === status);
-  // console.log("Rendering TaskColumn with tasks:", tasks, "Filtered tasks:", filteredTasks);
 
   return (
     <div className={`${bgColor} rounded-lg p-3 sm:p-4`}>

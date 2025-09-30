@@ -113,12 +113,6 @@ export default function ProjectsPage() {
           tasksData.filter((task) => task.project_id === project.id) || [];
       });
 
-      // Log the tasks AFTER they're fetched
-      console.log(
-        "📋 Current tasks statuses:",
-        tasksData.map((t) => ({ id: t.id, title: t.title, status: t.status }))
-      );
-
       // Debug: Check for tasks with invalid statuses
       const validStatuses = [
         "unassigned",
@@ -259,15 +253,6 @@ export default function ProjectsPage() {
     try {
       const token = await getAuthToken();
 
-      console.log("Frontend debug:", {
-        taskId,
-        token: token ? `${token.substring(0, 20)}...` : "NO TOKEN",
-        userProfile: userProfile
-          ? { emp_id: userProfile.emp_id }
-          : "NO PROFILE",
-        hasToken: !!token,
-      });
-
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/tasks/${taskId}`,
         {
@@ -279,11 +264,8 @@ export default function ProjectsPage() {
         }
       );
 
-      console.log("Response status:", response.status);
-
       if (!response.ok) {
         const errorData = await response.json();
-        console.log("Error response:", errorData);
         throw new Error(errorData.error || "Failed to update task");
       }
 
@@ -404,9 +386,6 @@ export default function ProjectsPage() {
   if (!user) {
     return null;
   }
-
-  console.log("Projects data:", projects);
-  console.log("User data:", userProfile);
 
   return (
     <SidebarLayout>

@@ -32,110 +32,295 @@ router.post("/", upload.single("file"), async (req, res) => {
     const authHeader = req.headers.authorization || "";
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
-    if (!token) return res.status(401).json({ error: "Missing access token" });
+    if (!token) return res.status(401).json({ error: "No token provided" });
 
     const user = await getUserFromToken(token);
     if (!user) return res.status(401).json({ error: "Invalid token" });
+
     const empId = await getEmpIdForUserId(user.id);
 
-    // Parse collaborators if it exists and is a string (from FormData)
-    // If it's already an array (from JSON), use it directly
-    let collaborators = null;
-    if (req.body.collaborators) {
-      if (typeof req.body.collaborators === "string") {
-        // From FormData - needs parsing
-        collaborators = JSON.parse(req.body.collaborators);
-      } else {
-        // From JSON - already parsed
-        collaborators = req.body.collaborators;
+    // Parse the request body
+    const {
+      title,
+      description,
+      priority = "medium",
+      status = "ongoing",
+      due_date,
+      project_id,
+      collaborators: collaboratorsStr,
+      owner_id,
+      subtasks: subtasksStr, // This comes from your TaskForm
+    } = req.body;
+
+    // Parse collaborators
+    let collaborators = [];
+    if (collaboratorsStr) {
+      try {
+        collaborators = JSON.parse(collaboratorsStr);
+      } catch (e) {
+        console.error("Error parsing collaborators:", e);
       }
     }
 
-    // Prepare task data
-    const taskData = {
-      title: req.body.title,
-      description: req.body.description || null,
-      priority: req.body.priority || "medium",
-      status: req.body.status || "unassigned",
-      due_date: req.body.due_date || null,
-      project_id: req.body.project_id ? parseInt(req.body.project_id) : null,
-      collaborators,
-    };
+    // Parse subtasks
+    let subtasksToCreate = [];
+    if (subtasksStr) {
+      try {
+        subtasksToCreate = JSON.parse(subtasksStr);
+        console.log("📝 Parsed subtasks to create:", subtasksToCreate);
+      } catch (e) {
+        console.error("Error parsing subtasks:", e);
+      }
+    }
 
-    // Handle file upload to Supabase Storage
-    let attachmentUrl = null;
+    // Handle file upload
+    let fileUrl = null;
     if (req.file) {
-      const fileExt = req.file.originalname.split(".").pop();
-      const fileName = `${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(2)}.${fileExt}`;
-      const filePath = `task-attachment/${fileName}`;
+      try {
+        const fileName = `task-${Date.now()}-${req.file.originalname}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("task-files")
+          .upload(fileName, req.file.buffer, {
+            contentType: req.file.mimetype,
+          });
 
-      // Upload file to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("task-attachment")
-        .upload(filePath, req.file.buffer, {
-          contentType: req.file.mimetype,
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) {
-        throw new Error(`File upload failed: ${uploadError.message}`);
+        if (uploadError) throw uploadError;
+        fileUrl = uploadData.path;
+        console.log("📎 File uploaded:", fileUrl);
+      } catch (uploadError) {
+        console.error("File upload error:", uploadError);
+        return res.status(500).json({ error: "File upload failed" });
       }
-
-      // Get the public URL of the uploaded file
-      const { data: urlData } = supabase.storage
-        .from("task-attachment")
-        .getPublicUrl(filePath);
-
-      attachmentUrl = urlData.publicUrl;
-      taskData.file = attachmentUrl;
-
-      console.log("📎 Public URL:", attachmentUrl);
     }
 
-    // Validate the task data
-    const validatedData = TaskSchema.parse(taskData);
+    // Determine final owner_id and status
+    let finalOwnerId = empId; // Default to current user
+    let finalStatus = status;
 
-    // Use provided owner_id or default to current user's empId
-    const ownerId = req.body.owner_id || empId;
+    // Handle assignment logic (only for managers/directors)
+    const userRole = await getUserRole(empId); // You'll need this helper function
+    const canAssignTasks = userRole === "manager" || userRole === "director";
 
-    // Insert task into database
-    const { data: newTask, error: dbError } = await supabase
+    if (canAssignTasks && owner_id && owner_id !== empId) {
+      finalOwnerId = owner_id;
+      finalStatus = "ongoing"; // Assigned tasks are always ongoing
+      console.log("🎯 Task assigned to:", owner_id);
+    }
+
+    // 1. CREATE THE MAIN TASK FIRST
+    const { data: newTask, error: taskError } = await supabase
       .from("tasks")
       .insert({
-        ...validatedData,
-        owner_id: ownerId,
+        title,
+        description: description || null,
+        priority,
+        status: finalStatus,
+        due_date: due_date || null,
+        project_id: project_id ? parseInt(project_id) : null,
+        collaborators,
+        owner_id: finalOwnerId,
+        file: fileUrl,
       })
       .select()
       .single();
 
-    if (dbError) {
-      throw new Error(`Database error: ${dbError.message}`);
+    if (taskError) {
+      console.error("Task creation error:", taskError);
+      throw taskError;
     }
 
-    // Record history (create)
-    try {
-      await supabase
-        .from('task_edit_history')
-        .insert([{
-          task_id: newTask.id,
-          editor_emp_id: ownerId,
-          editor_user_id: user.id,
-          action: 'create',
-          details: { task: { id: newTask.id, title: newTask.title, status: newTask.status, priority: newTask.priority, due_date: newTask.due_date, project_id: newTask.project_id } }
-        }]);
-    } catch (hErr) {
-      console.error('Failed to write task history (create):', hErr);
+    console.log("✅ Main task created:", newTask.id);
+
+    // 2. CREATE SUBTASKS IF PROVIDED
+    let createdSubtasks = [];
+    if (Array.isArray(subtasksToCreate) && subtasksToCreate.length > 0) {
+      console.log(`📝 Creating ${subtasksToCreate.length} subtasks...`);
+
+      try {
+        // Prepare subtask data for bulk insert
+        const subtaskInserts = subtasksToCreate.map(subtask => ({
+          parent_task_id: newTask.id,
+          title: subtask.title,
+          description: subtask.description || null,
+          priority: subtask.priority || "medium",
+          status: subtask.status || "ongoing",
+          due_date: subtask.dueDate || null, // Note: frontend uses 'dueDate', backend uses 'due_date'
+          collaborators: subtask.collaborators || [],
+          owner_id: finalOwnerId, // Subtasks inherit the main task owner
+        }));
+
+        // Bulk create subtasks
+        const { data: subtasksData, error: subtasksError } = await supabase
+          .from("sub_task")
+          .insert(subtaskInserts)
+          .select();
+
+        if (subtasksError) {
+          console.error("Subtasks creation error:", subtasksError);
+          // Don't fail the entire request, just log the error
+        } else {
+          createdSubtasks = subtasksData || [];
+          console.log(`✅ Created ${createdSubtasks.length} subtasks`);
+        }
+      } catch (subtaskError) {
+        console.error("Error in subtask creation process:", subtaskError);
+        // Continue without failing the main task creation
+      }
     }
 
-    res.status(201).json(newTask);
-  } catch (e) {
-    console.error("Stack trace:", e.stack);
-    res.status(500).json({ error: e.message });
+    // 3. RETURN SUCCESS RESPONSE WITH TASK AND SUBTASKS
+    const response = {
+      success: true,
+      task: {
+        ...newTask,
+        subtasks: createdSubtasks, // Include created subtasks in response
+      },
+      message: `Task created successfully${createdSubtasks.length > 0 ? ` with ${createdSubtasks.length} subtasks` : ''}`,
+    };
+
+    console.log("🎉 Task creation completed:", {
+      taskId: newTask.id,
+      subtaskCount: createdSubtasks.length,
+    });
+
+    res.status(201).json(response);
+
+  } catch (error) {
+    console.error("Task creation error:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || "Failed to create task" 
+    });
   }
 });
+
+// Helper function to get user role (add this to your tasks.js file)
+async function getUserRole(empId) {
+  try {
+    const supabase = getServiceClient();
+    const { data, error } = await supabase
+      .from("users")
+      .select("role")
+      .eq("emp_id", empId)
+      .single();
+    
+    if (error) throw error;
+    return data?.role || "staff";
+  } catch (error) {
+    console.error("Error getting user role:", error);
+    return "staff"; // Default fallback
+  }
+}
+// router.post("/", upload.single("file"), async (req, res) => {
+//   try {
+//     const supabase = getServiceClient();
+//     const authHeader = req.headers.authorization || "";
+//     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+//     if (!token) return res.status(401).json({ error: "Missing access token" });
+
+//     const user = await getUserFromToken(token);
+//     if (!user) return res.status(401).json({ error: "Invalid token" });
+//     const empId = await getEmpIdForUserId(user.id);
+
+//     // Parse collaborators if it exists and is a string (from FormData)
+//     // If it's already an array (from JSON), use it directly
+//     let collaborators = null;
+//     if (req.body.collaborators) {
+//       if (typeof req.body.collaborators === "string") {
+//         // From FormData - needs parsing
+//         collaborators = JSON.parse(req.body.collaborators);
+//       } else {
+//         // From JSON - already parsed
+//         collaborators = req.body.collaborators;
+//       }
+//     }
+
+//     // Prepare task data
+//     const taskData = {
+//       title: req.body.title,
+//       description: req.body.description || null,
+//       priority: req.body.priority || "medium",
+//       status: req.body.status || "unassigned",
+//       due_date: req.body.due_date || null,
+//       project_id: req.body.project_id ? parseInt(req.body.project_id) : null,
+//       collaborators,
+//     };
+
+//     // Handle file upload to Supabase Storage
+//     let attachmentUrl = null;
+//     if (req.file) {
+//       const fileExt = req.file.originalname.split(".").pop();
+//       const fileName = `${Date.now()}-${Math.random()
+//         .toString(36)
+//         .substring(2)}.${fileExt}`;
+//       const filePath = `task-attachment/${fileName}`;
+
+//       // Upload file to Supabase Storage
+//       const { data: uploadData, error: uploadError } = await supabase.storage
+//         .from("task-attachment")
+//         .upload(filePath, req.file.buffer, {
+//           contentType: req.file.mimetype,
+//           cacheControl: "3600",
+//           upsert: false,
+//         });
+
+//       if (uploadError) {
+//         throw new Error(`File upload failed: ${uploadError.message}`);
+//       }
+
+//       // Get the public URL of the uploaded file
+//       const { data: urlData } = supabase.storage
+//         .from("task-attachment")
+//         .getPublicUrl(filePath);
+
+//       attachmentUrl = urlData.publicUrl;
+//       taskData.file = attachmentUrl;
+
+//       console.log("📎 Public URL:", attachmentUrl);
+//     }
+
+//     // Validate the task data
+//     const validatedData = TaskSchema.parse(taskData);
+
+//     // Use provided owner_id or default to current user's empId
+//     const ownerId = req.body.owner_id || empId;
+
+//     // Insert task into database
+//     const { data: newTask, error: dbError } = await supabase
+//       .from("tasks")
+//       .insert({
+//         ...validatedData,
+//         owner_id: ownerId,
+//       })
+//       .select()
+//       .single();
+
+//     if (dbError) {
+//       throw new Error(`Database error: ${dbError.message}`);
+//     }
+
+//     // Record history (create)
+//     try {
+//       await supabase
+//         .from('task_edit_history')
+//         .insert([{
+//           task_id: newTask.id,
+//           editor_emp_id: ownerId,
+//           editor_user_id: user.id,
+//           action: 'create',
+//           details: { task: { id: newTask.id, title: newTask.title, status: newTask.status, priority: newTask.priority, due_date: newTask.due_date, project_id: newTask.project_id } }
+//         }]);
+//     } catch (hErr) {
+//       console.error('Failed to write task history (create):', hErr);
+//     }
+
+//     res.status(201).json(newTask);
+//   } catch (e) {
+//     console.error("Stack trace:", e.stack);
+//     res.status(500).json({ error: e.message });
+//   }
+// });
 
 // List tasks
 router.get("/", async (req, res) => {

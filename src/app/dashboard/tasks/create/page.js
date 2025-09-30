@@ -102,14 +102,20 @@ export default function CreateTaskPage() {
 
       // Add task fields (including subtasks if present)
       Object.keys(taskData).forEach(key => {
-        if (key === 'collaborators') {
-          formData.append('collaborators', JSON.stringify(taskData[key]));
-        } else if (key === 'subtasks') {
-          formData.append('subtasks', JSON.stringify(taskData[key]));
-        } else if (taskData[key] !== null && taskData[key] !== '') {
-          formData.append(key, taskData[key]);
-        }
-      });
+      if (key === 'collaborators') {
+        formData.append('collaborators', JSON.stringify(taskData[key]));
+      } else if (key === 'subtasks') {
+        formData.append('subtasks', JSON.stringify(taskData[key]));
+      } else if (key === 'status') {
+        // Skip status here - we'll handle it in assignment logic below
+        return;
+      } else if (key === 'assignTo') {
+        // Skip assignTo - it's only used for logic, not sent to backend
+        return;
+      } else if (taskData[key] !== null && taskData[key] !== '') {
+        formData.append(key, taskData[key]);
+      }
+    });
 
       // Handle assignment logic
       if (canAssignTasks) {

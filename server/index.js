@@ -27,6 +27,7 @@ const hrRoutes = (await import("./routes/hr.js")).default;
 const usersRoutes = (await import("./routes/users.js")).default;
 const notificationRoutes = (await import("./routes/notification.js")).default;
 const directorRoutes = (await import("./routes/director.js")).default;
+//const subtasksRoutes = (await import("./routes/subtasks.js"))
 
 // // Import routes AFTER loading env variables
 // import authRoutes from './routes/auth.js';
@@ -47,6 +48,7 @@ app.use("/hr", hrRoutes);
 app.use("/users", usersRoutes);
 app.use("/notification", notificationRoutes);
 app.use("/director", directorRoutes);
+//app.use('/subtasks', subtasksRoutes);
 
 app.use((req, res) => res.status(404).type("application/json").send(JSON.stringify({ error: "Not found" })));
 

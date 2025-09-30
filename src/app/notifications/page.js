@@ -26,7 +26,7 @@ export default function NotificationPage() {
                         <div className="flex items-center justify-between mb-4">
                             <h1 className="text-xl font-semibold">Notifications</h1>
                             <button onClick={refresh} className="text-sm text-blue-600 hover:underline">
-                                Refresh →
+                                <u>Refresh</u>
                             </button>
                         </div>
 
@@ -49,20 +49,13 @@ export default function NotificationPage() {
                         <div className="space-y-5">
                             {notification.map((n) => (
                                 <div key={n.id} className="relative bg-white border rounded-xl p-5 shadow-sm">
-                                    <div className="absolute right-4 top-4">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${pill(n.read)}`}>
-                                            {n.read ? "Read" : "Unread"}
-                                        </span>
-                                    </div>
-
                                     <div className="font-semibold mb-1">{n.title}</div>
-                                    <div className="text-sm text-gray-600">{n.message}</div>
-
-                                    <div className="mt-3 flex items-center gap-4 text-sm text-gray-500">
-                                        <div className="flex items-center gap-2">
-                                            <span>📅</span>
-                                            <span>{new Date(n.created_at).toLocaleDateString()}</span>
-                                        </div>
+                                    <div className="text-sm text-gray-600 mb-2">{n.description}</div>
+                                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                                        <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-800 text-xs font-medium">
+                                            {n.type}
+                                        </span>
+                                        <span> 📅 Received on: {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {new Date(n.created_at).toLocaleDateString()}  </span>
                                     </div>
                                 </div>
                             ))}

@@ -12,7 +12,7 @@ export default function SubtaskManager({
   const [subtaskForm, setSubtaskForm] = useState({
     title: "",
     description: "",
-    priority: "medium",
+    priority: 5,
     status: "ongoing",
     collaborators: [],
     dueDate: ""
@@ -31,7 +31,7 @@ export default function SubtaskManager({
     setSubtaskForm({
       title: "",
       description: "",
-      priority: "medium",
+      priority: 5,
       status: "ongoing",
       collaborators: [],
       dueDate: ""
@@ -148,16 +148,18 @@ export default function SubtaskManager({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Priority
+                  Priority Level (1-10)
                 </label>
                 <select
                   value={subtaskForm.priority}
-                  onChange={(e) => setSubtaskForm(prev => ({ ...prev, priority: e.target.value }))}
+                  onChange={(e) => setSubtaskForm(prev => ({ ...prev, priority: parseInt(e.target.value, 10) }))}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(level => (
+                    <option key={level} value={level}>
+                      {level} {level === 1 ? '(Low)' : level === 10 ? '(High)' : ''}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -226,7 +228,7 @@ export default function SubtaskManager({
                   setSubtaskForm({
                     title: "",
                     description: "",
-                    priority: "medium",
+                    priority: 5,
                     status: "ongoing",
                     collaborators: [],
                     dueDate: ""

@@ -82,18 +82,28 @@ export default function TaskDetailsModal({
     return projectNames[task.project_id] || `Project ${task.project_id}`;
   };
 
-  // Get priority styling
+  // Get priority styling - Updated for numeric 1-10 scale
   const getPriorityStyle = (priority) => {
-    switch (priority?.toLowerCase()) {
-      case 'high':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low':
-        return 'bg-green-100 text-green-800 border-green-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+    if (priority === null || priority === undefined) {
+      return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+    
+    const numPriority = Number(priority);
+    
+    // 1-3: Low (green)
+    if (numPriority >= 1 && numPriority <= 3) {
+      return 'bg-green-100 text-green-800 border-green-200';
+    }
+    // 4-6: Medium (yellow)
+    if (numPriority >= 4 && numPriority <= 6) {
+      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    }
+    // 7-10: High (red)
+    if (numPriority >= 7 && numPriority <= 10) {
+      return 'bg-red-100 text-red-800 border-red-200';
+    }
+    
+    return 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
   // Get status styling
@@ -201,10 +211,10 @@ export default function TaskDetailsModal({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Priority */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Priority Level</label>
               <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getPriorityStyle(task.priority)}`}>
-                  {task.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'Not set'}
+                  {task.priority !== null && task.priority !== undefined ? `Priority: ${task.priority}` : 'Not set'}
                 </span>
               </div>
             </div>

@@ -43,7 +43,7 @@ router.post("/", upload.single("file"), async (req, res) => {
     const {
       title,
       description,
-      priority = "medium",
+      priority,
       status = "ongoing",
       due_date,
       project_id,
@@ -51,6 +51,15 @@ router.post("/", upload.single("file"), async (req, res) => {
       owner_id,
       subtasks: subtasksStr, // This comes from your TaskForm
     } = req.body;
+
+    // Parse and validate priority as integer
+    let taskPriority = null;
+    if (priority !== undefined && priority !== null && priority !== "") {
+      const parsedPriority = parseInt(priority, 10);
+      if (!isNaN(parsedPriority) && parsedPriority >= 1 && parsedPriority <= 10) {
+        taskPriority = parsedPriority;
+      }
+    }
 
     // Parse collaborators
     let collaborators = [];
@@ -113,7 +122,7 @@ router.post("/", upload.single("file"), async (req, res) => {
       .insert({
         title,
         description: description || null,
-        priority,
+        priority: taskPriority,
         status: finalStatus,
         due_date: due_date || null,
         project_id: project_id ? parseInt(project_id) : null,
@@ -135,16 +144,27 @@ router.post("/", upload.single("file"), async (req, res) => {
 
       try {
         // Prepare subtask data for bulk insert
-        const subtaskInserts = subtasksToCreate.map(subtask => ({
-          parent_task_id: newTask.id,
-          title: subtask.title,
-          description: subtask.description || null,
-          priority: subtask.priority || "medium",
-          status: subtask.status || "ongoing",
-          due_date: subtask.dueDate || null, // Note: frontend uses 'dueDate', backend uses 'due_date'
-          collaborators: subtask.collaborators || [],
-          owner_id: finalOwnerId, // Subtasks inherit the main task owner
-        }));
+        const subtaskInserts = subtasksToCreate.map(subtask => {
+          // Parse subtask priority
+          let subtaskPriority = null;
+          if (subtask.priority !== undefined && subtask.priority !== null && subtask.priority !== "") {
+            const parsedSubPriority = parseInt(subtask.priority, 10);
+            if (!isNaN(parsedSubPriority) && parsedSubPriority >= 1 && parsedSubPriority <= 10) {
+              subtaskPriority = parsedSubPriority;
+            }
+          }
+
+          return {
+            parent_task_id: newTask.id,
+            title: subtask.title,
+            description: subtask.description || null,
+            priority: subtaskPriority,
+            status: subtask.status || "ongoing",
+            due_date: subtask.dueDate || null, // Note: frontend uses 'dueDate', backend uses 'due_date'
+            collaborators: subtask.collaborators || [],
+            owner_id: finalOwnerId, // Subtasks inherit the main task owner
+          };
+        });
 
         // Bulk create subtasks
         const { data: subtasksData, error: subtasksError } = await supabase
@@ -503,11 +523,11 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     if (updates.description !== undefined) {
       cleanUpdates.description = updates.description || null;
     }
-    if (
-      updates.priority &&
-      ["low", "medium", "high"].includes(updates.priority)
-    ) {
-      cleanUpdates.priority = updates.priority;
+    if (updates.priority !== undefined && updates.priority !== null && updates.priority !== "") {
+      const parsedPriority = parseInt(updates.priority, 10);
+      if (!isNaN(parsedPriority) && parsedPriority >= 1 && parsedPriority <= 10) {
+        cleanUpdates.priority = parsedPriority;
+      }
     }
     if (updates.status) {
       const normalizedUpdateStatus = String(updates.status)

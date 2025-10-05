@@ -3,7 +3,49 @@
 import { useState } from "react";
 import TaskEditModal from "@/components/tasks/TaskEditModal";
 import TaskDetailsModal from "@/components/tasks/TaskDetailsModal";
-import { getPriorityConfig } from "@/constants/taskConstants";
+
+// Helper function to get priority color based on numeric value (1-10)
+const getPriorityColor = (priority) => {
+  if (priority === null || priority === undefined) {
+    return {
+      bg: "bg-gray-50",
+      text: "text-gray-700",
+      border: "border-gray-200",
+    };
+  }
+  
+  // 1-3: Low (green)
+  if (priority >= 1 && priority <= 3) {
+    return {
+      bg: "bg-green-50",
+      text: "text-green-700",
+      border: "border-green-200",
+    };
+  }
+  // 4-6: Medium (orange/yellow)
+  if (priority >= 4 && priority <= 6) {
+    return {
+      bg: "bg-yellow-50",
+      text: "text-yellow-700",
+      border: "border-yellow-200",
+    };
+  }
+  // 7-10: High (red)
+  if (priority >= 7 && priority <= 10) {
+    return {
+      bg: "bg-red-50",
+      text: "text-red-700",
+      border: "border-red-200",
+    };
+  }
+  
+  // Default
+  return {
+    bg: "bg-gray-50",
+    text: "text-gray-700",
+    border: "border-gray-200",
+  };
+};
 
 export default function TaskCard({ 
   task, 
@@ -114,7 +156,7 @@ export default function TaskCard({
     return '';
   };
 
-  const priorityConfig = getPriorityConfig(task.priority);
+  const priorityConfig = getPriorityColor(task.priority);
 
   return (
     <>
@@ -129,10 +171,10 @@ export default function TaskCard({
           </h3>
           
           <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
-            {/* Priority Badge */}
-            {task.priority && (
+            {/* Priority Badge - Show numeric value */}
+            {task.priority !== null && task.priority !== undefined && (
               <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${priorityConfig.bg} ${priorityConfig.text} ${priorityConfig.border}`}>
-                {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                Priority: {task.priority}
               </div>
             )}
             

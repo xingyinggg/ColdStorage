@@ -24,7 +24,21 @@ export const useTasks = () => {
         throw new Error(body?.error || `Request failed: ${res.status}`);
       }
       const body = await res.json();
-      setTasks(body.tasks || []);
+      // Sort tasks by priority in descending order (10 to 1), then by created_at
+      const sortedTasks = (body.tasks || []).sort((a, b) => {
+        // Handle null/undefined priorities - treat them as 0 (lowest)
+        const priorityA = a.priority !== null && a.priority !== undefined ? a.priority : 0;
+        const priorityB = b.priority !== null && b.priority !== undefined ? b.priority : 0;
+        
+        // Sort by priority descending (higher priority first)
+        if (priorityB !== priorityA) {
+          return priorityB - priorityA;
+        }
+        
+        // If priorities are equal, sort by created_at (newer first)
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      });
+      setTasks(sortedTasks);
     } catch (err) {
       console.error("Error in fetchTasks:", err);
       setError(err.message);

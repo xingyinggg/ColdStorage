@@ -24,7 +24,7 @@ export default function TaskForm({
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    priority: "medium",
+    priority: 5,
     status: isSubtask ? "ongoing" : (canAssignTasks ? "unassigned" : "ongoing"),
     collaborators: [],
     assignTo: "",
@@ -120,17 +120,22 @@ export default function TaskForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Priority
+            Priority Level (1-10)
           </label>
           <select
             value={formData.priority}
-            onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
+            onChange={(e) => setFormData(prev => ({ ...prev, priority: parseInt(e.target.value, 10) }))}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
           >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(level => (
+              <option key={level} value={level}>
+                {level} {level === 1 ? '(Least Important)' : level === 10 ? '(Most Important)' : ''}
+              </option>
+            ))}
           </select>
+          <p className="mt-1 text-xs text-gray-500">
+            1 = Least important, 10 = Most important
+          </p>
         </div>
 
         <div>

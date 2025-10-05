@@ -6,7 +6,7 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
   const [form, setForm] = useState({
     title: "",
     description: "",
-    priority: "medium",
+    priority: 5,
     status: "unassigned",
     due_date: "",
   });
@@ -18,7 +18,7 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
       setForm({
         title: task.title || "",
         description: task.description || "",
-        priority: (task.priority || "medium").toLowerCase(),
+        priority: task.priority !== null && task.priority !== undefined ? task.priority : 5,
   status: task.status || "ongoing",
         due_date: task.due_date ? task.due_date.slice(0, 10) : "",
       });
@@ -105,16 +105,19 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Priority Level</label>
               <select
                 value={form.priority}
-                onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                onChange={(e) => setForm({ ...form, priority: parseInt(e.target.value, 10) })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(level => (
+                  <option key={level} value={level}>
+                    {level} {level === 1 ? '(Low)' : level === 10 ? '(High)' : ''}
+                  </option>
+                ))}
               </select>
+              <p className="mt-1 text-xs text-gray-500">1 = Low, 10 = High</p>
             </div>
 
             <div>

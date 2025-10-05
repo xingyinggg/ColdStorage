@@ -37,11 +37,12 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
     if (form.title && form.title.trim()) {
       formData.append("title", form.title.trim());
     }
-    if (form.description) {
+    if (form.description !== undefined) {
       formData.append("description", form.description);
     }
-    if (form.priority) {
-      formData.append("priority", form.priority);
+    // Always append priority if it's a valid number
+    if (form.priority !== null && form.priority !== undefined) {
+      formData.append("priority", form.priority.toString());
     }
     if (form.status) {
       formData.append("status", form.status);

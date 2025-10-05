@@ -95,11 +95,26 @@ export default function TaskCard({
       if (formOrFormData && typeof formOrFormData.entries === 'function') {
         for (let [key, value] of formOrFormData.entries()) {
           if (key !== 'file' && key !== 'remove_file') {
-            updates[key] = value;
+            // Convert priority to integer
+            if (key === 'priority') {
+              const parsed = parseInt(value, 10);
+              if (!isNaN(parsed)) {
+                updates[key] = parsed;
+              }
+            } else {
+              updates[key] = value;
+            }
           }
         }
       } else if (formOrFormData && typeof formOrFormData === 'object') {
         updates = { ...formOrFormData };
+        // Ensure priority is a number if present
+        if (updates.priority !== undefined && updates.priority !== null) {
+          const parsed = parseInt(updates.priority, 10);
+          if (!isNaN(parsed)) {
+            updates.priority = parsed;
+          }
+        }
       }
       
       const updateFn = typeof onTaskUpdate === 'function' ? onTaskUpdate : onEdit;

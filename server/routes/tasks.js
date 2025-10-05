@@ -430,9 +430,22 @@ router.put("/manager/:id", async (req, res) => {
 
     const { id } = req.params;
     const updates = req.body || {};
+    
+    // Clean and validate updates - especially priority
+    const cleanUpdates = { ...updates };
+    if (cleanUpdates.priority !== undefined && cleanUpdates.priority !== null && cleanUpdates.priority !== "") {
+      const parsedPriority = parseInt(cleanUpdates.priority, 10);
+      if (!isNaN(parsedPriority) && parsedPriority >= 1 && parsedPriority <= 10) {
+        cleanUpdates.priority = parsedPriority;
+      } else {
+        // Remove invalid priority from updates
+        delete cleanUpdates.priority;
+      }
+    }
+    
     const { data, error } = await supabase
       .from("tasks")
-      .update({ ...updates })
+      .update(cleanUpdates)
       .eq("id", Number(id))
       .select()
       .single();

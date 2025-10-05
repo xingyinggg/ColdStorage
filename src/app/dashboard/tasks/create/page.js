@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTasks } from "@/utils/hooks/useTasks";
+import { useNotification } from "@/utils/hooks/useNotification";
 import { useProjects } from "@/utils/hooks/useProjects";
 import { useAuth } from "@/utils/hooks/useAuth";
 import { useUsers } from "@/utils/hooks/useUsers";
@@ -12,10 +13,11 @@ import TaskForm from "@/components/tasks/TaskForm";
 export default function CreateTaskPage() {
   const router = useRouter();
   const { createTask } = useTasks();
-  const { 
-    projects, 
-    loading: loadingProjects, 
-    getProjectMembers 
+  const { createNotification } = useNotification();
+  const {
+    projects,
+    loading: loadingProjects,
+    getProjectMembers
   } = useProjects();
   const { userProfile } = useAuth();
   const { fetchUsers, getAssignableUsers } = useUsers();
@@ -103,20 +105,20 @@ export default function CreateTaskPage() {
       // Add task fields (including subtasks if present)
       // Skip fields that are handled separately (status, assignTo, dueDate)
       Object.keys(taskData).forEach(key => {
-      if (key === 'collaborators') {
-        formData.append('collaborators', JSON.stringify(taskData[key]));
-      } else if (key === 'subtasks') {
-        formData.append('subtasks', JSON.stringify(taskData[key]));
-      } else if (key === 'status') {
-        // Skip status here - we'll handle it in assignment logic below
-        return;
-      } else if (key === 'assignTo') {
-        // Skip assignTo - it's only used for logic, not sent to backend
-        return;
-      } else if (taskData[key] !== null && taskData[key] !== '') {
-        formData.append(key, taskData[key]);
-      }
-    });
+        if (key === 'collaborators') {
+          formData.append('collaborators', JSON.stringify(taskData[key]));
+        } else if (key === 'subtasks') {
+          formData.append('subtasks', JSON.stringify(taskData[key]));
+        } else if (key === 'status') {
+          // Skip status here - we'll handle it in assignment logic below
+          return;
+        } else if (key === 'assignTo') {
+          // Skip assignTo - it's only used for logic, not sent to backend
+          return;
+        } else if (taskData[key] !== null && taskData[key] !== '') {
+          formData.append(key, taskData[key]);
+        }
+      });
 
       // Handle assignment logic
       if (canAssignTasks) {
@@ -150,6 +152,15 @@ export default function CreateTaskPage() {
       const result = await createTask(formData);
 
       if (result.success) {
+        const notification = {
+          emp_id: result.task.owner_id || userProfile.emp_id,
+          title: "New Task Created",
+          description: `Task "${result.task.title}" has been created.`,
+          type: "task",
+          created_at: new Date().toISOString(),
+        };
+        await createNotification(notification);
+
         router.push("/dashboard");
       } else {
         setError(result.error || "Failed to create task");

@@ -7,6 +7,11 @@ import { useNotification } from "@/utils/hooks/useNotification";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+const handleLogout = async () => {
+    await signOut();
+    router.push("/login");
+};
+
 export default function NotificationPage() {
     const router = useRouter();
     const { user, userProfile } = useAuth();
@@ -20,7 +25,26 @@ export default function NotificationPage() {
     return (
         <SidebarLayout>
             <div className="min-h-screen bg-gray-50">
-                <HeaderBar />
+                <nav className="bg-white shadow">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="flex justify-between h-16 items-center">
+                            <h1 className="text-xl font-semibold">
+                                Mailbox
+                            </h1>
+                            <div className="flex items-center space-x-4">
+                                <span className="text-gray-700">
+                                    Welcome, {userProfile?.name || user?.email}
+                                </span>
+                                <button
+                                    onClick={handleLogout}
+                                    className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                                >
+                                    Logout
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
                 <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
                     <div className="px-4 py-6 sm:px-0">
                         <div className="flex items-center justify-between mb-4">

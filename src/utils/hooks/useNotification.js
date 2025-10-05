@@ -12,7 +12,7 @@ export default function DebugToken() {
     }, [supabase]);
 
     return <div>Open the console. Log in first if needed.</div>;
-}
+};
 
 export function useNotification() {
     const [notification, setNotification] = useState([]);
@@ -21,6 +21,50 @@ export function useNotification() {
     const supabase = createClient();
     //const { data: { session } } = await supabase.auth.getSession();
 
+    const getAuthToken = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log("Auth token:", session?.access_token);
+        return session?.access_token;
+    };
+
+    const createNotification = async (notificationData) => {
+        try {
+            const token = await getAuthToken();
+
+            if (!token) {
+                throw new Error("User not authenticated");
+            }
+
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/notification`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(notificationData),
+                }
+            );
+
+            if (!response.ok) {
+                const text = await response.text();
+                let message = `HTTP error! status: ${response.status}`;
+                try {
+                    const body = JSON.parse(text);
+                    message = body?.error || body?.message || message;
+                } catch { }
+                throw new Error(message);
+            }
+
+            const newNotification = await response.json();
+
+            return { success: true, notification: newNotification };
+        } catch (err) {
+            console.error("Create notification error:", err);
+            return { success: false, error: err.message };
+        }
+    };
     // Fetch all notifications via Express API
     const fetchNotification = useCallback(async () => {
         try {
@@ -63,6 +107,7 @@ export function useNotification() {
         loading,
         error,
         refresh: fetchNotification,
+        createNotification,
         // activeTasks: getActiveTasks(),
         // completedTasks: getCompletedTasks(),
         // overdueTasks: getOverdueTasks(),

@@ -55,6 +55,35 @@ router.post('/register', async (req, res) => {
   }
 });
 
+router.post('/login', async (req, res) => {
+  try {
+    const supabaseAnon = getAnonClient();
+    const { email, password } = req.body;
+
+    // Basic validation
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const { data, error } = await supabaseAnon.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      return res.status(401).json({ error: error.message });
+    }
+
+    res.status(200).json({
+      access_token: data.session?.access_token,
+      refresh_token: data.session?.refresh_token,
+      user: data.user,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
 
 

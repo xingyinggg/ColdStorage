@@ -1,33 +1,46 @@
 // vitest.config.js
 // filepath: c:\Users\user\ColdStorage\vitest.config.js
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    environment: 'node',
+    environment: "node",
     // Ignore CSS and frontend files for backend testing
     exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/.next/**',
-      '**/app/**', // Skip Next.js frontend
-      '**/components/**', // Skip React components
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.next/**",
+      "**/app/**", // Skip Next.js frontend
+      "**/components/**", // Skip React components
     ],
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      provider: "v8",
+      reporter: ["text", "json", "html"],
       thresholds: {
         lines: 90,
         functions: 80,
         branches: 80,
-        statements: 90
-      }
-    }
+        statements: 90,
+      },
+    },
   },
-  // Disable CSS processing for backend tests
+  // Completely disable CSS processing for backend tests
   css: false,
+  // Don't process PostCSS
+  postcss: false,
   // Don't process frontend files
   esbuild: {
-    target: 'node18'
-  }
+    target: "node18",
+  },
+  // Ignore CSS imports in tests
+  define: {
+    "import.meta.env.CSS": "false",
+  },
+  // Don't try to resolve CSS modules
+  resolve: {
+    alias: {
+      // Mock CSS imports to prevent PostCSS errors
+      "\\.(css|less|scss|sass)$": "identity-obj-proxy",
+    },
+  },
 });

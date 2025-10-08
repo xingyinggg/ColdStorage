@@ -155,8 +155,8 @@ export default function CreateTaskPage() {
         const notification = {
           emp_id: result.task.owner_id || userProfile.emp_id,
           title: `New Task Created (${result.task.title})`,
-          description: result.task.description,
-          type: "Task",
+          description: taskData.description || "No description provided",
+          type: "Task Creation",
           created_at: new Date().toISOString(),
         };
         await createNotification(notification);

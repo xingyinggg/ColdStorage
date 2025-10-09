@@ -51,5 +51,6 @@ export const STATUS_LEVELS = [
 
 // Helper function to get priority configuration
 export const getPriorityConfig = (priority) => {
-  return PRIORITY_COLORS[priority?.toLowerCase()] || PRIORITY_COLORS.default;
+  const priorityKey = priority ? String(priority).toLowerCase() : null;
+  return PRIORITY_COLORS[priorityKey] || PRIORITY_COLORS.default;
 };

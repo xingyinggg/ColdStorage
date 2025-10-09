@@ -123,7 +123,7 @@ export default function ProjectTaskCard({
             {/* Priority Badge - moved to header */}
             {task.priority && (
               <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${priorityConfig.bg} ${priorityConfig.text} ${priorityConfig.border}`}>
-                {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                {String(task.priority).charAt(0).toUpperCase() + String(task.priority).slice(1)}
               </div>
             )}
             

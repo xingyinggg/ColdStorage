@@ -119,6 +119,32 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Title is required" });
     }
 
+    // Validate title length (reasonable limit: 100 characters)
+    if (title.length > 100) {
+      return res
+        .status(400)
+        .json({ error: "Title must be 100 characters or less" });
+    }
+
+    // Check for duplicate project titles
+    const { data: existingProjects, error: checkError } = await supabase
+      .from("projects")
+      .select("id, title")
+      .ilike("title", title);
+
+    if (checkError) {
+      console.error("Error checking for duplicate projects:", checkError);
+      return res
+        .status(500)
+        .json({ error: "Failed to validate project title" });
+    }
+
+    if (existingProjects && existingProjects.length > 0) {
+      return res
+        .status(409)
+        .json({ error: "A project with this title already exists" });
+    }
+
     // Extract emp_ids from members array if they are objects
     const memberIds = members.map((member) => {
       if (typeof member === "object" && member.emp_id) {

@@ -326,6 +326,33 @@ describe("Projects Integration Tests with Real Database", () => {
       expect([400, 422, 500]).toContain(response.status);
       expect(response.body).toHaveProperty("error");
     });
+
+    it("should reject project creation with excessively long title", async () => {
+      const projectData = {
+        title:
+          "This is a very long project title that exceeds reasonable limits ".repeat(
+            10
+          ), // Over 500 chars
+        description: "Testing long title rejection",
+        collaborators: ["EMP001"],
+      };
+
+      const response = await request(app)
+        .post("/projects")
+        .set("Authorization", `Bearer ${testToken}`)
+        .send(projectData);
+
+      console.log("Long Title Response:", response.status, response.body);
+
+      // Should reject with appropriate error codes
+      expect([400, 413, 422]).toContain(response.status);
+
+      if (response.body?.error) {
+        expect(response.body.error).toMatch(
+          /title.*long|length|characters|limit/i
+        );
+      }
+    });
   });
 
   describe("Real Authentication Integration", () => {
@@ -442,7 +469,7 @@ describe("Projects Integration Tests with Real Database", () => {
       console.log("Pagination Response:", response.status);
 
       if (response.status === 200) {
-        console.log(`✅ Pagination test completed`);
+        console.log(`Pagination test completed`);
       }
     });
   });
@@ -463,7 +490,7 @@ describe("Projects Integration Tests with Real Database", () => {
       const responses = await Promise.all(concurrentRequests);
 
       console.log(
-        "🚀 Concurrent Responses:",
+        "Concurrent Responses:",
         responses.map((r) => r.status)
       );
 
@@ -476,7 +503,7 @@ describe("Projects Integration Tests with Real Database", () => {
 
       // At least some should succeed (depending on constraints)
       const successCount = responses.filter((r) => r.status === 201).length;
-      console.log(`✅ ${successCount}/3 concurrent requests succeeded`);
+      console.log(`${successCount}/3 concurrent requests succeeded`);
     });
   });
 });

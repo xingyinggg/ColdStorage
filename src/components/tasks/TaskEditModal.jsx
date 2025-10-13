@@ -12,6 +12,7 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
   });
   const [file, setFile] = useState(null);
   const [removeExistingFile, setRemoveExistingFile] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
 
   useEffect(() => {
     if (task) {
@@ -19,16 +20,46 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
         title: task.title || "",
         description: task.description || "",
         priority: task.priority !== null && task.priority !== undefined ? task.priority : 5,
-  status: task.status || "ongoing",
+        status: task.status || "ongoing",
         due_date: task.due_date ? task.due_date.slice(0, 10) : "",
       });
       setFile(null);
       setRemoveExistingFile(false);
+      setValidationErrors({}); // Clear validation errors when task changes
     }
   }, [task]);
 
+  const validateForm = () => {
+    const errors = {};
+
+    // Check required fields - only title and status are required
+    if (!form.title || !form.title.trim()) {
+      errors.title = "Title is required";
+    }
+
+    if (!form.status) {
+      errors.status = "Status is required";
+    }
+
+    // Optional validation: If priority is provided, validate range
+    if (form.priority !== null && form.priority !== undefined && (form.priority < 1 || form.priority > 10)) {
+      errors.priority = "Priority must be between 1 and 10";
+    }
+
+    return errors;
+  };
+
   const handleSave = () => {
     if (!onSave) return;
+
+    // Validate form before saving
+    const errors = validateForm();
+    setValidationErrors(errors);
+
+    // If there are validation errors, don't proceed with save
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
 
     // Create FormData to handle file upload
     const formData = new FormData();
@@ -64,6 +95,16 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
     onSave(task.id, formData);
   };
 
+  // Clear validation error when user starts typing
+  const handleInputChange = (field, value) => {
+    setForm({ ...form, [field]: value });
+    
+    // Clear validation error for this field when user starts typing
+    if (validationErrors[field]) {
+      setValidationErrors({ ...validationErrors, [field]: "" });
+    }
+  };
+
   if (!open) return null;
 
   return (
@@ -83,15 +124,34 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
           </div>
         )}
 
+        {/* Show validation errors summary */}
+        {Object.keys(validationErrors).length > 0 && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+            <p className="font-medium">Please fix the following errors:</p>
+            <ul className="mt-1 list-disc list-inside">
+              {Object.values(validationErrors).filter(error => error).map((error, index) => (
+                <li key={index}>{error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Title <span className="text-red-500">*</span>
+            </label>
             <input
               type="text"
               value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => handleInputChange("title", e.target.value)}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                validationErrors.title ? "border-red-300 bg-red-50" : "border-gray-300"
+              }`}
             />
+            {validationErrors.title && (
+              <p className="mt-1 text-xs text-red-600">{validationErrors.title}</p>
+            )}
           </div>
 
           <div>
@@ -99,18 +159,22 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
             <textarea
               rows={3}
               value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              onChange={(e) => handleInputChange("description", e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Priority Level</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Priority Level
+              </label>
               <select
                 value={form.priority}
-                onChange={(e) => setForm({ ...form, priority: parseInt(e.target.value, 10) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => handleInputChange("priority", parseInt(e.target.value, 10))}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  validationErrors.priority ? "border-red-300 bg-red-50" : "border-gray-300"
+                }`}
               >
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(level => (
                   <option key={level} value={level}>
@@ -118,31 +182,50 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-xs text-gray-500">1 = Low, 10 = High</p>
+              <p className="mt-1 text-xs text-gray-500">1 = Low, 10 = High (Optional)</p>
+              {validationErrors.priority && (
+                <p className="mt-1 text-xs text-red-600">{validationErrors.priority}</p>
+              )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status <span className="text-red-500">*</span>
+              </label>
               <select
                 value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => handleInputChange("status", e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  validationErrors.status ? "border-red-300 bg-red-50" : "border-gray-300"
+                }`}
               >
+                <option value="">Select status...</option>
                 <option value="unassigned">Unassigned</option>
                 <option value="ongoing">Ongoing</option>
                 <option value="under review">Under Review</option>
                 <option value="completed">Completed</option>
               </select>
+              {validationErrors.status && (
+                <p className="mt-1 text-xs text-red-600">{validationErrors.status}</p>
+              )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Due Date
+              </label>
               <input
                 type="date"
                 value={form.due_date}
-                onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => handleInputChange("due_date", e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  validationErrors.due_date ? "border-red-300 bg-red-50" : "border-gray-300"
+                }`}
               />
+              <p className="mt-1 text-xs text-gray-500">Optional</p>
+              {validationErrors.due_date && (
+                <p className="mt-1 text-xs text-red-600">{validationErrors.due_date}</p>
+              )}
             </div>
           </div>
 

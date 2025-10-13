@@ -243,6 +243,7 @@ router.get("/", async (req, res) => {
       .from("tasks")
       .select("*")
       .or(`owner_id.eq.${empId},collaborators.cs.{${empId}}`)
+      .order("priority", { ascending: false })
       .order("created_at", { ascending: false });
 
     if (tasksError) return res.status(400).json({ error: tasksError.message });

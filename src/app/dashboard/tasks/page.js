@@ -39,7 +39,6 @@ export default function DashboardPage() {
     updateTask,
   } = useTasks(); // adapt to your hook
   useProjects(); // keep hook initialised if needed elsewhere (no local use)
-  useManagerTasks();
 
   useEffect(() => {
     if (!authLoading && !user) router.push("/login");

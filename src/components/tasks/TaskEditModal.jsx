@@ -18,7 +18,7 @@ export default function TaskEditModal({
     title: "",
     description: "",
     priority: 5,
-    status: "todo",
+    status: "ongoing",
     due_date: "",
   });
   const [file, setFile] = useState(null);
@@ -61,13 +61,24 @@ export default function TaskEditModal({
     if (!subtaskId) return;
     try {
       setSavingSubtaskId(subtaskId);
-      const updates = {
-        title: editingValues.title,
-        description: editingValues.description,
-        priority: editingValues.priority,
-        status: editingValues.status,
-        due_date: editingValues.due_date || null,
-      };
+      
+      // For collaborators, only allow status updates
+      let updates;
+      if (isCollaborator && !isOwner) {
+        updates = {
+          status: editingValues.status,
+        };
+      } else {
+        // Full edit permissions for owners
+        updates = {
+          title: editingValues.title,
+          description: editingValues.description,
+          priority: editingValues.priority,
+          status: editingValues.status,
+          due_date: editingValues.due_date || null,
+        };
+      }
+      
       await updateSubtask(subtaskId, updates);
       setEditingSubtaskId(null);
     } finally {
@@ -81,7 +92,7 @@ export default function TaskEditModal({
         title: task.title || "",
         description: task.description || "",
         priority: task.priority !== null && task.priority !== undefined ? task.priority : 5,
-        status: task.status || "todo",
+        status: task.status || "ongoing",
         due_date: task.due_date ? task.due_date.slice(0, 10) : "",
       });
       setFile(null);
@@ -319,9 +330,9 @@ export default function TaskEditModal({
               >
                 <option value="">Select status...</option>
                 <option value="unassigned">Unassigned</option>
-                <option value="todo">To-do</option>
-                <option value="in_progress">In Progress</option>
-                <option value="done">Done</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="under review">Under Review</option>
+                <option value="completed">Completed</option>
               </select>
               {validationErrors.status && (
                 <p className="mt-1 text-xs text-red-600">{validationErrors.status}</p>
@@ -419,9 +430,16 @@ export default function TaskEditModal({
           )}
         </div>
 
-        {/* Subtasks Management (owner only via canEdit gating in parent) */}
+        {/* Subtasks Management */}
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Subtasks</label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">Subtasks</label>
+            {isCollaborator && !isOwner && (
+              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                You can only edit subtask status
+              </span>
+            )}
+          </div>
           <div className="space-y-3">
             <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
               {loadingSubtasks ? (
@@ -437,36 +455,55 @@ export default function TaskEditModal({
                       <div className="min-w-0 pr-3 w-full">
                         {editingSubtaskId === st.id ? (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {/* Subtask Title - disabled for collaborators */}
                             <div>
                               <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Title</label>
                               <input
                                 type="text"
                                 value={editingValues.title}
                                 onChange={(e) => handleEditFieldChange("title", e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                disabled={isCollaborator && !isOwner}
+                                className={`w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                                  isCollaborator && !isOwner 
+                                    ? 'bg-gray-100 cursor-not-allowed text-gray-600' 
+                                    : ''
+                                }`}
                               />
                             </div>
+                            {/* Subtask Priority - disabled for collaborators */}
                             <div>
                               <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Priority</label>
                               <select
                                 value={editingValues.priority}
                                 onChange={(e) => handleEditFieldChange("priority", parseInt(e.target.value, 10))}
-                                className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                disabled={isCollaborator && !isOwner}
+                                className={`w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                                  isCollaborator && !isOwner 
+                                    ? 'bg-gray-100 cursor-not-allowed text-gray-600' 
+                                    : ''
+                                }`}
                               >
                                 {[1,2,3,4,5,6,7,8,9,10].map((p) => (
                                   <option key={p} value={p}>{p}</option>
                                 ))}
                               </select>
                             </div>
+                            {/* Subtask Description - disabled for collaborators */}
                             <div className="md:col-span-2">
                               <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Description</label>
                               <textarea
                                 rows={2}
                                 value={editingValues.description}
                                 onChange={(e) => handleEditFieldChange("description", e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                disabled={isCollaborator && !isOwner}
+                                className={`w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                                  isCollaborator && !isOwner 
+                                    ? 'bg-gray-100 cursor-not-allowed text-gray-600' 
+                                    : ''
+                                }`}
                               />
                             </div>
+                            {/* Subtask Status - always enabled for collaborators */}
                             <div>
                               <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Status</label>
                               <select
@@ -479,23 +516,29 @@ export default function TaskEditModal({
                                 <option value="completed">Completed</option>
                               </select>
                             </div>
+                            {/* Subtask Due Date - disabled for collaborators */}
                             <div>
                               <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Due Date</label>
                               <input
                                 type="date"
                                 value={editingValues.due_date}
                                 onChange={(e) => handleEditFieldChange("due_date", e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                disabled={isCollaborator && !isOwner}
+                                className={`w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                                  isCollaborator && !isOwner 
+                                    ? 'bg-gray-100 cursor-not-allowed text-gray-600' 
+                                    : ''
+                                }`}
                               />
                             </div>
                             <div className="md:col-span-2 flex gap-2 mt-1">
                               <button
                                 type="button"
                                 onClick={() => saveEditSubtask(st.id)}
-                                disabled={savingSubtaskId === st.id || !editingValues.title.trim()}
+                                disabled={savingSubtaskId === st.id || (!isOwner && !editingValues.title.trim())}
                                 className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-xs"
                               >
-                                {savingSubtaskId === st.id ? "Saving..." : "Save"}
+                                {savingSubtaskId === st.id ? "Saving..." : (isCollaborator && !isOwner ? "Update Status" : "Save")}
                               </button>
                               <button
                                 type="button"
@@ -527,24 +570,26 @@ export default function TaskEditModal({
                         )}
                       </div>
                       <div className="flex-shrink-0 flex flex-col gap-1 items-end">
-                        {editingSubtaskId !== st.id && (
+                        {editingSubtaskId !== st.id && (isOwner || isCollaborator) && (
                           <button
                             type="button"
                             onClick={() => beginEditSubtask(st)}
                             className="text-xs text-blue-600 hover:text-blue-800"
-                            title="Edit subtask"
+                            title={isCollaborator && !isOwner ? "Edit subtask status" : "Edit subtask"}
                           >
                             Edit
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => deleteSubtask(st.id)}
-                          className="text-xs text-red-600 hover:text-red-800"
-                          title="Delete subtask"
-                        >
-                          Delete
-                        </button>
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => deleteSubtask(st.id)}
+                            className="text-xs text-red-600 hover:text-red-800"
+                            title="Delete subtask"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </li>
                   ))}
@@ -552,8 +597,9 @@ export default function TaskEditModal({
               )}
             </div>
 
-            {/* Add new subtask */}
-            <div className="bg-white border border-gray-200 rounded-md p-3">
+            {/* Add new subtask - owners only */}
+            {isOwner && (
+              <div className="bg-white border border-gray-200 rounded-md p-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Title</label>
@@ -609,6 +655,7 @@ export default function TaskEditModal({
                 </div>
               </div>
             </div>
+            )}
           </div>
         </div>
 

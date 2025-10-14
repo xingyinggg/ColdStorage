@@ -399,6 +399,8 @@ export default function TaskCard({
           open={subtaskEditOpen}
           subtask={subtaskBeingEdited}
           saving={subtaskSaving}
+          isOwner={isOwner}
+          isCollaborator={isCollaborator}
           onClose={() => { setSubtaskEditOpen(false); setSubtaskBeingEdited(null); }}
           onSave={async (subtaskId, updates) => {
             try {

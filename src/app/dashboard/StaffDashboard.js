@@ -198,7 +198,9 @@ export default function StaffDashboard({
                       getStatusColor={getStatusColor}
                       getProjectName={getProjectName}
                       onMarkComplete={toggleTaskComplete}
-                      canEdit={currentUserEmpId === task.owner_id}
+                      canEdit={currentUserEmpId === task.owner_id || (task.collaborators && task.collaborators.includes(currentUserEmpId))}
+                      isOwner={currentUserEmpId === task.owner_id}
+                      isCollaborator={task.collaborators && task.collaborators.includes(currentUserEmpId)}
                       memberNames={memberNames}
                       projectNames={projectNames}
                     />

@@ -22,6 +22,19 @@ const statusColors = {
 export default function StaffTasksView({ tasks = [], onLogout }) {
   const { user, userProfile } = useAuth();
 
+  // Early return if userProfile is not loaded yet
+  if (!userProfile) {
+    return (
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          <div className="text-center">
+            <div className="text-lg">Loading user profile...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const grouped = statusOrder.reduce((acc, status) => {
     acc[status] = tasks.filter((t) => t.status === status);
     return acc;
@@ -79,19 +92,15 @@ export default function StaffTasksView({ tasks = [], onLogout }) {
                 
                 // More robust collaborator detection - handle both array and object formats
                 let isCollaborator = false;
-                if (task.collaborators) {
+                if (task.collaborators && userProfile?.emp_id) {
                   if (Array.isArray(task.collaborators)) {
                     // Standard array format
                     isCollaborator = task.collaborators.includes(String(userProfile.emp_id));
-                    console.log('🔍 Array check result:', isCollaborator);
                   } else if (typeof task.collaborators === 'object' && task.collaborators !== null) {
                     // Object format - convert to array
                     const collabArray = Object.values(task.collaborators);
                     isCollaborator = collabArray.includes(String(userProfile.emp_id));
-                    console.log('🔍 Object check result:', isCollaborator, 'collabArray:', collabArray);
                   }
-                } else {
-                  console.log('🔍 No collaborators field for task', task.id);
                 }
                 
                 const canEdit = task.owner_id && userProfile?.emp_id && (isOwner || isCollaborator);

@@ -39,7 +39,6 @@ export default function DashboardPage() {
     updateTask,
   } = useTasks(); // adapt to your hook
   useProjects(); // keep hook initialised if needed elsewhere (no local use)
-  useManagerTasks();
 
   useEffect(() => {
     if (!authLoading && !user) router.push("/login");
@@ -102,12 +101,11 @@ export default function DashboardPage() {
   }
 
   if (isStaff || isDirector) {
-    // combine whatever lists your hook gives you
-    const allTasks = [...activeTasks, ...overdueTasks];
+    // Pass all tasks to StaffTasksView so it can handle all statuses
     return (
       <SidebarLayout>
         <div>
-          <StaffTasksView tasks={allTasks} onLogout={handleLogout} />
+          <StaffTasksView tasks={tasks} onLogout={handleLogout} />
           <AllTasksSection
             tasks={tasks}
             onMarkComplete={toggleTaskComplete}
@@ -198,32 +196,45 @@ function AllTasksSection({
             <div className="text-gray-500">No tasks found</div>
           ) : (
             <div className="space-y-3">
-              {tasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  formatDate={formatDate}
-                  getPriorityColor={getPriorityColor}
-                  getStatusColor={getStatusColor}
-                  onMarkComplete={onMarkComplete}
-                  canEdit={task.owner_id === currentUserEmpId}
-                  onEdit={async (id, updates) => {
-                    const result = await onEditTask(id, updates);
-                    if (result && result.success) {
-                      setFeedback({
-                        type: "success",
-                        message: "Task updated successfully.",
-                      });
-                    } else {
-                      setFeedback({
-                        type: "error",
-                        message: result?.error || "Failed to update task.",
-                      });
-                    }
-                    return result;
-                  }}
-                />
-              ))}
+              {tasks.map((task) => {
+                // Calculate ownership and collaboration status
+                const isOwner = task.owner_id && currentUserEmpId && String(currentUserEmpId) === String(task.owner_id);
+                const isCollaborator = task.collaborators && Array.isArray(task.collaborators) && task.collaborators.includes(String(currentUserEmpId));
+                
+                const canEdit =
+                  task.owner_id &&
+                  currentUserEmpId && 
+                  (isOwner || isCollaborator);
+
+                return (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    formatDate={formatDate}
+                    getPriorityColor={getPriorityColor}
+                    getStatusColor={getStatusColor}
+                    onMarkComplete={onMarkComplete}
+                    canEdit={canEdit}
+                    isOwner={isOwner}
+                    isCollaborator={isCollaborator}
+                    onEdit={async (id, updates) => {
+                      const result = await onEditTask(id, updates);
+                      if (result && result.success) {
+                        setFeedback({
+                          type: "success",
+                          message: "Task updated successfully.",
+                        });
+                      } else {
+                        setFeedback({
+                          type: "error",
+                          message: result?.error || "Failed to update task.",
+                        });
+                      }
+                      return result;
+                    }}
+                  />
+                );
+              })}
             </div>
           )}
           <Toast

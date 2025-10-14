@@ -216,7 +216,9 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
                         getPriorityColor={getPriorityColor}
                         getStatusColor={getStatusColor}
                         getProjectName={getProjectName}
-                        canEdit={userProfile?.emp_id === task.owner_id}
+                        canEdit={userProfile?.emp_id === task.owner_id || (task.collaborators && task.collaborators.includes(userProfile?.emp_id))}
+                        isOwner={userProfile?.emp_id === task.owner_id}
+                        isCollaborator={task.collaborators && task.collaborators.includes(userProfile?.emp_id)}
                         onEdit={buildEditHandler(task)}
                         onMarkComplete={buildCompleteHandler(task)}
                       />

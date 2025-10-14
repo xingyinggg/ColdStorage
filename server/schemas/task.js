@@ -7,12 +7,25 @@ export const TaskSchema = z.object({
   due_date: z.string().optional().nullable(),
   project_id: z.number().optional().nullable(),
   status: z
-    .enum(["under review", "ongoing", "completed", "unassigned"])
+    .enum(["under review", "ongoing", "completed", "unassigned", "recurring_template"])
     .optional()
     .nullable(),
   file: z.string().nullable().optional(),
   collaborators: z.array(z.string()).optional().nullable(),
   owner_id: z.string().optional().nullable(),
+  // Recurrence fields
+  is_recurring: z.boolean().optional().nullable(),
+  recurrence_pattern: z
+    .enum(["daily", "weekly", "biweekly", "monthly", "quarterly", "yearly"])
+    .optional()
+    .nullable(),
+  recurrence_interval: z.number().int().min(1).optional().nullable(),
+  recurrence_end_date: z.string().optional().nullable(),
+  recurrence_count: z.number().int().min(1).optional().nullable(),
+  parent_recurrence_id: z.number().optional().nullable(),
+  recurrence_series_id: z.string().optional().nullable(),
+  next_occurrence_date: z.string().optional().nullable(),
+  last_completed_date: z.string().optional().nullable(),
 });
 
 export const RegisterSchema = z.object({
@@ -29,3 +42,4 @@ export const ProjectSchema = z.object({
   description: z.string().optional().nullable(),
   members: z.array(z.string()).optional().nullable(),
 });
+

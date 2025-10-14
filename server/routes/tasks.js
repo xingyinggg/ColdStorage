@@ -6,6 +6,7 @@ import {
 } from "../lib/supabase.js";
 import { TaskSchema } from "../schemas/task.js";
 import multer from "multer";
+import recurrenceService from "../services/recurrenceService.js";
 
 const router = Router();
 
@@ -50,6 +51,13 @@ router.post("/", upload.single("file"), async (req, res) => {
       collaborators: collaboratorsStr,
       owner_id,
       subtasks: subtasksStr, // This comes from your TaskForm
+      // Recurrence fields
+      is_recurring,
+      recurrence_pattern,
+      recurrence_interval,
+      recurrence_end_date,
+      recurrence_count,
+      recurrence_weekday,
     } = req.body;
 
     // Parse and validate priority as integer
@@ -116,72 +124,168 @@ router.post("/", upload.single("file"), async (req, res) => {
       console.log("🎯 Task assigned to:", owner_id);
     }
 
-    // 1. CREATE THE MAIN TASK FIRST
-    const { data: newTask, error: taskError } = await supabase
-      .from("tasks")
-      .insert({
+    // Check if this is a recurring task
+    const isRecurring = is_recurring === true || is_recurring === "true";
+    
+    let newTask;
+    let createdSubtasks = [];
+
+    if (isRecurring) {
+      // ========== RECURRING TASK CREATION ==========
+      console.log("🔄 Creating recurring task with pattern:", recurrence_pattern);
+
+      // Validate recurrence fields
+      if (!recurrence_pattern) {
+        return res.status(400).json({ error: "Recurrence pattern is required for recurring tasks" });
+      }
+
+      const validPatterns = ["daily", "weekly", "biweekly", "monthly", "quarterly", "yearly"];
+      if (!validPatterns.includes(recurrence_pattern)) {
+        return res.status(400).json({ error: `Invalid recurrence pattern. Must be one of: ${validPatterns.join(", ")}` });
+      }
+
+      // Prepare task data for recurring task service
+      const taskData = {
         title,
         description: description || null,
         priority: taskPriority,
-        status: finalStatus,
         due_date: due_date || null,
         project_id: project_id ? parseInt(project_id) : null,
         collaborators,
         owner_id: finalOwnerId,
         file: fileUrl,
-      })
-      .select()
-      .single();
+        is_recurring: true,
+        recurrence_pattern,
+        recurrence_interval: recurrence_interval ? parseInt(recurrence_interval) : 1,
+        recurrence_end_date: recurrence_end_date || null,
+        recurrence_count: recurrence_count ? parseInt(recurrence_count) : null,
+      };
+      
+      // Pass weekday separately (not stored in DB, used for calculation only)
+      const weekdayPreference = recurrence_weekday !== undefined ? parseInt(recurrence_weekday) : null;
 
-    if (taskError) {
-      throw new Error(`Database error: ${taskError.message}`);
-    }
+      // Use recurrence service to create recurring task
+      const result = await recurrenceService.createRecurringTask(supabase, taskData, weekdayPreference);
 
-     // 2. CREATE SUBTASKS IF PROVIDED
-    let createdSubtasks = [];
-    if (Array.isArray(subtasksToCreate) && subtasksToCreate.length > 0) {
-      console.log(`📝 Creating ${subtasksToCreate.length} subtasks...`);
+      if (!result.success) {
+        return res.status(500).json({ error: result.error || "Failed to create recurring task" });
+      }
 
-      try {
-        // Prepare subtask data for bulk insert
-        const subtaskInserts = subtasksToCreate.map(subtask => {
-          // Parse subtask priority
-          let subtaskPriority = null;
-          if (subtask.priority !== undefined && subtask.priority !== null && subtask.priority !== "") {
-            const parsedSubPriority = parseInt(subtask.priority, 10);
-            if (!isNaN(parsedSubPriority) && parsedSubPriority >= 1 && parsedSubPriority <= 10) {
-              subtaskPriority = parsedSubPriority;
+      newTask = result.task;
+      console.log("✅ Recurring task created:", newTask.id);
+
+      // Handle subtasks for recurring task instances (if provided)
+      if (Array.isArray(subtasksToCreate) && subtasksToCreate.length > 0) {
+        console.log(`📝 Creating ${subtasksToCreate.length} subtasks for recurring task instance...`);
+
+        try {
+          const subtaskInserts = subtasksToCreate.map(subtask => {
+            let subtaskPriority = null;
+            if (subtask.priority !== undefined && subtask.priority !== null && subtask.priority !== "") {
+              const parsedSubPriority = parseInt(subtask.priority, 10);
+              if (!isNaN(parsedSubPriority) && parsedSubPriority >= 1 && parsedSubPriority <= 10) {
+                subtaskPriority = parsedSubPriority;
+              }
             }
+
+            return {
+              parent_task_id: result.firstInstance.id, // Attach to first instance, not template
+              title: subtask.title,
+              description: subtask.description || null,
+              priority: subtaskPriority,
+              status: subtask.status || "ongoing",
+              due_date: subtask.dueDate || null,
+              collaborators: subtask.collaborators || [],
+              owner_id: finalOwnerId,
+            };
+          });
+
+          const { data: subtasksData, error: subtasksError } = await supabase
+            .from("sub_task")
+            .insert(subtaskInserts)
+            .select();
+
+          if (subtasksError) {
+            console.error("Subtasks creation error:", subtasksError);
+          } else {
+            createdSubtasks = subtasksData || [];
+            console.log(`✅ Created ${createdSubtasks.length} subtasks`);
           }
-
-          return {
-            parent_task_id: newTask.id,
-            title: subtask.title,
-            description: subtask.description || null,
-            priority: subtaskPriority,
-            status: subtask.status || "ongoing",
-            due_date: subtask.dueDate || null, // Note: frontend uses 'dueDate', backend uses 'due_date'
-            collaborators: subtask.collaborators || [],
-            owner_id: finalOwnerId, // Subtasks inherit the main task owner
-          };
-        });
-
-        // Bulk create subtasks
-        const { data: subtasksData, error: subtasksError } = await supabase
-          .from("sub_task")
-          .insert(subtaskInserts)
-          .select();
-
-        if (subtasksError) {
-          console.error("Subtasks creation error:", subtasksError);
-          // Don't fail the entire request, just log the error
-        } else {
-          createdSubtasks = subtasksData || [];
-          console.log(`✅ Created ${createdSubtasks.length} subtasks`);
+        } catch (subtaskError) {
+          console.error("Error in subtask creation process:", subtaskError);
         }
-      } catch (subtaskError) {
-        console.error("Error in subtask creation process:", subtaskError);
-        // Continue without failing the main task creation
+      }
+
+    } else {
+      // ========== REGULAR TASK CREATION ==========
+      // 1. CREATE THE MAIN TASK FIRST
+      const { data: taskData, error: taskError } = await supabase
+        .from("tasks")
+        .insert({
+          title,
+          description: description || null,
+          priority: taskPriority,
+          status: finalStatus,
+          due_date: due_date || null,
+          project_id: project_id ? parseInt(project_id) : null,
+          collaborators,
+          owner_id: finalOwnerId,
+          file: fileUrl,
+        })
+        .select()
+        .single();
+
+      if (taskError) {
+        throw new Error(`Database error: ${taskError.message}`);
+      }
+
+      newTask = taskData;
+
+      // 2. CREATE SUBTASKS IF PROVIDED
+      if (Array.isArray(subtasksToCreate) && subtasksToCreate.length > 0) {
+        console.log(`📝 Creating ${subtasksToCreate.length} subtasks...`);
+
+        try {
+          // Prepare subtask data for bulk insert
+          const subtaskInserts = subtasksToCreate.map(subtask => {
+            // Parse subtask priority
+            let subtaskPriority = null;
+            if (subtask.priority !== undefined && subtask.priority !== null && subtask.priority !== "") {
+              const parsedSubPriority = parseInt(subtask.priority, 10);
+              if (!isNaN(parsedSubPriority) && parsedSubPriority >= 1 && parsedSubPriority <= 10) {
+                subtaskPriority = parsedSubPriority;
+              }
+            }
+
+            return {
+              parent_task_id: newTask.id,
+              title: subtask.title,
+              description: subtask.description || null,
+              priority: subtaskPriority,
+              status: subtask.status || "ongoing",
+              due_date: subtask.dueDate || null, // Note: frontend uses 'dueDate', backend uses 'due_date'
+              collaborators: subtask.collaborators || [],
+              owner_id: finalOwnerId, // Subtasks inherit the main task owner
+            };
+          });
+
+          // Bulk create subtasks
+          const { data: subtasksData, error: subtasksError } = await supabase
+            .from("sub_task")
+            .insert(subtaskInserts)
+            .select();
+
+          if (subtasksError) {
+            console.error("Subtasks creation error:", subtasksError);
+            // Don't fail the entire request, just log the error
+          } else {
+            createdSubtasks = subtasksData || [];
+            console.log(`✅ Created ${createdSubtasks.length} subtasks`);
+          }
+        } catch (subtaskError) {
+          console.error("Error in subtask creation process:", subtaskError);
+          // Continue without failing the main task creation
+        }
       }
     }
 
@@ -672,12 +776,34 @@ router.put("/:id", upload.single("file"), async (req, res) => {
       });
     }
 
+    const updatedTask = data[0];
+
+    // ========== HANDLE RECURRING TASK COMPLETION ==========
+    // If task status changed to "completed" and it's part of a recurring series, generate next instance
+    // This includes both the master task (first completion) and subsequent instances
+    if (cleanUpdates.status === "completed" && (updatedTask.parent_recurrence_id || updatedTask.is_recurring)) {
+      console.log("🔄 Task completed - checking for next recurrence instance...");
+      
+      try {
+        const recurrenceResult = await recurrenceService.handleTaskCompletion(supabase, Number(id));
+        
+        if (recurrenceResult.success && recurrenceResult.nextTask) {
+          console.log("✅ Next recurring task instance created:", recurrenceResult.nextTask.id);
+        } else if (recurrenceResult.success) {
+          console.log("✅ Recurring series completed - no more instances to create");
+        }
+      } catch (recurrenceError) {
+        console.error("Error handling task recurrence:", recurrenceError);
+        // Don't fail the update - just log the error
+      }
+    }
+
     // Record history (owner updates)
     try {
       await supabase
         .from('task_edit_history')
         .insert([{
-          task_id: data[0].id,
+          task_id: updatedTask.id,
           editor_emp_id: empId,
           editor_user_id: user.id,
           action: 'update',
@@ -687,7 +813,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
       console.error('Failed to write task history (update):', hErr);
     }
 
-    res.json(data[0]);
+    res.json(updatedTask);
   } catch (e) {
     console.error("Unexpected error:", e);
     res.status(500).json({ error: e.message });
@@ -819,6 +945,240 @@ router.get("/:id/history", async (req, res) => {
     if (error) return res.status(400).json({ error: error.message });
     res.json({ history: data || [] });
   } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ========== RECURRING TASK ROUTES ==========
+
+// Get recurrence history for a task
+router.get("/:id/recurrence-history", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    
+    if (!token) return res.status(401).json({ error: "Missing access token" });
+
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: "Invalid token" });
+
+    const empId = await getEmpIdForUserId(user.id);
+    if (!empId) return res.status(400).json({ error: "emp_id not found" });
+
+    const { id } = req.params;
+
+    // Get the task to verify ownership/access
+    const { data: task, error: taskError } = await supabase
+      .from("tasks")
+      .select("owner_id, parent_recurrence_id")
+      .eq("id", Number(id))
+      .single();
+
+    if (taskError || !task) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    // Check if user has access to this task
+    if (task.owner_id !== empId) {
+      return res.status(403).json({ error: "You don't have permission to view this task's recurrence history" });
+    }
+
+    // Get recurrence history
+    const result = await recurrenceService.getRecurrenceHistory(supabase, Number(id));
+
+    if (!result.success) {
+      return res.status(500).json({ error: result.error || "Failed to fetch recurrence history" });
+    }
+
+    res.json({
+      success: true,
+      history: result.history,
+      masterTaskId: result.masterTaskId,
+      totalInstances: result.totalInstances,
+      completedInstances: result.completedInstances,
+      pendingInstances: result.pendingInstances,
+    });
+  } catch (e) {
+    console.error("Error fetching recurrence history:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Update recurrence settings for a recurring task
+router.put("/:id/recurrence", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    
+    if (!token) return res.status(401).json({ error: "Missing access token" });
+
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: "Invalid token" });
+
+    const empId = await getEmpIdForUserId(user.id);
+    if (!empId) return res.status(400).json({ error: "emp_id not found" });
+
+    const { id } = req.params;
+    const {
+      recurrence_pattern,
+      recurrence_interval,
+      recurrence_end_date,
+      recurrence_count,
+    } = req.body;
+
+    // Get the task to verify ownership
+    const { data: task, error: taskError } = await supabase
+      .from("tasks")
+      .select("owner_id, is_recurring, status")
+      .eq("id", Number(id))
+      .single();
+
+    if (taskError || !task) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    // Check if user owns the task
+    if (task.owner_id !== empId) {
+      return res.status(403).json({ error: "You can only update your own tasks" });
+    }
+
+    // Check if task is a recurring template
+    if (!task.is_recurring || task.status !== "recurring_template") {
+      return res.status(400).json({ error: "This task is not a recurring template" });
+    }
+
+    // Validate recurrence pattern if provided
+    if (recurrence_pattern) {
+      const validPatterns = ["daily", "weekly", "biweekly", "monthly", "quarterly", "yearly"];
+      if (!validPatterns.includes(recurrence_pattern)) {
+        return res.status(400).json({ error: `Invalid recurrence pattern. Must be one of: ${validPatterns.join(", ")}` });
+      }
+    }
+
+    // Prepare updates
+    const updates = {};
+    if (recurrence_pattern) updates.recurrence_pattern = recurrence_pattern;
+    if (recurrence_interval !== undefined) updates.recurrence_interval = parseInt(recurrence_interval);
+    if (recurrence_end_date !== undefined) updates.recurrence_end_date = recurrence_end_date;
+    if (recurrence_count !== undefined) updates.recurrence_count = recurrence_count ? parseInt(recurrence_count) : null;
+
+    // Update recurrence settings
+    const result = await recurrenceService.updateRecurringTask(supabase, Number(id), updates);
+
+    if (!result.success) {
+      return res.status(500).json({ error: result.error || "Failed to update recurrence settings" });
+    }
+
+    res.json({
+      success: true,
+      task: result.task,
+      message: "Recurrence settings updated successfully",
+    });
+  } catch (e) {
+    console.error("Error updating recurrence settings:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete a recurring task series
+router.delete("/:id/recurrence", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    
+    if (!token) return res.status(401).json({ error: "Missing access token" });
+
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: "Invalid token" });
+
+    const empId = await getEmpIdForUserId(user.id);
+    if (!empId) return res.status(400).json({ error: "emp_id not found" });
+
+    const { id } = req.params;
+    const { delete_all } = req.query; // Query param: true to delete all instances, false to delete only future
+
+    // Get the task to verify ownership
+    const { data: task, error: taskError } = await supabase
+      .from("tasks")
+      .select("owner_id, is_recurring, parent_recurrence_id")
+      .eq("id", Number(id))
+      .single();
+
+    if (taskError || !task) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    // Check if user owns the task
+    if (task.owner_id !== empId) {
+      return res.status(403).json({ error: "You can only delete your own tasks" });
+    }
+
+    // Check if task is part of a recurring series
+    if (!task.is_recurring && !task.parent_recurrence_id) {
+      return res.status(400).json({ error: "This task is not part of a recurring series" });
+    }
+
+    // Delete recurring task series
+    const deleteAllInstances = delete_all === "true";
+    const result = await recurrenceService.deleteRecurringTask(supabase, Number(id), deleteAllInstances);
+
+    if (!result.success) {
+      return res.status(500).json({ error: result.error || "Failed to delete recurring task" });
+    }
+
+    res.json({
+      success: true,
+      deletedCount: result.deletedCount,
+      message: deleteAllInstances 
+        ? "Recurring task series and all instances deleted successfully" 
+        : "Recurring task template and future instances deleted successfully",
+    });
+  } catch (e) {
+    console.error("Error deleting recurring task:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get all active recurring tasks (for managers/directors)
+router.get("/recurring/active", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    
+    if (!token) return res.status(401).json({ error: "Missing access token" });
+
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: "Invalid token" });
+
+    const empId = await getEmpIdForUserId(user.id);
+    if (!empId) return res.status(400).json({ error: "emp_id not found" });
+
+    // Get user role to check permissions
+    const userRole = await getUserRole(empId);
+    const canViewAll = userRole === "manager" || userRole === "director";
+
+    if (!canViewAll) {
+      return res.status(403).json({ error: "Only managers and directors can view all recurring tasks" });
+    }
+
+    // Get all active recurring tasks
+    const result = await recurrenceService.getActiveRecurringTasks(supabase);
+
+    if (!result.success) {
+      return res.status(500).json({ error: result.error || "Failed to fetch active recurring tasks" });
+    }
+
+    res.json({
+      success: true,
+      tasks: result.tasks,
+      count: result.tasks.length,
+    });
+  } catch (e) {
+    console.error("Error fetching active recurring tasks:", e);
     res.status(500).json({ error: e.message });
   }
 });

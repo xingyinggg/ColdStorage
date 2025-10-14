@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useSubtasks } from "@/utils/hooks/useSubtasks";
+import RecurrenceHistoryModal from "./RecurrenceHistoryModal";
 
 export default function TaskDetailsModal({ 
   open, 
@@ -16,6 +17,7 @@ export default function TaskDetailsModal({
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState("");
+  const [showRecurrenceHistory, setShowRecurrenceHistory] = useState(false);
   const { subtasks, loading: loadingSubtasks, error: subtasksError, fetchSubtasks } = useSubtasks();
 
   // Get collaborator names when task changes
@@ -144,42 +146,59 @@ export default function TaskDetailsModal({
       <div className="relative bg-white w-full max-w-2xl rounded-lg shadow-lg p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-gray-900">Task Details</h3>
-          <button
-            title="View edit log"
-            onClick={async () => {
-              if (!task?.id) return;
-              try {
-                setShowHistory(true);
-                setLoadingHistory(true);
-                setHistoryError("");
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-                const supabase = createClient();
-                const { data: { session } } = await supabase.auth.getSession();
-                const token = session?.access_token || "";
-                const res = await fetch(`${apiUrl}/tasks/${task.id}/history`, {
-                  headers: {
-                    'Authorization': `Bearer ${token}`
+          <div className="flex items-center space-x-2">
+            {/* Recurrence History Button - Only show if task is part of recurring series */}
+            {task.parent_recurrence_id && (
+              <button
+                title="View recurrence history"
+                onClick={() => setShowRecurrenceHistory(true)}
+                className="inline-flex items-center px-2 py-1 text-xs rounded border border-purple-300 text-purple-700 hover:bg-purple-50"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                🔄 Recurrence
+              </button>
+            )}
+            
+            {/* Edit History Button */}
+            <button
+              title="View edit log"
+              onClick={async () => {
+                if (!task?.id) return;
+                try {
+                  setShowHistory(true);
+                  setLoadingHistory(true);
+                  setHistoryError("");
+                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+                  const supabase = createClient();
+                  const { data: { session } } = await supabase.auth.getSession();
+                  const token = session?.access_token || "";
+                  const res = await fetch(`${apiUrl}/tasks/${task.id}/history`, {
+                    headers: {
+                      'Authorization': `Bearer ${token}`
+                    }
+                  });
+                  if (!res.ok) {
+                    const body = await res.json().catch(() => ({}));
+                    throw new Error(body?.error || `Request failed: ${res.status}`);
                   }
-                });
-                if (!res.ok) {
-                  const body = await res.json().catch(() => ({}));
-                  throw new Error(body?.error || `Request failed: ${res.status}`);
+                  const body = await res.json();
+                  setHistory(body.history || []);
+                } catch (e) {
+                  setHistoryError(e.message);
+                } finally {
+                  setLoadingHistory(false);
                 }
-                const body = await res.json();
-                setHistory(body.history || []);
-              } catch (e) {
-                setHistoryError(e.message);
-              } finally {
-                setLoadingHistory(false);
-              }
-            }}
-            className="inline-flex items-center px-2 py-1 text-xs rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-            Edit Log
-          </button>
+              }}
+              className="inline-flex items-center px-2 py-1 text-xs rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              Edit Log
+            </button>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -215,6 +234,32 @@ export default function TaskDetailsModal({
               </p>
             </div>
           </div>
+
+          {/* Recurrence Information - Show if task is part of recurring series */}
+          {task.parent_recurrence_id && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-purple-900 mb-1">🔄 Recurring Task</h4>
+                  <p className="text-sm text-purple-700">
+                    This is an instance of a recurring task series.
+                    {task.recurrence_pattern && ` Repeats: ${task.recurrence_pattern}`}
+                  </p>
+                  <button
+                    onClick={() => setShowRecurrenceHistory(true)}
+                    className="mt-2 text-xs text-purple-600 hover:text-purple-800 underline font-medium"
+                  >
+                    View all occurrences →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Status and Priority Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -428,6 +473,14 @@ export default function TaskDetailsModal({
           </button>
         </div>
       </div>
+
+      {/* Recurrence History Modal */}
+      <RecurrenceHistoryModal
+        isOpen={showRecurrenceHistory}
+        onClose={() => setShowRecurrenceHistory(false)}
+        taskId={task.parent_recurrence_id || task.id}
+        taskTitle={task.title}
+      />
     </div>
   );
 }

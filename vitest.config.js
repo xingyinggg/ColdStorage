@@ -10,12 +10,49 @@ export default defineConfig(({ mode }) => {
 
   return {
     test: {
-      // Default values used by all projects unless overridden
+
+      // Environment variables for tests
       env: {
-        ...env,
-        NODE_ENV: mode === "test" ? "test" : "development",
+        NODE_ENV: "test",
       },
-      testTimeout: 30000,
+      
+      // Test workspaces - separate unit and integration tests
+    workspace: [
+      {
+        test: {
+          name: "unit",
+          environment: "node",
+          include: ["tests/unit/**/*.{test,spec}.{js,ts}"],
+          // No database setup for unit tests
+        },
+      },
+      {
+        test: {
+          name: "integration", 
+          environment: "node",
+          include: ["tests/integration/**/*.{test,spec}.{js,ts}"],
+          // Database setup only for integration tests
+          setupFiles: ["tests/integration/setupTests.js"],
+        },
+      },
+    ],
+
+      // Test configuration
+      environment: "node",
+      include: [
+        "tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
+      ],
+      exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**"],
+      
+      // Test timeout
+      testTimeout: 300000,
+      setupFiles: ["tests/setupTests.js"],
+
+      // Default values used by all projects unless overridden
+      // env: {
+      //   ...env,
+      //   NODE_ENV: mode === "test" ? "test" : "development",
+      // },
       hookTimeout: 30000,
       teardownTimeout: 30000,
       coverage: {

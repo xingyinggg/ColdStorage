@@ -18,7 +18,12 @@
     "test:integration:watch": "vitest tests/integration",
     "test:auth": "vitest tests/integration/auth.test.js",
     "test:auth-unit": "vitest tests/unit/auth.test.js",
-    "test:auth-watch": "vitest tests/integration/auth.test.js --watch"
+    "test:auth-watch": "vitest tests/integration/auth.test.js --watch",
+    "test:run": "vitest run",
+    "test:setup": "node  --no-deprecation tests/setup/manualSetup.js",
+    "test:ui": "vitest --ui",
+    "test:connection": "node --no-deprecation tests/setup/testConnection.js",
+    "test:seed": "node --no-deprecation tests/setup/seedOnly.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",

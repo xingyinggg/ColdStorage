@@ -59,15 +59,6 @@ export default function TaskCard({
   memberNames = {},
   projectNames = {} // Add this prop
 }) {
-  // Debug props received by TaskCard
-  console.log('🔍 TaskCard Debug - Props received:', {
-    taskId: task?.id,
-    taskTitle: task?.title,
-    canEdit,
-    isOwner,
-    isCollaborator,
-    propsReceived: { canEdit, isOwner, isCollaborator }
-  });
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false); // Add details modal state
   const [editSaving, setEditSaving] = useState(false);

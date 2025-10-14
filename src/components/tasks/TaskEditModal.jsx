@@ -13,16 +13,6 @@ export default function TaskEditModal({
   isOwner = false,
   isCollaborator = false
 }) {
-  // Debug logging
-  console.log('🔍 TaskEditModal Debug:', {
-    isOwner,
-    isCollaborator,
-    taskId: task?.id,
-    taskTitle: task?.title,
-    showLimitedView: isCollaborator && !isOwner,
-    conditionalCheck: 'isCollaborator && !isOwner = ' + (isCollaborator && !isOwner),
-    showingFullView: !(isCollaborator && !isOwner)
-  });
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -97,7 +87,7 @@ export default function TaskEditModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative bg-white w-full max-w-lg rounded-lg shadow-lg p-6">
+      <div className="relative bg-white w-full max-w-lg rounded-lg shadow-lg p-6 z-60 max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-medium text-gray-900 mb-4">
           {isCollaborator && !isOwner ? "Update Task Status" : "Edit Task"}
         </h3>
@@ -120,23 +110,59 @@ export default function TaskEditModal({
         )}
 
         <div className="space-y-4">
-          {/* Debug info - remove in production */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mb-4 p-2 bg-gray-100 border text-xs">
-              <strong>Debug:</strong> isOwner={String(isOwner)}, isCollaborator={String(isCollaborator)}, 
-              condition=(isCollaborator && !isOwner)={String(isCollaborator && !isOwner)}
+          {/* Show all fields but disable editing for collaborators (except status) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            <input
+              type="text"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              disabled={isCollaborator && !isOwner}
+              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isCollaborator && !isOwner ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''
+              }`}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea
+              rows={3}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              disabled={isCollaborator && !isOwner}
+              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isCollaborator && !isOwner ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''
+              }`}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Priority Level</label>
+              <select
+                value={form.priority}
+                onChange={(e) => setForm({ ...form, priority: parseInt(e.target.value, 10) })}
+                disabled={isCollaborator && !isOwner}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 relative z-10 ${
+                  isCollaborator && !isOwner ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''
+                }`}
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(level => (
+                  <option key={level} value={level}>
+                    {level} {level === 1 ? '(Low)' : level === 10 ? '(High)' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">1 = Low, 10 = High</p>
             </div>
-          )}
-          
-          {/* Only show status field for collaborators, all fields for owners */}
-          {isCollaborator && !isOwner ? (
-            // Collaborator view - Status only
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <select
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 relative z-10"
               >
                 <option value="unassigned">Unassigned</option>
                 <option value="todo">To-do</option>
@@ -144,126 +170,93 @@ export default function TaskEditModal({
                 <option value="done">Done</option>
               </select>
             </div>
-          ) : (
-            // Owner view - All fields
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                <input
-                  type="text"
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  rows={3}
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+              <input
+                type="date"
+                value={form.due_date}
+                onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                disabled={isCollaborator && !isOwner}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isCollaborator && !isOwner ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''
+                }`}
+              />
+            </div>
+          </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority Level</label>
-                  <select
-                    value={form.priority}
-                    onChange={(e) => setForm({ ...form, priority: parseInt(e.target.value, 10) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(level => (
-                      <option key={level} value={level}>
-                        {level} {level === 1 ? '(Low)' : level === 10 ? '(High)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">1 = Low, 10 = High</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select
-                    value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="unassigned">Unassigned</option>
-                    <option value="todo">To-do</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="done">Done</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    value={form.due_date}
-                    onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* File Upload Section - Only for owners */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Attachment (PDF)
-                </label>
-                
-                {/* Show existing file if present */}
-                {task?.file && !removeExistingFile && (
-                  <div className="mb-2 p-2 bg-gray-50 rounded border">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <svg className="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span className="text-sm text-gray-700">Current file attached</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setRemoveExistingFile(true)}
-                        className="text-xs text-red-600 hover:text-red-800"
-                      >
-                        Remove
-                      </button>
+          {/* File Upload Section - Only editable for owners */}
+          {!(isCollaborator && !isOwner) && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Attachment (PDF)
+              </label>
+              
+              {/* Show existing file if present */}
+              {task?.file && !removeExistingFile && (
+                <div className="mb-2 p-2 bg-gray-50 rounded border">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <svg className="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span className="text-sm text-gray-700">Current file attached</span>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setRemoveExistingFile(true)}
+                      className="text-xs text-red-600 hover:text-red-800"
+                    >
+                      Remove
+                    </button>
                   </div>
-                )}
-                
-                {/* File input */}
-                <input
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  onChange={(e) => {
-                    setFile(e.target.files[0] || null);
-                    setRemoveExistingFile(false); // Reset remove flag when new file is selected
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  PDF files only, max 10MB
-                </p>
-                
-                {/* Show selected file name */}
-                {file && (
-                  <div className="mt-2 text-sm text-green-600">
-                    New file selected: {file.name}
-                  </div>
-                )}
-                
-                {removeExistingFile && (
-                  <div className="mt-2 text-sm text-red-600">
-                    Current file will be removed
-                  </div>
-                )}
+                </div>
+              )}
+              
+              {/* File input */}
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={(e) => {
+                  setFile(e.target.files[0] || null);
+                  setRemoveExistingFile(false); // Reset remove flag when new file is selected
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                PDF files only, max 10MB
+              </p>
+              
+              {/* Show selected file name */}
+              {file && (
+                <div className="mt-2 text-sm text-green-600">
+                  New file selected: {file.name}
+                </div>
+              )}
+              
+              {removeExistingFile && (
+                <div className="mt-2 text-sm text-red-600">
+                  Current file will be removed
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Show file info for collaborators (read-only) */}
+          {(isCollaborator && !isOwner) && task?.file && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Attachment
+              </label>
+              <div className="mb-2 p-2 bg-gray-50 rounded border">
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="text-sm text-gray-700">File attached (view only)</span>
+                </div>
               </div>
-            </>
+            </div>
           )}
         </div>
 

@@ -247,11 +247,21 @@ router.get("/", async (req, res) => {
 
     if (tasksError) return res.status(400).json({ error: tasksError.message });
 
-    console.log('🔍 Backend Tasks Debug:', {
-      tasksFound: tasksData?.length || 0,
-      firstTask: tasksData?.[0] || null,
-      firstTaskCollaborators: tasksData?.[0]?.collaborators || null
-    });
+    // Parse collaborators field if it's a JSON string
+    if (tasksData && tasksData.length > 0) {
+      tasksData.forEach(task => {
+        if (task.collaborators && typeof task.collaborators === 'string') {
+          try {
+            task.collaborators = JSON.parse(task.collaborators);
+          } catch (e) {
+            console.error('Error parsing collaborators for task', task.id, ':', e);
+            task.collaborators = [];
+          }
+        } else if (!task.collaborators) {
+          task.collaborators = [];
+        }
+      });
+    }
 
     // If there are tasks, fetch owner (manager) information and assignee (collaborator) names
     if (tasksData && tasksData.length > 0) {

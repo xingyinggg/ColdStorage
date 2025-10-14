@@ -198,13 +198,14 @@ function AllTasksSection({
           ) : (
             <div className="space-y-3">
               {tasks.map((task) => {
+                // Calculate ownership and collaboration status
+                const isOwner = task.owner_id && currentUserEmpId && String(currentUserEmpId) === String(task.owner_id);
+                const isCollaborator = task.collaborators && Array.isArray(task.collaborators) && task.collaborators.includes(String(currentUserEmpId));
+                
                 const canEdit =
                   task.owner_id &&
                   currentUserEmpId && 
-                  (String(currentUserEmpId) === String(task.owner_id) ||
-                   (task.collaborators && Array.isArray(task.collaborators) && 
-                    task.collaborators.includes(String(currentUserEmpId)))
-                  );
+                  (isOwner || isCollaborator);
 
                 return (
                   <TaskCard
@@ -215,6 +216,8 @@ function AllTasksSection({
                     getStatusColor={getStatusColor}
                     onMarkComplete={onMarkComplete}
                     canEdit={canEdit}
+                    isOwner={isOwner}
+                    isCollaborator={isCollaborator}
                     onEdit={async (id, updates) => {
                       const result = await onEditTask(id, updates);
                       if (result && result.success) {

@@ -205,6 +205,13 @@ export default function TaskCard({
           </h3>
 
           <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
+            {/* Recurring Badge */}
+            {task.parent_recurrence_id && (
+              <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200" title="This is a recurring task instance">
+                🔄 Recurring
+              </div>
+            )}
+            
             {/* Subtasks count badge (visible after first load) */}
             {hasFetchedSubtasks && Array.isArray(subtasks) && (
               <div className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200" title="Subtasks count">

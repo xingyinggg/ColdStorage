@@ -44,7 +44,7 @@ describe('CS-US4: TaskCard - Subtasks panel', () => {
     expect(screen.getAllByRole('button', { name: /view subtasks/i }).length).toBeGreaterThan(0);
   });
 
-  it('fetches and displays subtasks list when expanded', async () => {
+  it('fetches and displays subtasks list when expanded (viewer)', async () => {
     mockedState.subtasks = [
       { id: 1, title: 'S1', description: 'd', priority: 7, status: 'ongoing' },
       { id: 2, title: 'S2', priority: 3, status: 'ongoing' },
@@ -58,6 +58,23 @@ describe('CS-US4: TaskCard - Subtasks panel', () => {
       expect(screen.getAllByText('S1').length).toBeGreaterThan(0);
       expect(screen.getAllByText('S2').length).toBeGreaterThan(0);
     });
+  });
+
+  it('collaborator can view subtasks but not see edit pill', async () => {
+    mockedState.subtasks = [
+      { id: 1, title: 'S1', description: 'd', priority: 7, status: 'ongoing' },
+    ];
+
+    // canEdit=false simulates viewer/collaborator (not owner)
+    render(<TaskCard task={baseTask} canEdit={false} />);
+    const [toggleBtn] = screen.getAllByRole('button', { name: /view subtasks/i });
+    fireEvent.click(toggleBtn);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('S1').length).toBeGreaterThan(0);
+    });
+    // Ensure there is no Edit pill in the subtask row
+    expect(screen.queryByText(/^[\s]*edit[\s]*$/i)).toBeNull();
   });
 
   it('shows count badge after first load', async () => {

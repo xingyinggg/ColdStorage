@@ -248,6 +248,22 @@ router.get("/", async (req, res) => {
 
     if (tasksError) return res.status(400).json({ error: tasksError.message });
 
+    // Parse collaborators field if it's a JSON string
+    if (tasksData && tasksData.length > 0) {
+      tasksData.forEach(task => {
+        if (task.collaborators && typeof task.collaborators === 'string') {
+          try {
+            task.collaborators = JSON.parse(task.collaborators);
+          } catch (e) {
+            console.error('Error parsing collaborators for task', task.id, ':', e);
+            task.collaborators = [];
+          }
+        } else if (!task.collaborators) {
+          task.collaborators = [];
+        }
+      });
+    }
+
     // If there are tasks, fetch owner (manager) information and assignee (collaborator) names
     if (tasksData && tasksData.length > 0) {
       // Get unique owner_ids and collaborator emp_ids
@@ -571,11 +587,14 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     }
 
     // NOW we can use currentTask for logging
-    // Check if user owns the task (use loose comparison for string/number)
+    // Check if user owns the task or is collaborator (use loose comparison for string/number)
     if (currentTask.owner_id != empId) {
-      return res
-        .status(403)
-        .json({ error: "You can only edit your own tasks" });
+      const collaborators = currentTask.collaborators || [];
+      const isCollaborator = collaborators.includes(String(empId));
+  
+      if (!isCollaborator) {
+        return res.status(403).json({ error: "You can only edit tasks you own or collaborate on" });
+      }
     }
 
     // Handle file operations

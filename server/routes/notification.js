@@ -63,6 +63,9 @@ router.get("/", async (req, res) => {
             return res.status(401).json({ error: "Invalid token" });
         }
         const empId = await getEmpIdForUserId(user.id);
+        if (!empId) {
+            return res.status(401).json({ error: "Employee ID not found for user" })
+        };
 
         const { data, error } = await supabase
             .from("notifications")

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSubtasks } from "@/utils/hooks/useSubtasks";
 
 export default function TaskEditModal({ open, task, onClose, onSave, saving = false, errorMessage = "", successMessage = "" }) {
   const [form, setForm] = useState({
@@ -13,6 +14,15 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
   const [file, setFile] = useState(null);
   const [removeExistingFile, setRemoveExistingFile] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
+  const { subtasks, loading: loadingSubtasks, error: subtasksError, fetchSubtasks, createSubtask, deleteSubtask } = useSubtasks();
+  const [newSubtask, setNewSubtask] = useState({
+    title: "",
+    description: "",
+    priority: 5,
+    status: "ongoing",
+    due_date: ""
+  });
+  const [creatingSubtask, setCreatingSubtask] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -26,6 +36,10 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
       setFile(null);
       setRemoveExistingFile(false);
       setValidationErrors({}); // Clear validation errors when task changes
+      // Load subtasks for this task
+      if (task.id) {
+        fetchSubtasks(task.id);
+      }
     }
   }, [task]);
 
@@ -105,12 +119,39 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
     }
   };
 
+  const handleNewSubtaskChange = (field, value) => {
+    setNewSubtask({ ...newSubtask, [field]: value });
+  };
+
+  const handleCreateSubtask = async () => {
+    if (!task?.id) return;
+    if (!newSubtask.title || !newSubtask.title.trim()) return;
+    try {
+      setCreatingSubtask(true);
+      const payload = {
+        parent_task_id: task.id,
+        title: newSubtask.title.trim(),
+        description: newSubtask.description || null,
+        priority: newSubtask.priority,
+        status: newSubtask.status,
+        due_date: newSubtask.due_date || null,
+        collaborators: [],
+      };
+      const res = await createSubtask(payload);
+      if (res?.success) {
+        setNewSubtask({ title: "", description: "", priority: 5, status: "ongoing", due_date: "" });
+      }
+    } finally {
+      setCreatingSubtask(false);
+    }
+  };
+
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative bg-white w-full max-w-lg rounded-lg shadow-lg p-6">
+      <div className="relative bg-white w-full max-w-lg rounded-lg shadow-lg p-6 max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Task</h3>
 
         {errorMessage && (
@@ -282,6 +323,112 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
                 Current file will be removed
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Subtasks Management (owner only via canEdit gating in parent) */}
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Subtasks</label>
+          <div className="space-y-3">
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+              {loadingSubtasks ? (
+                <p className="text-sm text-gray-500">Loading subtasks...</p>
+              ) : subtasksError ? (
+                <p className="text-sm text-red-600">{subtasksError}</p>
+              ) : subtasks.length === 0 ? (
+                <p className="text-sm text-gray-500">No subtasks yet</p>
+              ) : (
+                <ul className="divide-y divide-gray-200">
+                  {subtasks.map((st) => (
+                    <li key={st.id} className="py-2 flex items-start justify-between">
+                      <div className="min-w-0 pr-3">
+                        <p className="text-sm font-medium text-gray-900 truncate">{st.title}</p>
+                        {st.description && (
+                          <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{st.description}</p>
+                        )}
+                        <div className="mt-1 text-xs text-gray-500 flex items-center gap-3 flex-wrap">
+                          {st.priority !== null && st.priority !== undefined && (
+                            <span>Priority: {st.priority}</span>
+                          )}
+                          {st.status && (
+                            <span>Status: {st.status}</span>
+                          )}
+                          {st.due_date && (
+                            <span>Due: {st.due_date?.slice(0,10)}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteSubtask(st.id)}
+                        className="text-xs text-red-600 hover:text-red-800 flex-shrink-0"
+                        title="Delete subtask"
+                      >
+                        Delete
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Add new subtask */}
+            <div className="bg-white border border-gray-200 rounded-md p-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Title</label>
+                  <input
+                    type="text"
+                    value={newSubtask.title}
+                    onChange={(e) => handleNewSubtaskChange("title", e.target.value)}
+                    data-testid="new-subtask-title"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Subtask title"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Priority</label>
+                  <select
+                    value={newSubtask.priority}
+                    onChange={(e) => handleNewSubtaskChange("priority", parseInt(e.target.value, 10))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {[1,2,3,4,5,6,7,8,9,10].map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    rows={2}
+                    value={newSubtask.description}
+                    onChange={(e) => handleNewSubtaskChange("description", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Optional description"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Due Date</label>
+                  <input
+                    type="date"
+                    value={newSubtask.due_date}
+                    onChange={(e) => handleNewSubtaskChange("due_date", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={handleCreateSubtask}
+                    disabled={creatingSubtask || !newSubtask.title.trim()}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-sm"
+                  >
+                    {creatingSubtask ? "Adding..." : "Add Subtask"}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

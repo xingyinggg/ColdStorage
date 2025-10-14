@@ -152,14 +152,42 @@ export default function CreateTaskPage() {
       const result = await createTask(formData);
 
       if (result.success) {
-        const notification = {
-          emp_id: result.task.owner_id || userProfile.emp_id,
-          title: `New Task Created (${result.task.title})`,
-          description: taskData.description || "No description provided",
-          type: "Task Creation",
-          created_at: new Date().toISOString(),
-        };
-        await createNotification(notification);
+        const task = result.task;
+        const isAssigning = task.owner_id && task.owner_id !== userProfile.emp_id;
+
+        // Case 1: User assigns to someone else
+        if (isAssigning) {
+          // Notify the assignee
+          const assigneeNotification = {
+            emp_id: task.owner_id,
+            title: `New Task Assigned (${task.title})`,
+            description: task.description || "You have been assigned a new task.",
+            type: "Task Assignment",
+            created_at: new Date().toISOString(),
+          };
+          await createNotification(assigneeNotification);
+
+          // Notify the assigner
+          const assignerNotification = {
+            emp_id: userProfile.emp_id,
+            title: `Task Assigned Successfully`,
+            description: `You assigned '${task.title}' to employee #${task.owner_id}.`,
+            type: "Task Assignment Confirmation",
+            created_at: new Date().toISOString(),
+          };
+          await createNotification(assignerNotification);
+        }
+        // Case 2: User creates for themselves
+        else {
+          const creatorNotification = {
+            emp_id: userProfile.emp_id,
+            title: `New Task Created (${task.title})`,
+            description: task.description || "No description provided",
+            type: "Task Creation",
+            created_at: new Date().toISOString(),
+          };
+          await createNotification(creatorNotification);
+        }
 
         router.push("/dashboard");
       } else {

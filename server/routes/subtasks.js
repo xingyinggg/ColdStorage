@@ -117,6 +117,20 @@ router.post("/", async (req, res) => {
       .select()
       .single();
     if (error) return res.status(400).json({ error: error.message });
+    // Write task history for subtask creation
+    try {
+      await supabase
+        .from('task_edit_history')
+        .insert([{
+          task_id: Number(parent_task_id),
+          editor_emp_id: empId,
+          editor_user_id: user.id,
+          action: 'subtask_create',
+          details: { subtask_id: data.id, title: data.title, priority: data.priority, status: data.status, due_date: data.due_date }
+        }]);
+    } catch (hErr) {
+      console.error('Failed to write task history (subtask create):', hErr);
+    }
     return res.status(201).json({ subtask: data });
   } catch (e) {
     return res.status(500).json({ error: e.message });
@@ -176,6 +190,20 @@ router.put("/:id", async (req, res) => {
       .select()
       .single();
     if (error) return res.status(400).json({ error: error.message });
+    // Write task history for subtask update
+    try {
+      await supabase
+        .from('task_edit_history')
+        .insert([{
+          task_id: subtask.parent_task_id,
+          editor_emp_id: empId,
+          editor_user_id: user.id,
+          action: 'subtask_update',
+          details: { subtask_id: subtaskId, updates }
+        }]);
+    } catch (hErr) {
+      console.error('Failed to write task history (subtask update):', hErr);
+    }
     return res.json({ subtask: data });
   } catch (e) {
     return res.status(500).json({ error: e.message });

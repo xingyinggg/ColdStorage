@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import TaskEditModal from "@/components/tasks/TaskEditModal";
 import TaskDetailsModal from "@/components/tasks/TaskDetailsModal";
 import { useSubtasks } from "@/utils/hooks/useSubtasks";
+import SubtaskEditModal from "@/components/tasks/SubtaskEditModal";
+import Toast from "@/components/ui/Toast";
 
 // Helper function to get priority color based on numeric value (1-10)
 const getPriorityColor = (priority) => {
@@ -64,7 +66,11 @@ export default function TaskCard({
   const [editError, setEditError] = useState("");
   const [editSuccess, setEditSuccess] = useState("");
   const [showSubtasks, setShowSubtasks] = useState(false);
-  const { subtasks, loading: loadingSubtasks, error: subtasksError, fetchSubtasks } = useSubtasks();
+  const { subtasks, loading: loadingSubtasks, error: subtasksError, fetchSubtasks, updateSubtask } = useSubtasks();
+  const [subtaskEditOpen, setSubtaskEditOpen] = useState(false);
+  const [subtaskBeingEdited, setSubtaskBeingEdited] = useState(null);
+  const [subtaskSaving, setSubtaskSaving] = useState(false);
+  const [toast, setToast] = useState({ type: "", message: "" });
   const [hasFetchedSubtasks, setHasFetchedSubtasks] = useState(false);
 
   const openEditModal = (e) => {
@@ -297,7 +303,7 @@ export default function TaskCard({
           </button>
 
           {showSubtasks && (
-            <div className="mt-2 border border-gray-200 rounded-md p-3 bg-gray-50">
+          <div className="mt-2 border border-gray-200 rounded-md p-3 bg-gray-50">
               {loadingSubtasks ? (
                 <p className="text-xs text-gray-500">Loading subtasks...</p>
               ) : subtasksError ? (
@@ -321,6 +327,16 @@ export default function TaskCard({
                           )}
                           {st.status && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 border border-gray-200">{String(st.status).replace('_',' ')}</span>
+                          )}
+                          {userCanEdit && (
+                            <button
+                              type="button"
+                              onClick={() => { setSubtaskBeingEdited(st); setSubtaskEditOpen(true); }}
+                              className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+                              title="Edit subtask"
+                            >
+                              Edit
+                            </button>
                           )}
                         </div>
                       </div>
@@ -347,6 +363,8 @@ export default function TaskCard({
                   Open full details
                 </button>
               </div>
+              {/* Inline recent history display (from TaskDetails modal fetch) */}
+              {/* Minimal stub: encourage users to open full details for full log */}
             </div>
           )}
         </div>
@@ -372,6 +390,33 @@ export default function TaskCard({
           onSave={handleEditTask}
         />
       )}
+
+      {userCanEdit && (
+        <SubtaskEditModal
+          open={subtaskEditOpen}
+          subtask={subtaskBeingEdited}
+          saving={subtaskSaving}
+          onClose={() => { setSubtaskEditOpen(false); setSubtaskBeingEdited(null); }}
+          onSave={async (subtaskId, updates) => {
+            try {
+              setSubtaskSaving(true);
+              await updateSubtask(subtaskId, updates);
+              setSubtaskEditOpen(false);
+              setSubtaskBeingEdited(null);
+              setToast({ type: "success", message: "Subtask updated successfully" });
+              setTimeout(() => setToast({ type: "", message: "" }), 2000);
+            } finally {
+              setSubtaskSaving(false);
+            }
+          }}
+        />
+      )}
+
+      <Toast
+        type={toast.type}
+        message={toast.message}
+        onClose={() => setToast({ type: "", message: "" })}
+      />
     </>
   );
 }

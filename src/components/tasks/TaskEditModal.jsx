@@ -14,7 +14,7 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
   const [file, setFile] = useState(null);
   const [removeExistingFile, setRemoveExistingFile] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
-  const { subtasks, loading: loadingSubtasks, error: subtasksError, fetchSubtasks, createSubtask, deleteSubtask } = useSubtasks();
+  const { subtasks, loading: loadingSubtasks, error: subtasksError, fetchSubtasks, createSubtask, updateSubtask, deleteSubtask } = useSubtasks();
   const [newSubtask, setNewSubtask] = useState({
     title: "",
     description: "",
@@ -23,6 +23,47 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
     due_date: ""
   });
   const [creatingSubtask, setCreatingSubtask] = useState(false);
+  const [editingSubtaskId, setEditingSubtaskId] = useState(null);
+  const [editingValues, setEditingValues] = useState({ title: "", description: "", priority: 5, status: "ongoing", due_date: "" });
+  const [savingSubtaskId, setSavingSubtaskId] = useState(null);
+
+  const beginEditSubtask = (st) => {
+    setEditingSubtaskId(st.id);
+    setEditingValues({
+      title: st.title || "",
+      description: st.description || "",
+      priority: st.priority ?? 5,
+      status: st.status || "ongoing",
+      due_date: st.due_date ? st.due_date.slice(0, 10) : "",
+    });
+  };
+
+  const cancelEditSubtask = () => {
+    setEditingSubtaskId(null);
+    setSavingSubtaskId(null);
+  };
+
+  const handleEditFieldChange = (field, value) => {
+    setEditingValues((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const saveEditSubtask = async (subtaskId) => {
+    if (!subtaskId) return;
+    try {
+      setSavingSubtaskId(subtaskId);
+      const updates = {
+        title: editingValues.title,
+        description: editingValues.description,
+        priority: editingValues.priority,
+        status: editingValues.status,
+        due_date: editingValues.due_date || null,
+      };
+      await updateSubtask(subtaskId, updates);
+      setEditingSubtaskId(null);
+    } finally {
+      setSavingSubtaskId(null);
+    }
+  };
 
   useEffect(() => {
     if (task) {
@@ -341,31 +382,118 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
                 <ul className="divide-y divide-gray-200">
                   {subtasks.map((st) => (
                     <li key={st.id} className="py-2 flex items-start justify-between">
-                      <div className="min-w-0 pr-3">
-                        <p className="text-sm font-medium text-gray-900 truncate">{st.title}</p>
-                        {st.description && (
-                          <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{st.description}</p>
+                      <div className="min-w-0 pr-3 w-full">
+                        {editingSubtaskId === st.id ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Title</label>
+                              <input
+                                type="text"
+                                value={editingValues.title}
+                                onChange={(e) => handleEditFieldChange("title", e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Priority</label>
+                              <select
+                                value={editingValues.priority}
+                                onChange={(e) => handleEditFieldChange("priority", parseInt(e.target.value, 10))}
+                                className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              >
+                                {[1,2,3,4,5,6,7,8,9,10].map((p) => (
+                                  <option key={p} value={p}>{p}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="md:col-span-2">
+                              <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Description</label>
+                              <textarea
+                                rows={2}
+                                value={editingValues.description}
+                                onChange={(e) => handleEditFieldChange("description", e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Status</label>
+                              <select
+                                value={editingValues.status}
+                                onChange={(e) => handleEditFieldChange("status", e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              >
+                                <option value="ongoing">Ongoing</option>
+                                <option value="under review">Under Review</option>
+                                <option value="completed">Completed</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Due Date</label>
+                              <input
+                                type="date"
+                                value={editingValues.due_date}
+                                onChange={(e) => handleEditFieldChange("due_date", e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              />
+                            </div>
+                            <div className="md:col-span-2 flex gap-2 mt-1">
+                              <button
+                                type="button"
+                                onClick={() => saveEditSubtask(st.id)}
+                                disabled={savingSubtaskId === st.id || !editingValues.title.trim()}
+                                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-xs"
+                              >
+                                {savingSubtaskId === st.id ? "Saving..." : "Save"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelEditSubtask}
+                                className="px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-sm font-medium text-gray-900 truncate">{st.title}</p>
+                            {st.description && (
+                              <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{st.description}</p>
+                            )}
+                            <div className="mt-1 text-xs text-gray-500 flex items-center gap-3 flex-wrap">
+                              {st.priority !== null && st.priority !== undefined && (
+                                <span>Priority: {st.priority}</span>
+                              )}
+                              {st.status && (
+                                <span>Status: {st.status}</span>
+                              )}
+                              {st.due_date && (
+                                <span>Due: {st.due_date?.slice(0,10)}</span>
+                              )}
+                            </div>
+                          </>
                         )}
-                        <div className="mt-1 text-xs text-gray-500 flex items-center gap-3 flex-wrap">
-                          {st.priority !== null && st.priority !== undefined && (
-                            <span>Priority: {st.priority}</span>
-                          )}
-                          {st.status && (
-                            <span>Status: {st.status}</span>
-                          )}
-                          {st.due_date && (
-                            <span>Due: {st.due_date?.slice(0,10)}</span>
-                          )}
-                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => deleteSubtask(st.id)}
-                        className="text-xs text-red-600 hover:text-red-800 flex-shrink-0"
-                        title="Delete subtask"
-                      >
-                        Delete
-                      </button>
+                      <div className="flex-shrink-0 flex flex-col gap-1 items-end">
+                        {editingSubtaskId !== st.id && (
+                          <button
+                            type="button"
+                            onClick={() => beginEditSubtask(st)}
+                            className="text-xs text-blue-600 hover:text-blue-800"
+                            title="Edit subtask"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => deleteSubtask(st.id)}
+                          className="text-xs text-red-600 hover:text-red-800"
+                          title="Delete subtask"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>

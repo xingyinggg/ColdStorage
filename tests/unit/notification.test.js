@@ -11,6 +11,8 @@ const createMockSupabase = () => {
         return {
             insert: vi.fn((data) => createChain(queryType + 'insert')),
             select: vi.fn((fields = '*') => createChain(queryType + '-select')),
+            eq: vi.fn(() => createChain(queryType + '-eq')),
+            order: vi.fn(() => createChain(queryType + '-order')),
             single: vi.fn(async () => {
                 if (queryType.includes('insert')) {
                     const res = mockResponses.get('insert');
@@ -26,6 +28,10 @@ const createMockSupabase = () => {
                 const result = mockResponses.get('select') || { data: [], error: null };
                 return callback(result);
             }),
+            async execute() {
+                const res = mockResponses.get('select');
+                return res || { data: [], error: null };
+            },
         };
     };
 
@@ -92,6 +98,53 @@ describe('Notification Backend Logic Tests', () => {
     });
 
     describe('CS-US13: Receive Notification on Task Assignment', () => {
+        it('should return all notifications for emp_id = 10', async () => {
+            // Mock response from Supabase
+            const mockNotifications = [
+                {
+                    id: 1,
+                    emp_id: '10',
+                    title: 'Task Assigned',
+                    type: 'task_assignment',
+                    description: 'You have been assigned a new task',
+                    created_at: '2023-01-01T00:00:00Z'
+                },
+                {
+                    id: 2,
+                    emp_id: '10',
+                    title: 'Deadline Reminder',
+                    type: 'reminder',
+                    description: 'Submit your task report',
+                    created_at: '2023-01-02T00:00:00Z'
+                }
+            ];
+
+            // Mock Supabase "select" call
+            mockSupabase._setMockResponse('select', {
+                data: mockNotifications,
+                error: null
+            });
+
+            // Mock token + user
+            getUserFromToken.mockResolvedValue(mockUser);
+            getEmpIdForUserId.mockResolvedValue('10');
+
+            // Perform request
+            const response = await request(app)
+                .get('/notification')
+                .set('Authorization', 'Bearer valid-token');
+
+            console.log('Fetched notifications:', response.status, response.body);
+
+            // Assertions
+            expect(response.status).toBe(200);
+            expect(Array.isArray(response.body)).toBe(true);
+            expect(response.body.length).toBe(2);
+            expect(response.body[0].emp_id).toBe('10');
+            expect(response.body[0].title).toBe('Task Assigned');
+            expect(response.body[1].type).toBe('reminder');
+        });
+
         it('should create notification when a task is created', async () => {
             const notifData = {
                 recipient_id: '9f548e46-a5c6-4e79-bd05-e2e43ea45f32',
@@ -101,13 +154,6 @@ describe('Notification Backend Logic Tests', () => {
                 emp_id: mockEmpId,
                 created_at: '2023-01-01T00:00:00Z'
             };
-
-            // const expectedNotif = {
-            //     id: 19,
-            //     ...notifData,
-            //     owner_id: mockEmpId,
-            //     created_at: '2023-01-01T00:00:00Z'
-            // };
 
             mockSupabase._setMockResponse('insert', {
                 data: notifData,
@@ -124,15 +170,52 @@ describe('Notification Backend Logic Tests', () => {
             // Just test that we get some response
             expect(response.status).toBeGreaterThan(199);
 
-            // expect(response.body.title).toBe('Test Task');
-            // expect(response.body.recipient_id).toBe(notifData.recipient_id);
-            // expect(response.body.emp_id).toBe(mockEmpId);
+            expect(response.body.title).toBe('Test Task');
+            expect(response.body.recipient_id).toBe(notifData.recipient_id);
+            expect(response.body.emp_id).toBe(mockEmpId);
             expect(response.body.type).toBe('task_assignment');
             expect(response.body.description).toBe('Test Description');
-            // Only test specific fields if response exists
-            // if (response.body && response.status === 201) {
-            //     expect(response.body.owner_id).toBe('12345');
-            // }
         });
+
+        it('should return 401 if emp_id cannot be retrieved', async () => {
+            getUserFromToken.mockResolvedValue(mockUser);
+            getEmpIdForUserId.mockResolvedValue(null);
+
+            const response = await request(app)
+                .get('/notification')
+                .set('Authorization', 'Bearer valid-token');
+
+            console.log('Missing emp_id response:', response.status, response.body);
+
+            expect(response.status).toBe(401); // or 401 if your route explicitly handles this
+            expect(response.body).toHaveProperty('error');
+            // expect(response.body.error).toMatch(/emp/i);
+        });
+
+        it('should return 400 if emp_id is missing in POST /notification', async () => {
+            const invalidNotif = {
+                title: 'Invalid Task',
+                type: 'task_assignment',
+                description: 'No employee assigned',
+                created_at: '2023-01-01T00:00:00Z'
+            };
+
+            // Mock user + token
+            getUserFromToken.mockResolvedValue(mockUser);
+            getEmpIdForUserId.mockResolvedValue(mockEmpId);
+
+            // Perform POST request
+            const response = await request(app)
+                .post('/notification')
+                .set('Authorization', 'Bearer valid-token')
+                .send(invalidNotif);
+
+            console.log('Invalid notification response:', response.status, response.body);
+
+            // ✅ Assertions
+            expect(response.status).toBe(400);
+            expect(response.body).toHaveProperty('error', 'Missing required fields');
+        });
+
     });
 });

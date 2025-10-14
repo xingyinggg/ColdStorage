@@ -156,6 +156,29 @@ describe('Subtasks API - Integration', () => {
     expect(res.body.subtasks.length).toBe(2);
   });
 
+  it('GET /subtasks/task/:id allows collaborators to view', async () => {
+    // Parent task where requester is a collaborator (not owner)
+    mockSupabase._setMockResponse('select-single', {
+      data: { id: 15, owner_id: '999', collaborators: [mockEmpId] },
+      error: null,
+    });
+    // Subtasks list
+    mockSupabase._setMockResponse('select', {
+      data: [
+        { id: 1, parent_task_id: 15, title: 'S1', priority: 4, status: 'ongoing' },
+      ],
+      error: null,
+    });
+
+    const res = await request(app)
+      .get('/subtasks/task/15')
+      .set('Authorization', `Bearer ${mockAuthToken}`);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.subtasks)).toBe(true);
+    expect(res.body.subtasks.length).toBe(1);
+  });
+
   it('POST /subtasks creates subtask when requester owns parent', async () => {
     // Parent task select-single for ownership check
     mockSupabase._setMockResponse('select-single', {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { useSubtasks } from "@/utils/hooks/useSubtasks";
 
 export default function TaskDetailsModal({ 
   open, 
@@ -15,6 +16,7 @@ export default function TaskDetailsModal({
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState("");
+  const { subtasks, loading: loadingSubtasks, error: subtasksError, fetchSubtasks } = useSubtasks();
 
   // Get collaborator names when task changes
   useEffect(() => {
@@ -25,6 +27,13 @@ export default function TaskDetailsModal({
       setCollaboratorNames(names);
     }
   }, [task, memberNames]);
+
+  // Fetch subtasks when modal opens for a given task
+  useEffect(() => {
+    if (open && task?.id) {
+      fetchSubtasks(task.id);
+    }
+  }, [open, task?.id, fetchSubtasks]);
 
   if (!open || !task) return null;
 
@@ -298,6 +307,68 @@ export default function TaskDetailsModal({
               </div>
             </div>
           )}
+
+          {/* Subtasks */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Subtasks {Array.isArray(subtasks) ? `(${subtasks.length})` : ''}
+            </label>
+            <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
+              {loadingSubtasks ? (
+                <p className="text-sm text-gray-500">Loading subtasks...</p>
+              ) : subtasksError ? (
+                <p className="text-sm text-red-600">{subtasksError}</p>
+              ) : !subtasks || subtasks.length === 0 ? (
+                <p className="text-sm text-gray-500">No subtasks</p>
+              ) : (
+                <div className="space-y-3">
+                  {subtasks.map((st) => (
+                    <div key={st.id} className="bg-white border border-gray-200 rounded p-3">
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0 pr-3">
+                          <p className="text-sm font-medium text-gray-900 truncate">{st.title}</p>
+                          {st.description && (
+                            <p className="text-xs text-gray-600 mt-1 line-clamp-2">{st.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {/* Priority */}
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getPriorityStyle(st.priority)}`}>
+                            {st.priority !== null && st.priority !== undefined ? `P${st.priority}` : 'No P'}
+                          </span>
+                          {/* Status */}
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusStyle(st.status)}`}>
+                            {formatStatus(st.status)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex items-center text-xs text-gray-600 gap-4 flex-wrap">
+                        {st.due_date && (
+                          <div className="flex items-center">
+                            <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            Due: {formatDate(st.due_date)}
+                          </div>
+                        )}
+                        {Array.isArray(st.collaborators) && st.collaborators.length > 0 && (
+                          <div className="flex items-center">
+                            <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M9 20H4v-2a3 3 0 015.356-1.857M15 11a3 3 0 110-6 3 3 0 010 6zM6 11a3 3 0 110-6 3 3 0 010 6z" />
+                            </svg>
+                            {st.collaborators
+                              .map((id) => memberNames[id] || `User ${id}`)
+                              .filter(Boolean)
+                              .join(', ')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Created At */}
           <div>

@@ -3,12 +3,22 @@
 import { useState, useEffect } from "react";
 import { useSubtasks } from "@/utils/hooks/useSubtasks";
 
-export default function TaskEditModal({ open, task, onClose, onSave, saving = false, errorMessage = "", successMessage = "" }) {
+export default function TaskEditModal({ 
+  open, 
+  task, 
+  onClose, 
+  onSave, 
+  saving = false, 
+  errorMessage = "", 
+  successMessage = "",
+  isOwner = false,
+  isCollaborator = false
+}) {
   const [form, setForm] = useState({
     title: "",
     description: "",
     priority: 5,
-    status: "unassigned",
+    status: "ongoing",
     due_date: "",
   });
   const [file, setFile] = useState(null);
@@ -51,13 +61,24 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
     if (!subtaskId) return;
     try {
       setSavingSubtaskId(subtaskId);
-      const updates = {
-        title: editingValues.title,
-        description: editingValues.description,
-        priority: editingValues.priority,
-        status: editingValues.status,
-        due_date: editingValues.due_date || null,
-      };
+      
+      // For collaborators, only allow status updates
+      let updates;
+      if (isCollaborator && !isOwner) {
+        updates = {
+          status: editingValues.status,
+        };
+      } else {
+        // Full edit permissions for owners
+        updates = {
+          title: editingValues.title,
+          description: editingValues.description,
+          priority: editingValues.priority,
+          status: editingValues.status,
+          due_date: editingValues.due_date || null,
+        };
+      }
+      
       await updateSubtask(subtaskId, updates);
       setEditingSubtaskId(null);
     } finally {
@@ -116,6 +137,14 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
       return;
     }
 
+    // For collaborators, only allow status updates
+    if (isCollaborator && !isOwner) {
+      const updates = { status: form.status };
+      onSave(task.id, updates);
+      return;
+    }
+
+    // Full edit permissions for owners
     // Create FormData to handle file upload
     const formData = new FormData();
     
@@ -192,8 +221,16 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative bg-white w-full max-w-lg rounded-lg shadow-lg p-6 max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Task</h3>
+      <div className="relative bg-white w-full max-w-lg rounded-lg shadow-lg p-6 z-60 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">
+          {isCollaborator && !isOwner ? "Update Task Status" : "Edit Task"}
+        </h3>
+
+        {isCollaborator && !isOwner && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 text-blue-700 px-3 py-2 rounded text-sm">
+            <strong>Collaborator Mode:</strong> You can only update the task status.
+          </div>
+        )}
 
         {errorMessage && (
           <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
@@ -219,6 +256,7 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
         )}
 
         <div className="space-y-4">
+          {/* Show all fields but disable editing for collaborators (except status) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Title <span className="text-red-500">*</span>
@@ -227,7 +265,10 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
               type="text"
               value={form.title}
               onChange={(e) => handleInputChange("title", e.target.value)}
+              disabled={isCollaborator && !isOwner}
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isCollaborator && !isOwner ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''
+              } ${
                 validationErrors.title ? "border-red-300 bg-red-50" : "border-gray-300"
               }`}
             />
@@ -242,7 +283,10 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
               rows={3}
               value={form.description}
               onChange={(e) => handleInputChange("description", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isCollaborator && !isOwner}
+              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isCollaborator && !isOwner ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''
+              }`}
             />
           </div>
 
@@ -254,7 +298,10 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
               <select
                 value={form.priority}
                 onChange={(e) => handleInputChange("priority", parseInt(e.target.value, 10))}
+                disabled={isCollaborator && !isOwner}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isCollaborator && !isOwner ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''
+                } ${
                   validationErrors.priority ? "border-red-300 bg-red-50" : "border-gray-300"
                 }`}
               >
@@ -299,77 +346,100 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
               <input
                 type="date"
                 value={form.due_date}
-                onChange={(e) => handleInputChange("due_date", e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  validationErrors.due_date ? "border-red-300 bg-red-50" : "border-gray-300"
+                onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                disabled={isCollaborator && !isOwner}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isCollaborator && !isOwner ? 'bg-gray-100 cursor-not-allowed text-gray-600' : ''
                 }`}
               />
-              <p className="mt-1 text-xs text-gray-500">Optional</p>
-              {validationErrors.due_date && (
-                <p className="mt-1 text-xs text-red-600">{validationErrors.due_date}</p>
-              )}
             </div>
           </div>
 
-          {/* File Upload Section */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Attachment (PDF)
-            </label>
-            
-            {/* Show existing file if present */}
-            {task?.file && !removeExistingFile && (
-              <div className="mb-2 p-2 bg-gray-50 rounded border">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <svg className="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span className="text-sm text-gray-700">Current file attached</span>
+          {/* File Upload Section - Only editable for owners */}
+          {!(isCollaborator && !isOwner) && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Attachment (PDF)
+              </label>
+              
+              {/* Show existing file if present */}
+              {task?.file && !removeExistingFile && (
+                <div className="mb-2 p-2 bg-gray-50 rounded border">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <svg className="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span className="text-sm text-gray-700">Current file attached</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRemoveExistingFile(true)}
+                      className="text-xs text-red-600 hover:text-red-800"
+                    >
+                      Remove
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setRemoveExistingFile(true)}
-                    className="text-xs text-red-600 hover:text-red-800"
-                  >
-                    Remove
-                  </button>
+                </div>
+              )}
+              
+              {/* File input */}
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={(e) => {
+                  setFile(e.target.files[0] || null);
+                  setRemoveExistingFile(false); // Reset remove flag when new file is selected
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                PDF files only, max 10MB
+              </p>
+              
+              {/* Show selected file name */}
+              {file && (
+                <div className="mt-2 text-sm text-green-600">
+                  New file selected: {file.name}
+                </div>
+              )}
+              
+              {removeExistingFile && (
+                <div className="mt-2 text-sm text-red-600">
+                  Current file will be removed
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Show file info for collaborators (read-only) */}
+          {(isCollaborator && !isOwner) && task?.file && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Attachment
+              </label>
+              <div className="mb-2 p-2 bg-gray-50 rounded border">
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="text-sm text-gray-700">File attached (view only)</span>
                 </div>
               </div>
-            )}
-            
-            {/* File input */}
-            <input
-              type="file"
-              accept=".pdf,application/pdf"
-              onChange={(e) => {
-                setFile(e.target.files[0] || null);
-                setRemoveExistingFile(false); // Reset remove flag when new file is selected
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              PDF files only, max 10MB
-            </p>
-            
-            {/* Show selected file name */}
-            {file && (
-              <div className="mt-2 text-sm text-green-600">
-                New file selected: {file.name}
-              </div>
-            )}
-            
-            {removeExistingFile && (
-              <div className="mt-2 text-sm text-red-600">
-                Current file will be removed
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Subtasks Management (owner only via canEdit gating in parent) */}
+        {/* Subtasks Management */}
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Subtasks</label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">Subtasks</label>
+            {isCollaborator && !isOwner && (
+              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                You can only edit subtask status
+              </span>
+            )}
+          </div>
           <div className="space-y-3">
             <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
               {loadingSubtasks ? (
@@ -385,36 +455,55 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
                       <div className="min-w-0 pr-3 w-full">
                         {editingSubtaskId === st.id ? (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {/* Subtask Title - disabled for collaborators */}
                             <div>
                               <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Title</label>
                               <input
                                 type="text"
                                 value={editingValues.title}
                                 onChange={(e) => handleEditFieldChange("title", e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                disabled={isCollaborator && !isOwner}
+                                className={`w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                                  isCollaborator && !isOwner 
+                                    ? 'bg-gray-100 cursor-not-allowed text-gray-600' 
+                                    : ''
+                                }`}
                               />
                             </div>
+                            {/* Subtask Priority - disabled for collaborators */}
                             <div>
                               <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Priority</label>
                               <select
                                 value={editingValues.priority}
                                 onChange={(e) => handleEditFieldChange("priority", parseInt(e.target.value, 10))}
-                                className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                disabled={isCollaborator && !isOwner}
+                                className={`w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                                  isCollaborator && !isOwner 
+                                    ? 'bg-gray-100 cursor-not-allowed text-gray-600' 
+                                    : ''
+                                }`}
                               >
                                 {[1,2,3,4,5,6,7,8,9,10].map((p) => (
                                   <option key={p} value={p}>{p}</option>
                                 ))}
                               </select>
                             </div>
+                            {/* Subtask Description - disabled for collaborators */}
                             <div className="md:col-span-2">
                               <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Description</label>
                               <textarea
                                 rows={2}
                                 value={editingValues.description}
                                 onChange={(e) => handleEditFieldChange("description", e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                disabled={isCollaborator && !isOwner}
+                                className={`w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                                  isCollaborator && !isOwner 
+                                    ? 'bg-gray-100 cursor-not-allowed text-gray-600' 
+                                    : ''
+                                }`}
                               />
                             </div>
+                            {/* Subtask Status - always enabled for collaborators */}
                             <div>
                               <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Status</label>
                               <select
@@ -427,23 +516,29 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
                                 <option value="completed">Completed</option>
                               </select>
                             </div>
+                            {/* Subtask Due Date - disabled for collaborators */}
                             <div>
                               <label className="block text-[11px] font-medium text-gray-700 mb-0.5">Due Date</label>
                               <input
                                 type="date"
                                 value={editingValues.due_date}
                                 onChange={(e) => handleEditFieldChange("due_date", e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                disabled={isCollaborator && !isOwner}
+                                className={`w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                                  isCollaborator && !isOwner 
+                                    ? 'bg-gray-100 cursor-not-allowed text-gray-600' 
+                                    : ''
+                                }`}
                               />
                             </div>
                             <div className="md:col-span-2 flex gap-2 mt-1">
                               <button
                                 type="button"
                                 onClick={() => saveEditSubtask(st.id)}
-                                disabled={savingSubtaskId === st.id || !editingValues.title.trim()}
+                                disabled={savingSubtaskId === st.id || (!isOwner && !editingValues.title.trim())}
                                 className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-xs"
                               >
-                                {savingSubtaskId === st.id ? "Saving..." : "Save"}
+                                {savingSubtaskId === st.id ? "Saving..." : (isCollaborator && !isOwner ? "Update Status" : "Save")}
                               </button>
                               <button
                                 type="button"
@@ -475,24 +570,26 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
                         )}
                       </div>
                       <div className="flex-shrink-0 flex flex-col gap-1 items-end">
-                        {editingSubtaskId !== st.id && (
+                        {editingSubtaskId !== st.id && (isOwner || isCollaborator) && (
                           <button
                             type="button"
                             onClick={() => beginEditSubtask(st)}
                             className="text-xs text-blue-600 hover:text-blue-800"
-                            title="Edit subtask"
+                            title={isCollaborator && !isOwner ? "Edit subtask status" : "Edit subtask"}
                           >
                             Edit
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => deleteSubtask(st.id)}
-                          className="text-xs text-red-600 hover:text-red-800"
-                          title="Delete subtask"
-                        >
-                          Delete
-                        </button>
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => deleteSubtask(st.id)}
+                            className="text-xs text-red-600 hover:text-red-800"
+                            title="Delete subtask"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </li>
                   ))}
@@ -500,8 +597,9 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
               )}
             </div>
 
-            {/* Add new subtask */}
-            <div className="bg-white border border-gray-200 rounded-md p-3">
+            {/* Add new subtask - owners only */}
+            {isOwner && (
+              <div className="bg-white border border-gray-200 rounded-md p-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Title</label>
@@ -557,6 +655,7 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
                 </div>
               </div>
             </div>
+            )}
           </div>
         </div>
 
@@ -569,7 +668,7 @@ export default function TaskEditModal({ open, task, onClose, onSave, saving = fa
             disabled={saving}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? "Saving..." : (isCollaborator && !isOwner ? "Update Status" : "Save")}
           </button>
         </div>
       </div>

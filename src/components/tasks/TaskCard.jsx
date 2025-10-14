@@ -16,7 +16,7 @@ const getPriorityColor = (priority) => {
       border: "border-gray-200",
     };
   }
-  
+
   // 1-3: Low (green)
   if (priority >= 1 && priority <= 3) {
     return {
@@ -41,7 +41,7 @@ const getPriorityColor = (priority) => {
       border: "border-red-200",
     };
   }
-  
+
   // Default
   return {
     bg: "bg-gray-50",
@@ -50,12 +50,14 @@ const getPriorityColor = (priority) => {
   };
 };
 
-export default function TaskCard({ 
-  task, 
+export default function TaskCard({
+  task,
   onTaskUpdate, // new prop name used in some places
   onEdit,        // backwards-compatible prop used elsewhere
   canEdit, // ← Use this prop instead of calculating internally
-  borderColor = "border-gray-200", 
+  isOwner = false, // New prop to indicate if user is the task owner
+  isCollaborator = false, // New prop to indicate if user is a collaborator
+  borderColor = "border-gray-200",
   currentUserId, // Keep for backwards compatibility
   memberNames = {},
   projectNames = {} // Add this prop
@@ -106,7 +108,7 @@ export default function TaskCard({
     try {
       setEditSaving(true);
       setEditError("");
-      
+
       // Convert FormData to plain object when needed
       let updates = {};
       if (formOrFormData && typeof formOrFormData.entries === 'function') {
@@ -133,20 +135,20 @@ export default function TaskCard({
           }
         }
       }
-      
+
       const updateFn = typeof onTaskUpdate === 'function' ? onTaskUpdate : onEdit;
       if (typeof updateFn !== 'function') {
         throw new Error('TaskCard: No update handler provided (onTaskUpdate/onEdit)');
       }
 
       await updateFn(taskId, updates);
-      
+
       setEditSuccess("Task updated successfully!");
       setTimeout(() => {
         closeEditModal();
         setEditSuccess("");
       }, 1000);
-      
+
     } catch (error) {
       console.error("Error updating task:", error);
       setEditError(error.message || "Failed to update task");
@@ -156,13 +158,13 @@ export default function TaskCard({
   };
 
   // Use the passed canEdit prop, or fallback to calculating it if not provided
-  const userCanEdit = canEdit !== undefined ? canEdit : (currentUserId && task.owner_id && String(currentUserId) === String(task.owner_id));
-  
+  const userCanEdit = canEdit !== undefined ? canEdit : (currentUserId && task.owner_id && String(currentUserId) === String(task.owner_id) || (task.collaborators && Array.isArray(task.collaborators) && task.collaborators.includes(String(currentUserId))));
+
   // Due date status calculations
   const now = new Date();
   const dueDate = task.due_date ? new Date(task.due_date) : null;
   const isOverdue = dueDate && dueDate < now;
-  
+
   const msInDay = 24 * 60 * 60 * 1000;
   const daysUntilDue = dueDate ? Math.ceil((dueDate - now) / msInDay) : null;
   const isApproaching = dueDate && daysUntilDue > 0 && daysUntilDue <= 3;
@@ -192,15 +194,16 @@ export default function TaskCard({
 
   return (
     <>
-      <div 
-        className={`bg-white rounded-xl border ${borderColor} shadow-sm hover:shadow-md transition-all duration-200 p-4`}
+      <div
+        className={`bg-white rounded-xl border ${borderColor} shadow-sm hover:shadow-md transition-all duration-200 p-4 cursor-pointer`}
+        onClick={openDetailsModal} // Add click handler to open details modal
       >
         {/* Header with Title and Edit Button */}
         <div className="flex items-start justify-between mb-3">
           <h3 className="font-semibold text-sm text-gray-900 leading-5 flex-1 mr-2 min-w-0">
             {task.title}
           </h3>
-          
+
           <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
             {/* Subtasks count badge (visible after first load) */}
             {hasFetchedSubtasks && Array.isArray(subtasks) && (
@@ -214,7 +217,7 @@ export default function TaskCard({
                 Priority: {task.priority}
               </div>
             )}
-            
+
             {/* Edit Button - Use userCanEdit */}
             {userCanEdit && (
               <button
@@ -242,9 +245,8 @@ export default function TaskCard({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
             <span className="text-gray-500 font-medium mr-1 flex-shrink-0">Assigned to:</span>
-            <span className={`font-medium truncate ${
-              userCanEdit ? "text-blue-700" : "text-gray-700"
-            }`}>
+            <span className={`font-medium truncate ${userCanEdit ? "text-blue-700" : "text-gray-700"
+              }`}>
               {getAssignedToDisplay()}
             </span>
           </div>
@@ -266,13 +268,12 @@ export default function TaskCard({
               <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span className={`font-medium ${
-                isOverdue 
-                  ? "text-red-600" 
+              <span className={`font-medium ${isOverdue
+                  ? "text-red-600"
                   : isApproaching
-                  ? "text-amber-600"
-                  : "text-gray-600"
-              }`}>
+                    ? "text-amber-600"
+                    : "text-gray-600"
+                }`}>
                 Due: {new Date(task.due_date).toLocaleDateString()}
                 {isOverdue && (
                   <span className="ml-1 text-red-500 font-semibold">
@@ -383,6 +384,8 @@ export default function TaskCard({
         <TaskEditModal
           open={editModalOpen}
           task={task}
+          isOwner={isOwner}
+          isCollaborator={isCollaborator}
           saving={editSaving}
           errorMessage={editError}
           successMessage={editSuccess}
@@ -396,6 +399,8 @@ export default function TaskCard({
           open={subtaskEditOpen}
           subtask={subtaskBeingEdited}
           saving={subtaskSaving}
+          isOwner={isOwner}
+          isCollaborator={isCollaborator}
           onClose={() => { setSubtaskEditOpen(false); setSubtaskBeingEdited(null); }}
           onSave={async (subtaskId, updates) => {
             try {

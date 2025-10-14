@@ -33,17 +33,26 @@ export default function TaskColumn({
 
       {/* Task Cards */}
       <div className="space-y-2">
-        {filteredTasks.map((task) => (
-          <ProjectTaskCard
-            key={task.id}
-            task={task}
-            borderColor={borderColor}
-            onTaskUpdate={onTaskUpdate}
-            currentUserId={currentUserId}
-            memberNames={memberNames}
-            projectNames={projectNames}
-          />
-        ))}
+        {filteredTasks.map((task) => {
+          const canEdit = task.owner_id && currentUserId && (
+            String(currentUserId) === String(task.owner_id) ||
+            (task.collaborators && Array.isArray(task.collaborators) && 
+             task.collaborators.includes(String(currentUserId)))
+          );
+          
+          return (
+            <ProjectTaskCard
+              key={task.id}
+              task={task}
+              canEdit={canEdit}
+              borderColor={borderColor}
+              onTaskUpdate={onTaskUpdate}
+              currentUserId={currentUserId}
+              memberNames={memberNames}
+              projectNames={projectNames}
+            />
+          );
+        })}
       </div>
     </div>
   );

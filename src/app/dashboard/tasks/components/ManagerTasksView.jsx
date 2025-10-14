@@ -82,7 +82,9 @@ function ManagerAllTasksSection({ tasks = [], projects = [], currentUserEmpId, o
                 getPriorityColor={getPriorityColor}
                 getStatusColor={getStatusColor}
                 getProjectName={getProjectName}
-                canEdit={currentUserEmpId === task.owner_id}
+                canEdit={currentUserEmpId === task.owner_id || (task.collaborators && task.collaborators.includes(currentUserEmpId))}
+                isOwner={currentUserEmpId === task.owner_id}
+                isCollaborator={task.collaborators && task.collaborators.includes(currentUserEmpId)}
                 onEdit={(id, updates) =>
                   onEditTask(id, task.collaborators || [], updates)
                 }

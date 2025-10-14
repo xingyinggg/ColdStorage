@@ -15,7 +15,10 @@
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
-    "test:integration:watch": "vitest tests/integration"
+    "test:integration:watch": "vitest tests/integration",
+    "test:auth": "vitest tests/integration/auth.test.js",
+    "test:auth-unit": "vitest tests/unit/auth.test.js",
+    "test:auth-watch": "vitest tests/integration/auth.test.js --watch"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
@@ -34,6 +37,9 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -41,6 +47,8 @@
     "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
+    "happy-dom": "^20.0.0",
+    "jsdom": "^27.0.0",
     "supertest": "^7.1.4",
     "tailwindcss": "^4",
     "typescript": "^5",

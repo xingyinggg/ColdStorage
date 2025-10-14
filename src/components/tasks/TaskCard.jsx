@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import TaskEditModal from "@/components/tasks/TaskEditModal";
 import TaskDetailsModal from "@/components/tasks/TaskDetailsModal";
+import { useSubtasks } from "@/utils/hooks/useSubtasks";
+import SubtaskEditModal from "@/components/tasks/SubtaskEditModal";
+import Toast from "@/components/ui/Toast";
 
 // Helper function to get priority color based on numeric value (1-10)
 const getPriorityColor = (priority) => {
@@ -64,6 +67,13 @@ export default function TaskCard({
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [editSuccess, setEditSuccess] = useState("");
+  const [showSubtasks, setShowSubtasks] = useState(false);
+  const { subtasks, loading: loadingSubtasks, error: subtasksError, fetchSubtasks, updateSubtask } = useSubtasks();
+  const [subtaskEditOpen, setSubtaskEditOpen] = useState(false);
+  const [subtaskBeingEdited, setSubtaskBeingEdited] = useState(null);
+  const [subtaskSaving, setSubtaskSaving] = useState(false);
+  const [toast, setToast] = useState({ type: "", message: "" });
+  const [hasFetchedSubtasks, setHasFetchedSubtasks] = useState(false);
 
   const openEditModal = (e) => {
     e.stopPropagation();
@@ -86,6 +96,13 @@ export default function TaskCard({
   const closeDetailsModal = () => {
     setDetailsModalOpen(false);
   };
+
+  // Fetch subtasks the first time user expands the section
+  useEffect(() => {
+    if (showSubtasks && task?.id && !hasFetchedSubtasks) {
+      fetchSubtasks(task.id).finally(() => setHasFetchedSubtasks(true));
+    }
+  }, [showSubtasks, task?.id, hasFetchedSubtasks, fetchSubtasks]);
 
   const handleEditTask = async (taskId, formOrFormData) => {
     try {
@@ -188,6 +205,12 @@ export default function TaskCard({
           </h3>
 
           <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
+            {/* Subtasks count badge (visible after first load) */}
+            {hasFetchedSubtasks && Array.isArray(subtasks) && (
+              <div className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200" title="Subtasks count">
+                {subtasks.length}
+              </div>
+            )}
             {/* Priority Badge - Show numeric value */}
             {task.priority !== null && task.priority !== undefined && (
               <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${priorityConfig.bg} ${priorityConfig.text} ${priorityConfig.border}`}>
@@ -198,7 +221,7 @@ export default function TaskCard({
             {/* Edit Button - Use userCanEdit */}
             {userCanEdit && (
               <button
-                onClick={openEditModal}
+                onClick={(e) => { e.stopPropagation(); openEditModal(e); }}
                 className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-gray-700 bg-gray-100 hover:bg-gray-200 flex-shrink-0"
               >
                 Edit
@@ -266,6 +289,86 @@ export default function TaskCard({
             </div>
           )}
         </div>
+        {/* Subtasks toggle */}
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setShowSubtasks((v) => !v)}
+            className="flex items-center text-xs text-blue-600 hover:text-blue-800"
+            title="Toggle subtasks"
+          >
+            <svg className={`w-3.5 h-3.5 mr-1 transition-transform ${showSubtasks ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            {showSubtasks ? "Hide subtasks" : "View subtasks"}
+          </button>
+
+          {showSubtasks && (
+          <div className="mt-2 border border-gray-200 rounded-md p-3 bg-gray-50">
+              {loadingSubtasks ? (
+                <p className="text-xs text-gray-500">Loading subtasks...</p>
+              ) : subtasksError ? (
+                <p className="text-xs text-red-600">{subtasksError}</p>
+              ) : !subtasks || subtasks.length === 0 ? (
+                <p className="text-xs text-gray-500">No subtasks</p>
+              ) : (
+                <ul className="space-y-2">
+                  {subtasks.map((st) => (
+                    <li key={st.id} className="bg-white border border-gray-200 rounded p-2">
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0 pr-3">
+                          <p className="text-xs font-medium text-gray-900 truncate">{st.title}</p>
+                          {st.description && (
+                            <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">{st.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {st.priority !== null && st.priority !== undefined && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 border border-gray-200">P{st.priority}</span>
+                          )}
+                          {st.status && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 border border-gray-200">{String(st.status).replace('_',' ')}</span>
+                          )}
+                          {userCanEdit && (
+                            <button
+                              type="button"
+                              onClick={() => { setSubtaskBeingEdited(st); setSubtaskEditOpen(true); }}
+                              className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+                              title="Edit subtask"
+                            >
+                              Edit
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-1 flex items-center text-[11px] text-gray-600 gap-3 flex-wrap">
+                        {st.due_date && (
+                          <div className="flex items-center">
+                            <svg className="w-3 h-3 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            {new Date(st.due_date).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={openDetailsModal}
+                  className="text-[11px] text-blue-600 hover:text-blue-800"
+                >
+                  Open full details
+                </button>
+              </div>
+              {/* Inline recent history display (from TaskDetails modal fetch) */}
+              {/* Minimal stub: encourage users to open full details for full log */}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Task Details Modal - Add this */}
@@ -290,6 +393,33 @@ export default function TaskCard({
           onSave={handleEditTask}
         />
       )}
+
+      {userCanEdit && (
+        <SubtaskEditModal
+          open={subtaskEditOpen}
+          subtask={subtaskBeingEdited}
+          saving={subtaskSaving}
+          onClose={() => { setSubtaskEditOpen(false); setSubtaskBeingEdited(null); }}
+          onSave={async (subtaskId, updates) => {
+            try {
+              setSubtaskSaving(true);
+              await updateSubtask(subtaskId, updates);
+              setSubtaskEditOpen(false);
+              setSubtaskBeingEdited(null);
+              setToast({ type: "success", message: "Subtask updated successfully" });
+              setTimeout(() => setToast({ type: "", message: "" }), 2000);
+            } finally {
+              setSubtaskSaving(false);
+            }
+          }}
+        />
+      )}
+
+      <Toast
+        type={toast.type}
+        message={toast.message}
+        onClose={() => setToast({ type: "", message: "" })}
+      />
     </>
   );
 }

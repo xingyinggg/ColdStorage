@@ -1,3 +1,21 @@
+// Load test environment variables FIRST (before any imports)
+import dotenv from "dotenv";
+import path from "path";
+
+// Load test environment from tests/.env.test
+dotenv.config({ path: path.join(process.cwd(), "tests", ".env.test") });
+
+// Validate test environment variables
+if (!process.env.SUPABASE_TEST_URL || !process.env.SUPABASE_TEST_SERVICE_KEY) {
+  throw new Error(
+    "Test environment variables not loaded. Please check tests/.env.test file."
+  );
+}
+
+// Override environment to force test database usage
+process.env.SUPABASE_URL = process.env.SUPABASE_TEST_URL;
+process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_TEST_SERVICE_KEY;
+
 import {
   describe,
   it,
@@ -13,57 +31,134 @@ import express from "express";
 import projectRoutes from "../../server/routes/projects.js";
 import { createClient } from "@supabase/supabase-js";
 
-// For true integration testing, we'll mock only the auth but use real database
+// Mock authentication functions with test users
+import {
+  getUserFromToken,
+  getEmpIdForUserId,
+  getUserRole,
+} from "../../server/lib/supabase.js";
+
 vi.mock("../../server/lib/supabase.js", async () => {
   const actual = await vi.importActual("../../server/lib/supabase.js");
   return {
     ...actual,
-    // Only mock auth functions for testing simplicity while keeping real DB operations
-    getUserFromToken: vi.fn().mockImplementation(async (token) => {
-      if (!token || token.includes("invalid")) {
-        throw new Error("Invalid token");
-      }
-      return {
-        id: "test-user-uuid-integration",
-        email: "integration.test@company.com",
-      };
-    }),
-    getEmpIdForUserId: vi.fn().mockResolvedValue("EMP001"),
-    getUserRole: vi.fn().mockResolvedValue("staff"),
+    getUserFromToken: vi.fn(),
+    getEmpIdForUserId: vi.fn(),
+    getUserRole: vi.fn(),
   };
 });
 
-// Import your actual Supabase configuration
-import { getServiceClient } from "../../server/lib/supabase.js";
+// Create test database client
+function getTestSupabaseClient() {
+  return createClient(
+    process.env.SUPABASE_TEST_URL,
+    process.env.SUPABASE_TEST_SERVICE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+}
 
 const app = express();
 app.use(express.json());
 app.use("/projects", projectRoutes);
 
-describe("Projects Integration Tests with Real Database", () => {
+describe("Projects Integration Tests with Test Database", () => {
   let supabaseClient;
-  let testToken;
-  let createdProjectIds = []; // Track projects we create for cleanup
+  let staffToken;
+  let managerToken;
+  let createdProjectIds = [];
 
   beforeAll(async () => {
-    // Initialize Supabase client for real database operations
-    supabaseClient = getServiceClient();
+    console.log("Setting up projects integration tests...");
 
-    // Use a test token (auth is mocked but database operations are real)
-    testToken = "test-integration-token";
+    // Initialize test database client
+    supabaseClient = getTestSupabaseClient();
 
-    console.log("Integration test setup complete");
-    console.log("Using mocked auth with real database operations");
+    // Setup test tokens
+    staffToken = "test-staff-token";
+    managerToken = "test-manager-token";
+
+    // Configure authentication mocks for different user types
+    vi.mocked(getUserFromToken).mockImplementation(async (token) => {
+      if (token.includes("manager")) {
+        return {
+          id: "550e8400-e29b-41d4-a716-446655440002",
+          email: "manager@example.com",
+        };
+      }
+      if (token.includes("invalid")) {
+        throw new Error("Invalid token");
+      }
+      return {
+        id: "550e8400-e29b-41d4-a716-446655440001",
+        email: "staff@example.com",
+      };
+    });
+
+    vi.mocked(getEmpIdForUserId).mockImplementation(async (userId) => {
+      if (userId === "550e8400-e29b-41d4-a716-446655440002") {
+        return "TEST002"; // Manager
+      }
+      return "TEST001"; // Staff
+    });
+
+    vi.mocked(getUserRole).mockImplementation(async (empId) => {
+      if (empId === "TEST002") {
+        return "manager";
+      }
+      return "staff";
+    });
+
+    console.log("Projects integration test setup complete");
   });
 
   beforeEach(async () => {
-    // Clear any existing test data
+    // Clear tracking arrays
     createdProjectIds = [];
-    console.log("Starting fresh test...");
+
+    // Clear all mocks
+    vi.clearAllMocks();
+
+    // Re-setup mocks for each test
+    vi.mocked(getUserFromToken).mockImplementation(async (token) => {
+      if (token.includes("manager")) {
+        return {
+          id: "550e8400-e29b-41d4-a716-446655440002",
+          email: "manager@example.com",
+        };
+      }
+      if (token.includes("invalid")) {
+        throw new Error("Invalid token");
+      }
+      return {
+        id: "550e8400-e29b-41d4-a716-446655440001",
+        email: "staff@example.com",
+      };
+    });
+
+    vi.mocked(getEmpIdForUserId).mockImplementation(async (userId) => {
+      if (userId === "550e8400-e29b-41d4-a716-446655440002") {
+        return "TEST002";
+      }
+      return "TEST001";
+    });
+
+    vi.mocked(getUserRole).mockImplementation(async (empId) => {
+      if (empId === "TEST002") {
+        return "manager";
+      }
+      return "staff";
+    });
+
+    console.log("Starting fresh project test...");
   });
 
   afterEach(async () => {
-    // Cleanup: Delete any projects created during tests
+    // Cleanup created projects
     if (createdProjectIds.length > 0) {
       try {
         await supabaseClient
@@ -73,7 +168,7 @@ describe("Projects Integration Tests with Real Database", () => {
 
         console.log(`Cleaned up ${createdProjectIds.length} test projects`);
       } catch (error) {
-        console.warn("Cleanup warning:", error.message);
+        console.warn("Project cleanup warning:", error.message);
       }
     }
   });
@@ -86,57 +181,103 @@ describe("Projects Integration Tests with Real Database", () => {
         .delete()
         .ilike("title", "%integration test%");
 
-      console.log("Integration test cleanup complete");
+      console.log("Projects integration test cleanup complete");
     } catch (error) {
-      console.warn("Final cleanup warning:", error.message);
+      console.warn("Final project cleanup warning:", error.message);
     }
   });
 
-  describe("Real Database Project CRUD Operations", () => {
-    it("should create a project in the actual database", async () => {
+  describe("Environment and Database Verification", () => {
+    it("should have test environment variables loaded", () => {
+      expect(process.env.SUPABASE_TEST_URL).toBeTruthy();
+      expect(process.env.SUPABASE_TEST_SERVICE_KEY).toBeTruthy();
+      expect(process.env.SUPABASE_URL).toBe(process.env.SUPABASE_TEST_URL);
+      expect(process.env.SUPABASE_SERVICE_ROLE_KEY).toBe(
+        process.env.SUPABASE_TEST_SERVICE_KEY
+      );
+    });
+
+    it("should be using test database", async () => {
+      const { data, error } = await supabaseClient
+        .from("projects")
+        .select("count", { count: "exact" });
+
+      expect(error).toBeNull();
+      expect(data).toBeDefined();
+      console.log("Connected to test database successfully");
+    });
+  });
+
+  describe("Mock Verification", () => {
+    it("should have properly mocked auth functions", async () => {
+      // Test staff user
+      const staffUser = await getUserFromToken(staffToken);
+      expect(staffUser.email).toBe("staff@example.com");
+
+      const staffEmpId = await getEmpIdForUserId(staffUser.id);
+      expect(staffEmpId).toBe("TEST001");
+
+      const staffRole = await getUserRole(staffEmpId);
+      expect(staffRole).toBe("staff");
+
+      // Test manager user
+      const managerUser = await getUserFromToken(managerToken);
+      expect(managerUser.email).toBe("manager@example.com");
+
+      const managerEmpId = await getEmpIdForUserId(managerUser.id);
+      expect(managerEmpId).toBe("TEST002");
+
+      const managerRole = await getUserRole(managerEmpId);
+      expect(managerRole).toBe("manager");
+
+      console.log("All auth mocks working correctly");
+    });
+  });
+
+  describe("Test Database Project CRUD Operations", () => {
+    it("should create a project in the test database", async () => {
       const projectData = {
         title: "Integration Test Project - CREATE",
-        description: "This project tests real database integration",
-        collaborators: ["EMP001", "EMP002"],
+        description: "This project tests database integration",
+        members: ["TEST001", "TEST002"],
       };
 
       const response = await request(app)
         .post("/projects")
-        .set("Authorization", `Bearer ${testToken}`)
+        .set("Authorization", `Bearer ${staffToken}`)
         .send(projectData);
 
       console.log("Create Response:", response.status, response.body);
 
-      // Even if auth fails, we want to test the structure
-      expect([200, 201, 401, 403, 500]).toContain(response.status);
+      expect(response.status).toBe(201);
+      expect(response.body).toHaveProperty("id");
+      expect(response.body.title).toBe(projectData.title);
+      expect(response.body.owner_id).toBe("TEST001");
 
-      // If successful, track for cleanup
-      if (response.status === 201 && response.body?.id) {
-        createdProjectIds.push(response.body.id);
+      // Track for cleanup
+      createdProjectIds.push(response.body.id);
 
-        // Verify the project exists in database
-        const { data: dbProject, error } = await supabaseClient
-          .from("projects")
-          .select("*")
-          .eq("id", response.body.id)
-          .single();
+      // Verify in test database
+      const { data: dbProject, error } = await supabaseClient
+        .from("projects")
+        .select("*")
+        .eq("id", response.body.id)
+        .single();
 
-        if (!error) {
-          expect(dbProject.title).toBe(projectData.title);
-          expect(dbProject.description).toBe(projectData.description);
-          console.log("Project verified in database:", dbProject.title);
-        }
-      }
+      expect(error).toBeNull();
+      expect(dbProject.title).toBe(projectData.title);
+      expect(dbProject.description).toBe(projectData.description);
+      console.log("Project verified in test database:", dbProject.title);
     });
 
-    it("should read projects from the actual database", async () => {
-      // First, create a test project directly in the database
+    it("should read projects from the test database", async () => {
+      // Create test project directly in test database
       const testProject = {
         title: "Integration Test Project - READ",
         description: "Test project for reading",
         status: "active",
-        owner_id: "EMP001",
-        collaborators: ["EMP001"],
+        owner_id: "TEST001",
+        members: ["TEST001"],
       };
 
       const { data: createdProject, error: createError } = await supabaseClient
@@ -145,40 +286,37 @@ describe("Projects Integration Tests with Real Database", () => {
         .select()
         .single();
 
-      if (!createError && createdProject) {
-        createdProjectIds.push(createdProject.id);
+      expect(createError).toBeNull();
+      expect(createdProject).toBeDefined();
+      createdProjectIds.push(createdProject.id);
 
-        // Now test the API endpoint
-        const response = await request(app)
-          .get("/projects")
-          .set("Authorization", `Bearer ${testToken}`);
+      // Test API endpoint
+      const response = await request(app)
+        .get("/projects")
+        .set("Authorization", `Bearer ${staffToken}`);
 
-        console.log("Read Response:", response.status);
+      console.log("Read Response:", response.status);
 
-        // Should get some kind of response
-        expect([200, 401, 403, 500]).toContain(response.status);
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
 
-        // If successful, verify our test project is in the results
-        if (response.status === 200 && Array.isArray(response.body)) {
-          const foundProject = response.body.find(
-            (p) => p.id === createdProject.id
-          );
-          if (foundProject) {
-            expect(foundProject.title).toBe(testProject.title);
-            console.log("Project found in API response");
-          }
-        }
-      }
+      // Verify our test project is in the results
+      const foundProject = response.body.find(
+        (p) => p.id === createdProject.id
+      );
+      expect(foundProject).toBeDefined();
+      expect(foundProject.title).toBe(testProject.title);
+      console.log("Project found in API response");
     });
 
-    it("should update a project in the actual database", async () => {
-      // Create a test project
+    it("should update a project in the test database", async () => {
+      // Create test project
       const originalProject = {
         title: "Integration Test Project - UPDATE Original",
         description: "Original description",
         status: "active",
-        owner_id: "EMP001",
-        collaborators: ["EMP001"],
+        owner_id: "TEST001",
+        members: ["TEST001"],
       };
 
       const { data: createdProject, error: createError } = await supabaseClient
@@ -187,48 +325,43 @@ describe("Projects Integration Tests with Real Database", () => {
         .select()
         .single();
 
-      if (!createError && createdProject) {
-        createdProjectIds.push(createdProject.id);
+      expect(createError).toBeNull();
+      createdProjectIds.push(createdProject.id);
 
-        const updateData = {
-          title: "Integration Test Project - UPDATE Modified",
-          description: "Updated description",
-        };
+      const updateData = {
+        title: "Integration Test Project - UPDATE Modified",
+        description: "Updated description",
+      };
 
-        const response = await request(app)
-          .put(`/projects/${createdProject.id}`)
-          .set("Authorization", `Bearer ${testToken}`)
-          .send(updateData);
+      const response = await request(app)
+        .put(`/projects/${createdProject.id}`)
+        .set("Authorization", `Bearer ${staffToken}`)
+        .send(updateData);
 
-        console.log("Update Response:", response.status, response.body);
+      console.log("Update Response:", response.status, response.body);
 
-        expect([200, 401, 403, 404, 500]).toContain(response.status);
+      expect(response.status).toBe(200);
 
-        // If successful, verify the update in database
-        if (response.status === 200) {
-          const { data: updatedProject } = await supabaseClient
-            .from("projects")
-            .select("*")
-            .eq("id", createdProject.id)
-            .single();
+      // Verify update in test database
+      const { data: updatedProject } = await supabaseClient
+        .from("projects")
+        .select("*")
+        .eq("id", createdProject.id)
+        .single();
 
-          if (updatedProject) {
-            expect(updatedProject.title).toBe(updateData.title);
-            expect(updatedProject.description).toBe(updateData.description);
-            console.log("Project update verified in database");
-          }
-        }
-      }
+      expect(updatedProject.title).toBe(updateData.title);
+      expect(updatedProject.description).toBe(updateData.description);
+      console.log("Project update verified in test database");
     });
 
-    it("should delete a project from the actual database", async () => {
-      // Create a test project
+    it("should delete a project from the test database", async () => {
+      // Create test project
       const testProject = {
         title: "Integration Test Project - DELETE",
         description: "Project to be deleted",
         status: "active",
-        owner_id: "EMP001",
-        collaborators: ["EMP001"],
+        owner_id: "TEST001",
+        members: ["TEST001"],
       };
 
       const { data: createdProject, error: createError } = await supabaseClient
@@ -237,94 +370,59 @@ describe("Projects Integration Tests with Real Database", () => {
         .select()
         .single();
 
-      if (!createError && createdProject) {
-        const response = await request(app)
-          .delete(`/projects/${createdProject.id}`)
-          .set("Authorization", `Bearer ${testToken}`);
+      expect(createError).toBeNull();
 
-        console.log("Delete Response:", response.status, response.body);
+      const response = await request(app)
+        .delete(`/projects/${createdProject.id}`)
+        .set("Authorization", `Bearer ${staffToken}`);
 
-        expect([200, 204, 401, 403, 404, 500]).toContain(response.status);
+      console.log("Delete Response:", response.status, response.body);
 
-        // If successful, verify the project is deleted from database
-        if ([200, 204].includes(response.status)) {
-          const { data: deletedProject } = await supabaseClient
-            .from("projects")
-            .select("*")
-            .eq("id", createdProject.id)
-            .single();
+      expect([200, 204]).toContain(response.status);
 
-          expect(deletedProject).toBeNull();
-          console.log("Project deletion verified in database");
-        } else {
-          // If delete failed, add to cleanup list
-          createdProjectIds.push(createdProject.id);
-        }
-      }
+      // Verify deletion in test database
+      const { data: deletedProject } = await supabaseClient
+        .from("projects")
+        .select("*")
+        .eq("id", createdProject.id)
+        .single();
+
+      expect(deletedProject).toBeNull();
+      console.log("Project deletion verified in test database");
     });
   });
 
-  describe("Real Database Validation Tests", () => {
-    it("should enforce unique title constraint in database", async () => {
+  describe("Test Database Validation Tests", () => {
+    it("should enforce unique title constraint in test database", async () => {
       const projectData = {
         title: "Integration Test Unique Title",
         description: "Testing uniqueness",
-        collaborators: ["EMP001"],
+        members: ["TEST001"],
       };
 
       // Create first project
       const firstResponse = await request(app)
         .post("/projects")
-        .set("Authorization", `Bearer ${testToken}`)
+        .set("Authorization", `Bearer ${staffToken}`)
         .send(projectData);
 
-      if (firstResponse.status === 201 && firstResponse.body?.id) {
-        createdProjectIds.push(firstResponse.body.id);
+      expect(firstResponse.status).toBe(201);
+      createdProjectIds.push(firstResponse.body.id);
 
-        // Try to create duplicate
-        const duplicateResponse = await request(app)
-          .post("/projects")
-          .set("Authorization", `Bearer ${testToken}`)
-          .send(projectData);
-
-        console.log(
-          "Duplicate Response:",
-          duplicateResponse.status,
-          duplicateResponse.body
-        );
-
-        // Should either be prevented by API or database constraint
-        expect([400, 409, 422, 500]).toContain(duplicateResponse.status);
-
-        if (duplicateResponse.body?.error) {
-          expect(duplicateResponse.body.error).toMatch(
-            /duplicate|unique|exists/i
-          );
-        }
-      }
-    });
-
-    it("should handle database connection errors gracefully", async () => {
-      // This test verifies error handling when database is unavailable
-      // We can't actually disconnect the database in integration tests,
-      // but we can test with invalid data that might cause DB errors
-
-      const invalidProjectData = {
-        title: null, // This should cause a database constraint error
-        description: "Testing database error handling",
-        collaborators: "invalid_format", // Wrong data type
-      };
-
-      const response = await request(app)
+      // Try to create duplicate
+      const duplicateResponse = await request(app)
         .post("/projects")
-        .set("Authorization", `Bearer ${testToken}`)
-        .send(invalidProjectData);
+        .set("Authorization", `Bearer ${staffToken}`)
+        .send(projectData);
 
-      console.log("Error Handling Response:", response.status, response.body);
+      console.log(
+        "Duplicate Response:",
+        duplicateResponse.status,
+        duplicateResponse.body
+      );
 
-      // Should handle the error gracefully
-      expect([400, 422, 500]).toContain(response.status);
-      expect(response.body).toHaveProperty("error");
+      expect([400, 409, 422, 500]).toContain(duplicateResponse.status);
+      expect(duplicateResponse.body.error).toMatch(/duplicate|unique|exists/i);
     });
 
     it("should reject project creation with excessively long title", async () => {
@@ -332,40 +430,51 @@ describe("Projects Integration Tests with Real Database", () => {
         title:
           "This is a very long project title that exceeds reasonable limits ".repeat(
             10
-          ), // Over 500 chars
+          ),
         description: "Testing long title rejection",
-        collaborators: ["EMP001"],
+        members: ["TEST001"],
       };
 
       const response = await request(app)
         .post("/projects")
-        .set("Authorization", `Bearer ${testToken}`)
+        .set("Authorization", `Bearer ${staffToken}`)
         .send(projectData);
 
       console.log("Long Title Response:", response.status, response.body);
 
-      // Should reject with appropriate error codes
       expect([400, 413, 422]).toContain(response.status);
+      expect(response.body.error).toMatch(
+        /title.*long|length|characters|limit/i
+      );
+    });
 
-      if (response.body?.error) {
-        expect(response.body.error).toMatch(
-          /title.*long|length|characters|limit/i
-        );
-      }
+    it("should handle invalid data gracefully", async () => {
+      const invalidProjectData = {
+        title: null,
+        description: "Testing error handling",
+        members: "invalid_format",
+      };
+
+      const response = await request(app)
+        .post("/projects")
+        .set("Authorization", `Bearer ${staffToken}`)
+        .send(invalidProjectData);
+
+      console.log("Error Handling Response:", response.status, response.body);
+
+      expect([400, 422, 500]).toContain(response.status);
+      expect(response.body).toHaveProperty("error");
     });
   });
 
-  describe("Real Authentication Integration", () => {
+  describe("Test Authentication Integration", () => {
     it("should require valid authentication token", async () => {
       const projectData = {
         title: "Integration Test Auth Required",
         description: "Testing authentication requirement",
       };
 
-      const response = await request(app)
-        .post("/projects")
-        // No Authorization header
-        .send(projectData);
+      const response = await request(app).post("/projects").send(projectData);
 
       console.log("No Auth Response:", response.status, response.body);
 
@@ -387,25 +496,61 @@ describe("Projects Integration Tests with Real Database", () => {
 
       expect([401, 403, 500]).toContain(response.status);
     });
+
+    it("should allow different user roles", async () => {
+      const staffProjectData = {
+        title: "Staff Project",
+        description: "Project created by staff",
+        members: ["TEST001"],
+      };
+
+      const managerProjectData = {
+        title: "Manager Project",
+        description: "Project created by manager",
+        members: ["TEST002"],
+      };
+
+      // Test staff user
+      const staffResponse = await request(app)
+        .post("/projects")
+        .set("Authorization", `Bearer ${staffToken}`)
+        .send(staffProjectData);
+
+      expect(staffResponse.status).toBe(201);
+      expect(staffResponse.body.owner_id).toBe("TEST001");
+      createdProjectIds.push(staffResponse.body.id);
+
+      // Test manager user
+      const managerResponse = await request(app)
+        .post("/projects")
+        .set("Authorization", `Bearer ${managerToken}`)
+        .send(managerProjectData);
+
+      expect(managerResponse.status).toBe(201);
+      expect(managerResponse.body.owner_id).toBe("TEST002");
+      createdProjectIds.push(managerResponse.body.id);
+
+      console.log("Both staff and manager can create projects");
+    });
   });
 
-  describe("Real Database Query Tests", () => {
-    it("should support complex filtering and sorting", async () => {
+  describe("Test Database Query and Performance Tests", () => {
+    it("should support filtering and sorting with test data", async () => {
       // Create multiple test projects with different statuses
       const testProjects = [
         {
           title: "Integration Test Filter - Active",
           description: "Active project",
           status: "active",
-          owner_id: "EMP001",
-          collaborators: ["EMP001"],
+          owner_id: "TEST001",
+          members: ["TEST001"],
         },
         {
           title: "Integration Test Filter - Completed",
           description: "Completed project",
           status: "completed",
-          owner_id: "EMP001",
-          collaborators: ["EMP001"],
+          owner_id: "TEST001",
+          members: ["TEST001"],
         },
       ];
 
@@ -416,74 +561,35 @@ describe("Projects Integration Tests with Real Database", () => {
           .select()
           .single();
 
-        if (!error && createdProject) {
-          createdProjectIds.push(createdProject.id);
-        }
+        expect(error).toBeNull();
+        createdProjectIds.push(createdProject.id);
       }
 
-      // Test filtering (if your API supports it)
+      // Test filtering
       const response = await request(app)
         .get("/projects?status=active")
-        .set("Authorization", `Bearer ${testToken}`);
+        .set("Authorization", `Bearer ${staffToken}`);
 
       console.log("Filter Response:", response.status);
 
-      if (response.status === 200 && Array.isArray(response.body)) {
+      if (response.status === 200) {
         const activeProjects = response.body.filter(
           (p) => p.status === "active"
         );
         console.log(`Found ${activeProjects.length} active projects`);
+        expect(activeProjects.length).toBeGreaterThan(0);
       }
     });
 
-    it("should handle pagination with real data", async () => {
-      // Create multiple projects for pagination testing
-      const projectPromises = Array.from({ length: 5 }, (_, i) => {
-        return supabaseClient
-          .from("projects")
-          .insert({
-            title: `Integration Test Pagination ${i + 1}`,
-            description: `Pagination test project ${i + 1}`,
-            status: "active",
-            owner_id: "EMP001",
-            collaborators: ["EMP001"],
-          })
-          .select()
-          .single();
-      });
-
-      const results = await Promise.all(projectPromises);
-
-      // Track successful creations for cleanup
-      results.forEach(({ data, error }) => {
-        if (!error && data) {
-          createdProjectIds.push(data.id);
-        }
-      });
-
-      // Test pagination (if your API supports it)
-      const response = await request(app)
-        .get("/projects?limit=3&offset=0")
-        .set("Authorization", `Bearer ${testToken}`);
-
-      console.log("Pagination Response:", response.status);
-
-      if (response.status === 200) {
-        console.log(`Pagination test completed`);
-      }
-    });
-  });
-
-  describe("Real Performance Tests", () => {
     it("should handle concurrent project creation", async () => {
       const concurrentRequests = Array.from({ length: 3 }, (_, i) => {
         return request(app)
           .post("/projects")
-          .set("Authorization", `Bearer ${testToken}`)
+          .set("Authorization", `Bearer ${staffToken}`)
           .send({
             title: `Integration Test Concurrent ${i + 1}`,
             description: `Concurrent creation test ${i + 1}`,
-            collaborators: ["EMP001"],
+            members: ["TEST001"],
           });
       });
 
@@ -494,16 +600,16 @@ describe("Projects Integration Tests with Real Database", () => {
         responses.map((r) => r.status)
       );
 
-      // Track any successful creations for cleanup
+      // Track successful creations for cleanup
       responses.forEach((response) => {
         if (response.status === 201 && response.body?.id) {
           createdProjectIds.push(response.body.id);
         }
       });
 
-      // At least some should succeed (depending on constraints)
       const successCount = responses.filter((r) => r.status === 201).length;
       console.log(`${successCount}/3 concurrent requests succeeded`);
+      expect(successCount).toBeGreaterThan(0);
     });
   });
 });

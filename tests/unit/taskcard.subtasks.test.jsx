@@ -1,16 +1,19 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 
 // Mock useSubtasks hook to control its behavior
+const fetchSubtasksMock = vi.fn(() => Promise.resolve());
+const updateSubtaskMock = vi.fn(() => Promise.resolve({ success: true }));
 vi.mock('@/utils/hooks/useSubtasks', () => {
   return {
     useSubtasks: () => ({
       subtasks: mockedState.subtasks,
       loading: mockedState.loading,
       error: mockedState.error,
-      fetchSubtasks: vi.fn(() => Promise.resolve()),
+      fetchSubtasks: fetchSubtasksMock,
+      updateSubtask: updateSubtaskMock,
     })
   };
 });
@@ -23,6 +26,8 @@ let mockedState;
 describe('CS-US4: TaskCard - Subtasks panel', () => {
   beforeEach(() => {
     mockedState = { subtasks: [], loading: false, error: '' };
+    fetchSubtasksMock.mockReset();
+    updateSubtaskMock.mockReset();
   });
 
   const baseTask = {
@@ -64,6 +69,32 @@ describe('CS-US4: TaskCard - Subtasks panel', () => {
     await waitFor(() => {
       const badges = screen.getAllByTitle('Subtasks count');
       expect(badges.some(b => b.textContent === '1')).toBe(true);
+    });
+  });
+
+  it.skip('opens subtask edit modal from pill and saves changes showing toast', async () => {
+    mockedState.subtasks = [{ id: 11, title: 'Sub A', status: 'ongoing', priority: 5 }];
+    // Explicitly allow editing
+    render(<TaskCard task={baseTask} canEdit={true} />);
+    const [toggleBtn] = screen.getAllByRole('button', { name: /view subtasks/i });
+    fireEvent.click(toggleBtn);
+
+    // Click the Edit pill within the specific subtask row (avoid task-level Edit)
+    const subRow = screen.getByText('Sub A').closest('li');
+    const editPill = within(subRow).getByText(/^[\s]*edit[\s]*$/i);
+    fireEvent.click(editPill);
+
+    // Change title inside modal and save
+    const titleInput = screen.getByDisplayValue('Sub A');
+    fireEvent.change(titleInput, { target: { value: 'Sub A updated' } });
+
+    const saveButton = screen.getByRole('button', { name: /save/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(updateSubtaskMock).toHaveBeenCalled();
+      // Toast should appear
+      expect(screen.getByText(/subtask updated successfully/i)).toBeTruthy();
     });
   });
 });

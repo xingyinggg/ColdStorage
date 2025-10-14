@@ -208,6 +208,42 @@ describe('Subtasks API - Integration', () => {
     // Route returns 200 with { ok: true } on success
     expect([200,204]).toContain(res.status);
   });
+
+  it('PUT /subtasks/:id updates subtask when requester owns parent', async () => {
+    // First select-single: load subtask by id -> includes parent_task_id
+    mockSupabase._setMockResponse('select-single', {
+      data: { id: 40, parent_task_id: 400, owner_id: mockEmpId },
+      error: null,
+    });
+    // Update result after .update(...).select().single()
+    mockSupabase._setMockResponse('update', {
+      data: { id: 40, parent_task_id: 400, title: 'Updated sub' },
+      error: null,
+    });
+
+    const res = await request(app)
+      .put('/subtasks/40')
+      .set('Authorization', `Bearer ${mockAuthToken}`)
+      .send({ title: 'Updated sub' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.subtask?.title).toBe('Updated sub');
+  });
+
+  it('PUT /subtasks/:id rejects when requester is not owner', async () => {
+    // Both subtask lookup and parent check will receive this mocked select-single
+    mockSupabase._setMockResponse('select-single', {
+      data: { id: 41, parent_task_id: 401, owner_id: '999' },
+      error: null,
+    });
+
+    const res = await request(app)
+      .put('/subtasks/41')
+      .set('Authorization', `Bearer ${mockAuthToken}`)
+      .send({ title: 'Nope' });
+
+    expect(res.status).toBe(403);
+  });
 });
 
 

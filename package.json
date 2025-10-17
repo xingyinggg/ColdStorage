@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run tests/unit",
+    "test:unit:ci": "vitest run tests/unit/{auth,projects,task_priority}.test.js tests/unit/*.jsx",
     "test:integration": "vitest run tests/integration",
     "test:integration:watch": "vitest tests/integration",
     "test:auth": "vitest tests/integration/auth.test.js",

@@ -36,7 +36,7 @@ jobs:
         run: npm run lint
 
       - name: Unit tests (CI subset)
-        run: npm run test:unit:ci
+        run: npm run -s test:unit:ci
 
       - name: Integration tests
         run: npm run test:integration

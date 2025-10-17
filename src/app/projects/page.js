@@ -597,7 +597,7 @@ export default function ProjectsPage() {
                   <div className="text-center py-8">
                     <div className="text-gray-500 mb-4">No projects yet</div>
                     <p className="text-sm text-gray-400">
-                      Click "Create New Project" to get started
+                      Click &quot;Create New Project&quot; to get started
                     </p>
                   </div>
                 ) : (

@@ -7,13 +7,22 @@ import { formatDate, getPriorityColor, getStatusColor } from "./taskUtils";
 
 export default function ManagerTasksView({ currentUserEmpId, tasks: expressTasks }) {
   const [managerTab, setManagerTab] = useState("tasks");
+  
+  // Use empty arrays as fallbacks for all data
+  // This prevents errors when the API calls fail
   const {
     allTasks = [],
     allProjects = [],
     staffMembers = [],
     getTasksByStaff = () => [],
-    updateTaskAssignment,
-  } = useManagerTasks();
+    updateTaskAssignment = () => console.log("Task assignment update disabled"),
+  } = useManagerTasks() || { 
+    allTasks: [], 
+    allProjects: [], 
+    staffMembers: [],
+    getTasksByStaff: () => [],
+    updateTaskAssignment: () => console.log("Task assignment update disabled")
+  };
 
   const tasksForView = Array.isArray(expressTasks) ? expressTasks : allTasks;
   

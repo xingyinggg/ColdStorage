@@ -340,32 +340,40 @@ router.get('/risks', async (req, res) => {
 
     if (hpError) throw hpError;
 
-    // Calculate risk scores
+    // Calculate risk scores directly as strings - no need for numeric conversion
+    // This avoids any potential type issues with the database
+    const stagnantRiskLevel = stagnantProjects.length > 5 ? 'high' : stagnantProjects.length > 2 ? 'medium' : 'low';
+    const overdueRiskLevel = overdueTasks.length > 20 ? 'high' : overdueTasks.length > 10 ? 'medium' : 'low';
+    const backlogRiskLevel = highPriorityTasks.length > 15 ? 'high' : highPriorityTasks.length > 8 ? 'medium' : 'low';
+
+    // Use string risk levels directly - no need for conversion
     const riskMetrics = {
       stagnantProjects: {
         count: stagnantProjects.length,
         items: stagnantProjects.slice(0, 10), // Top 10 most stagnant
-        riskLevel: stagnantProjects.length > 5 ? 'high' : stagnantProjects.length > 2 ? 'medium' : 'low'
+        riskLevel: stagnantRiskLevel // Already a string
       },
       overdueTasks: {
         count: overdueTasks.length,
         highPriorityOverdue: overdueTasks.filter(t => t.priority === 'high').length,
         byDepartment: getTasksByDepartment(overdueTasks),
-        riskLevel: overdueTasks.length > 20 ? 'high' : overdueTasks.length > 10 ? 'medium' : 'low'
+        riskLevel: overdueRiskLevel // Already a string
       },
       highPriorityBacklog: {
         count: highPriorityTasks.length,
         pending: highPriorityTasks.filter(t => t.status === 'pending').length,
         inProgress: highPriorityTasks.filter(t => t.status === 'in_progress').length,
         byDepartment: getTasksByDepartment(highPriorityTasks),
-        riskLevel: highPriorityTasks.length > 15 ? 'high' : highPriorityTasks.length > 8 ? 'medium' : 'low'
+        riskLevel: backlogRiskLevel // Already a string
       }
     };
 
+    console.log('Sending risk metrics response:', JSON.stringify(riskMetrics));
     res.json(riskMetrics);
 
   } catch (error) {
     console.error('Error fetching risk indicators:', error);
+    console.error('Error details:', error.message, error.stack);
     res.status(500).json({ error: error.message });
   }
 });

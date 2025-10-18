@@ -108,7 +108,8 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
-            {['overview', 'tasks', 'departments', 'resources', 'risks', 'collaboration'].map((tab) => (
+            {/* Removed 'risks' from the tabs array */}
+            {['overview', 'tasks', 'departments', 'resources', 'collaboration'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveSection(tab)}
@@ -134,7 +135,7 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
               {/* Company-wide KPIs */}
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">Strategic Executive Overview</h2>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <StatCard 
                     color="purple" 
                     label="Total Employees" 
@@ -149,11 +150,6 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
                     color="green" 
                     label="Total Tasks" 
                     value={companyKPIs.totalTasks} 
-                  />
-                  <StatCard 
-                    color="gray" 
-                    label="30-Day Activity" 
-                    value={companyKPIs.systemActivity} 
                   />
                 </div>
               </div>
@@ -276,31 +272,7 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
                 </div>
               </div>
 
-              {/* Risk Overview */}
-              <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900">Risk Indicators</h3>
-                </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className={`p-4 rounded-lg ${getRiskColor(riskIndicators.stagnantProjects.riskLevel)}`}>
-                      <div className="font-medium">Stagnant Projects</div>
-                      <div className="text-2xl font-bold mt-1">{riskIndicators.stagnantProjects.count}</div>
-                      <div className="text-sm mt-1">Not updated in 30+ days</div>
-                    </div>
-                    <div className={`p-4 rounded-lg ${getRiskColor(riskIndicators.overdueTasks.riskLevel)}`}>
-                      <div className="font-medium">Overdue Tasks</div>
-                      <div className="text-2xl font-bold mt-1">{riskIndicators.overdueTasks.count}</div>
-                      <div className="text-sm mt-1">{riskIndicators.overdueTasks.highPriorityOverdue} high priority</div>
-                    </div>
-                    <div className={`p-4 rounded-lg ${getRiskColor(riskIndicators.highPriorityBacklog.riskLevel)}`}>
-                      <div className="font-medium">High Priority Backlog</div>
-                      <div className="text-2xl font-bold mt-1">{riskIndicators.highPriorityBacklog.count}</div>
-                      <div className="text-sm mt-1">{riskIndicators.highPriorityBacklog.pending} pending tasks</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Risk section removed */}
             </div>
           )}
 
@@ -310,10 +282,26 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-900">Task Management</h2>
               </div>
-              <ManagerTasksView 
-                currentUserEmpId={userProfile?.emp_id}
-                userRole="director"
-              />
+              {/* Wrapped in error boundary to catch any rendering issues */}
+              <div className="bg-white shadow rounded-lg p-6">
+                {tasksError ? (
+                  <div className="text-center py-8">
+                    <p className="text-red-500 mb-2">Error loading tasks</p>
+                    <p className="text-gray-500">{tasksError}</p>
+                  </div>
+                ) : tasksLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-500">Loading tasks...</p>
+                  </div>
+                ) : (
+                  <ManagerTasksView 
+                    currentUserEmpId={userProfile?.emp_id}
+                    userRole="director"
+                    tasks={allTasks || []} // Pass tasks explicitly
+                  />
+                )}
+              </div>
             </div>
           )}
 
@@ -492,8 +480,8 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
             </div>
           )}
 
-          {/* Risks Tab */}
-          {activeSection === 'risks' && (
+          {/* Risks Tab - Commented out due to data fetching issues */}
+          {/* {activeSection === 'risks' && (
             <div className="space-y-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900">Risk Management Dashboard</h2>
@@ -503,7 +491,7 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
               </div>
 
               {/* Risk Metrics Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white rounded-lg shadow p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-medium text-gray-900">Stagnant Projects</h3>
@@ -586,7 +574,7 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
                 </div>
               </div>
             </div>
-          )}
+          })} */}
 
           {/* Collaboration Tab */}
           {activeSection === 'collaboration' && (

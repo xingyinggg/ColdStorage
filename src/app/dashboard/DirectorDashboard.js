@@ -29,14 +29,11 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
     projectPortfolio,
     taskMetrics,
     departmentPerformance,
-    resourceAllocation,
-    riskIndicators,
     collaborationMetrics,
     getTopPerformingDepartments,
     getUnderperformingDepartments,
     getOverloadedEmployees,
     getUnderutilizedEmployees,
-    getOverallRiskLevel,
     refreshData
   } = useDirectorInsights();
 
@@ -108,7 +105,7 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
-            {['overview', 'tasks', 'departments', 'resources', 'risks', 'collaboration'].map((tab) => (
+            {['overview', 'tasks', 'departments', 'collaboration'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveSection(tab)}
@@ -134,7 +131,7 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
               {/* Company-wide KPIs */}
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">Strategic Executive Overview</h2>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <StatCard 
                     color="purple" 
                     label="Total Employees" 
@@ -149,11 +146,6 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
                     color="green" 
                     label="Total Tasks" 
                     value={companyKPIs.totalTasks} 
-                  />
-                  <StatCard 
-                    color="gray" 
-                    label="30-Day Activity" 
-                    value={companyKPIs.systemActivity} 
                   />
                 </div>
               </div>
@@ -275,32 +267,6 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
                   </div>
                 </div>
               </div>
-
-              {/* Risk Overview */}
-              <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900">Risk Indicators</h3>
-                </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className={`p-4 rounded-lg ${getRiskColor(riskIndicators.stagnantProjects.riskLevel)}`}>
-                      <div className="font-medium">Stagnant Projects</div>
-                      <div className="text-2xl font-bold mt-1">{riskIndicators.stagnantProjects.count}</div>
-                      <div className="text-sm mt-1">Not updated in 30+ days</div>
-                    </div>
-                    <div className={`p-4 rounded-lg ${getRiskColor(riskIndicators.overdueTasks.riskLevel)}`}>
-                      <div className="font-medium">Overdue Tasks</div>
-                      <div className="text-2xl font-bold mt-1">{riskIndicators.overdueTasks.count}</div>
-                      <div className="text-sm mt-1">{riskIndicators.overdueTasks.highPriorityOverdue} high priority</div>
-                    </div>
-                    <div className={`p-4 rounded-lg ${getRiskColor(riskIndicators.highPriorityBacklog.riskLevel)}`}>
-                      <div className="font-medium">High Priority Backlog</div>
-                      <div className="text-2xl font-bold mt-1">{riskIndicators.highPriorityBacklog.count}</div>
-                      <div className="text-sm mt-1">{riskIndicators.highPriorityBacklog.pending} pending tasks</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
 
@@ -310,10 +276,26 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-900">Task Management</h2>
               </div>
-              <ManagerTasksView 
-                currentUserEmpId={userProfile?.emp_id}
-                userRole="director"
-              />
+              {/* Wrapped in error boundary to catch any rendering issues */}
+              <div className="bg-white shadow rounded-lg p-6">
+                {tasksError ? (
+                  <div className="text-center py-8">
+                    <p className="text-red-500 mb-2">Error loading tasks</p>
+                    <p className="text-gray-500">{tasksError}</p>
+                  </div>
+                ) : tasksLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-500">Loading tasks...</p>
+                  </div>
+                ) : (
+                  <ManagerTasksView 
+                    currentUserEmpId={userProfile?.emp_id}
+                    userRole="director"
+                    tasks={allTasks || []} // Pass tasks explicitly
+                  />
+                )}
+              </div>
             </div>
           )}
 
@@ -382,207 +364,6 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
                       ))}
                     </tbody>
                   </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Resources Tab */}
-          {activeSection === 'resources' && (
-            <div className="space-y-8">
-              <h2 className="text-2xl font-bold text-gray-900">Resource Utilization Analysis</h2>
-              
-              {/* Resource Summary */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <StatCard color="red" label="Overloaded" value={resourceAllocation.summary.overloadedCount} />
-                <StatCard color="green" label="Optimal Load" value={resourceAllocation.summary.optimalCount} />
-                <StatCard color="blue" label="Moderate Load" value={resourceAllocation.summary.optimalCount} />
-                <StatCard color="yellow" label="Underutilized" value={resourceAllocation.summary.underutilizedCount} />
-              </div>
-
-              {/* Department Workloads */}
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Department Workload Distribution</h3>
-                <div className="bg-white shadow rounded-lg overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <Th>Department</Th>
-                          <Th align="center">Total Employees</Th>
-                          <Th align="center">Active Tasks</Th>
-                          <Th align="center">Avg. Workload</Th>
-                          <Th align="center">Overloaded</Th>
-                          <Th align="center">Underutilized</Th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {resourceAllocation.departmentWorkloads.map((dept) => (
-                          <tr key={dept.name} className="hover:bg-gray-50">
-                            <Td><div className="font-medium text-gray-900">{dept.name}</div></Td>
-                            <Td align="center">{dept.totalEmployees}</Td>
-                            <Td align="center">{dept.totalActiveTasks}</Td>
-                            <Td align="center">{formatDecimal(dept.averageWorkload)}</Td>
-                            <Td align="center">
-                              <span className="text-red-600 font-medium">{dept.overloadedEmployees}</span>
-                            </Td>
-                            <Td align="center">
-                              <span className="text-yellow-600 font-medium">{dept.underutilizedEmployees}</span>
-                            </Td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-              {/* Employee Workload Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white rounded-lg shadow">
-                  <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">Overloaded Employees</h3>
-                  </div>
-                  <div className="p-6">
-                    <div className="space-y-3">
-                      {getOverloadedEmployees(5).map((emp) => (
-                        <div key={emp.emp_id} className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-gray-900">{emp.name}</div>
-                            <div className="text-sm text-gray-500">{emp.department} • {emp.role}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-red-600">{emp.activeTasks}</div>
-                            <div className="text-sm text-gray-500">active tasks</div>
-                          </div>
-                        </div>
-                      ))}
-                      {getOverloadedEmployees().length === 0 && (
-                        <div className="text-center text-gray-500 py-4">No overloaded employees</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow">
-                  <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">Underutilized Employees</h3>
-                  </div>
-                  <div className="p-6">
-                    <div className="space-y-3">
-                      {getUnderutilizedEmployees(5).map((emp) => (
-                        <div key={emp.emp_id} className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-gray-900">{emp.name}</div>
-                            <div className="text-sm text-gray-500">{emp.department} • {emp.role}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-yellow-600">{emp.activeTasks}</div>
-                            <div className="text-sm text-gray-500">active tasks</div>
-                          </div>
-                        </div>
-                      ))}
-                      {getUnderutilizedEmployees().length === 0 && (
-                        <div className="text-center text-gray-500 py-4">No underutilized employees</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Risks Tab */}
-          {activeSection === 'risks' && (
-            <div className="space-y-8">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Risk Management Dashboard</h2>
-                <div className={`px-4 py-2 rounded-lg ${getRiskColor(getOverallRiskLevel())}`}>
-                  <span className="font-medium">Overall Risk: {getOverallRiskLevel().toUpperCase()}</span>
-                </div>
-              </div>
-
-              {/* Risk Metrics Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">Stagnant Projects</h3>
-                    <div className={`px-2 py-1 rounded text-sm font-medium ${getRiskColor(riskIndicators.stagnantProjects.riskLevel)}`}>
-                      {riskIndicators.stagnantProjects.riskLevel.toUpperCase()}
-                    </div>
-                  </div>
-                  <div className="text-3xl font-bold text-red-600 mb-2">{riskIndicators.stagnantProjects.count}</div>
-                  <div className="text-sm text-gray-600">Projects not updated in 30+ days</div>
-                  {riskIndicators.stagnantProjects.items.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                      <div className="text-sm font-medium text-gray-700">Most Stagnant:</div>
-                      {riskIndicators.stagnantProjects.items.slice(0, 3).map((project) => (
-                        <div key={project.id} className="text-sm text-gray-600 truncate">
-                          • {project.title}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">Overdue Tasks</h3>
-                    <div className={`px-2 py-1 rounded text-sm font-medium ${getRiskColor(riskIndicators.overdueTasks.riskLevel)}`}>
-                      {riskIndicators.overdueTasks.riskLevel.toUpperCase()}
-                    </div>
-                  </div>
-                  <div className="text-3xl font-bold text-red-600 mb-2">{riskIndicators.overdueTasks.count}</div>
-                  <div className="text-sm text-gray-600">
-                    {riskIndicators.overdueTasks.highPriorityOverdue} high priority overdue
-                  </div>
-                  
-                  {Object.keys(riskIndicators.overdueTasks.byDepartment).length > 0 && (
-                    <div className="mt-4">
-                      <div className="text-sm font-medium text-gray-700 mb-2">By Department:</div>
-                      <div className="space-y-1">
-                        {Object.entries(riskIndicators.overdueTasks.byDepartment)
-                          .sort(([,a], [,b]) => b - a)
-                          .slice(0, 3)
-                          .map(([dept, count]) => (
-                            <div key={dept} className="flex justify-between text-sm">
-                              <span className="text-gray-600">{dept}</span>
-                              <span className="font-medium text-red-600">{count}</span>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">High Priority Backlog</h3>
-                    <div className={`px-2 py-1 rounded text-sm font-medium ${getRiskColor(riskIndicators.highPriorityBacklog.riskLevel)}`}>
-                      {riskIndicators.highPriorityBacklog.riskLevel.toUpperCase()}
-                    </div>
-                  </div>
-                  <div className="text-3xl font-bold text-orange-600 mb-2">{riskIndicators.highPriorityBacklog.count}</div>
-                  <div className="text-sm text-gray-600">
-                    {riskIndicators.highPriorityBacklog.pending} pending, {riskIndicators.highPriorityBacklog.inProgress} in progress
-                  </div>
-                  
-                  {Object.keys(riskIndicators.highPriorityBacklog.byDepartment).length > 0 && (
-                    <div className="mt-4">
-                      <div className="text-sm font-medium text-gray-700 mb-2">By Department:</div>
-                      <div className="space-y-1">
-                        {Object.entries(riskIndicators.highPriorityBacklog.byDepartment)
-                          .sort(([,a], [,b]) => b - a)
-                          .slice(0, 3)
-                          .map(([dept, count]) => (
-                            <div key={dept} className="flex justify-between text-sm">
-                              <span className="text-gray-600">{dept}</span>
-                              <span className="font-medium text-orange-600">{count}</span>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

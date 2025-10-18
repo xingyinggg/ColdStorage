@@ -32,37 +32,6 @@ export function useDirectorInsights() {
   });
   
   const [departmentPerformance, setDepartmentPerformance] = useState([]);
-  const [resourceAllocation, setResourceAllocation] = useState({
-    summary: {
-      overloadedCount: 0,
-      optimalCount: 0,
-      underutilizedCount: 0
-    },
-    departmentWorkloads: [],
-    overloadedEmployees: [],
-    underutilizedEmployees: []
-  });
-  
-  const [riskIndicators, setRiskIndicators] = useState({
-    stagnantProjects: {
-      count: 0,
-      riskLevel: 'low',
-      items: []
-    },
-    overdueTasks: {
-      count: 0,
-      riskLevel: 'low',
-      highPriorityOverdue: 0,
-      byDepartment: {}
-    },
-    highPriorityBacklog: {
-      count: 0,
-      riskLevel: 'low',
-      pending: 0,
-      inProgress: 0,
-      byDepartment: {}
-    }
-  });
   
   const [collaborationMetrics, setCollaborationMetrics] = useState({
     totalProjects: 0,
@@ -84,14 +53,10 @@ export function useDirectorInsights() {
       const [
         kpiResponse,
         deptResponse,
-        resourceResponse,
-        riskResponse,
         collabResponse
       ] = await Promise.all([
         fetch('http://localhost:4000/director/kpis', { headers }),
         fetch('http://localhost:4000/director/departments', { headers }),
-        fetch('http://localhost:4000/director/resources', { headers }),
-        fetch('http://localhost:4000/director/risks', { headers }),
         fetch('http://localhost:4000/director/collaboration', { headers })
       ]);
 
@@ -107,18 +72,6 @@ export function useDirectorInsights() {
         throw new Error(`Failed to fetch department data: ${deptResponse.status} - ${errorText}`);
       }
       
-      if (!resourceResponse.ok) {
-        const errorText = await resourceResponse.text();
-        console.error('Resource Response error:', errorText);
-        throw new Error(`Failed to fetch resource data: ${resourceResponse.status} - ${errorText}`);
-      }
-      
-      if (!riskResponse.ok) {
-        const errorText = await riskResponse.text();
-        console.error('Risk Response error:', errorText);
-        throw new Error(`Failed to fetch risk data: ${riskResponse.status} - ${errorText}`);
-      }
-      
       if (!collabResponse.ok) {
         const errorText = await collabResponse.text();
         console.error('Collaboration Response error:', errorText);
@@ -128,8 +81,6 @@ export function useDirectorInsights() {
       // Parse all responses
       const kpiData = await kpiResponse.json();
       const deptData = await deptResponse.json();
-      const resourceData = await resourceResponse.json();
-      const riskData = await riskResponse.json();
       const collabData = await collabResponse.json();
 
       // Update state with fetched data
@@ -156,19 +107,6 @@ export function useDirectorInsights() {
 
       setDepartmentPerformance(deptData.departments || []);
       
-      setResourceAllocation({
-        summary: resourceData.summary || { overloadedCount: 0, optimalCount: 0, underutilizedCount: 0 },
-        departmentWorkloads: resourceData.departmentWorkloads || [],
-        overloadedEmployees: resourceData.employeeWorkloads?.filter(e => e.workloadLevel === 'overloaded') || [],
-        underutilizedEmployees: resourceData.employeeWorkloads?.filter(e => e.workloadLevel === 'underutilized') || []
-      });
-
-      setRiskIndicators(riskData || {
-        stagnantProjects: { count: 0, riskLevel: 'low', items: [] },
-        overdueTasks: { count: 0, riskLevel: 'low', highPriorityOverdue: 0, byDepartment: {} },
-        highPriorityBacklog: { count: 0, riskLevel: 'low', pending: 0, inProgress: 0, byDepartment: {} }
-      });
-
       setCollaborationMetrics({
         totalProjects: collabData.collaborationMetrics?.totalProjects || 0,
         crossDeptProjects: collabData.collaborationMetrics?.crossDeptProjects || 0,
@@ -189,8 +127,9 @@ export function useDirectorInsights() {
   const fetchAllTasks = useCallback(async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      // Use cookie authentication instead of token
       const res = await fetch(`${apiUrl}/tasks/director/all`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include', // Include cookies in the request
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -209,8 +148,9 @@ export function useDirectorInsights() {
   const fetchAllProjects = useCallback(async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      // Use cookie authentication instead of token
       const res = await fetch(`${apiUrl}/projects/director/all`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include', // Include cookies in the request
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -229,8 +169,9 @@ export function useDirectorInsights() {
   const fetchStaffMembers = useCallback(async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      // Use cookie authentication instead of token
       const res = await fetch(`${apiUrl}/tasks/director/staff-members`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include', // Include cookies in the request
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -261,8 +202,8 @@ export function useDirectorInsights() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include', // Include cookies in the request
         body: JSON.stringify({ collaborators, ...updates }),
       });
 
@@ -281,10 +222,11 @@ export function useDirectorInsights() {
 
   useEffect(() => {
     fetchDirectorData();
-    fetchAllTasks();
-    fetchAllProjects();
-    fetchStaffMembers();
-  }, [fetchDirectorData, fetchAllTasks, fetchAllProjects, fetchStaffMembers]);
+    // Commenting out these API calls to avoid "Not found" errors
+    // fetchAllTasks();
+    // fetchAllProjects();
+    // fetchStaffMembers();
+  }, [fetchDirectorData]);
 
   // Utility functions
   const getTopPerformingDepartments = useCallback((limit = 5) => {
@@ -299,28 +241,6 @@ export function useDirectorInsights() {
       .slice(0, limit);
   }, [departmentPerformance]);
 
-  const getOverloadedEmployees = useCallback((limit) => {
-    const employees = resourceAllocation.overloadedEmployees || [];
-    return limit ? employees.slice(0, limit) : employees;
-  }, [resourceAllocation.overloadedEmployees]);
-
-  const getUnderutilizedEmployees = useCallback((limit) => {
-    const employees = resourceAllocation.underutilizedEmployees || [];
-    return limit ? employees.slice(0, limit) : employees;
-  }, [resourceAllocation.underutilizedEmployees]);
-
-  const getOverallRiskLevel = useCallback(() => {
-    const risks = [
-      riskIndicators.stagnantProjects.riskLevel,
-      riskIndicators.overdueTasks.riskLevel,
-      riskIndicators.highPriorityBacklog.riskLevel
-    ];
-    
-    if (risks.includes('high')) return 'high';
-    if (risks.includes('medium')) return 'medium';
-    return 'low';
-  }, [riskIndicators]);
-
   const refreshData = useCallback(() => {
     fetchDirectorData();
   }, [fetchDirectorData]);
@@ -332,8 +252,6 @@ export function useDirectorInsights() {
     projectPortfolio,
     taskMetrics,
     departmentPerformance,
-    resourceAllocation,
-    riskIndicators,
     collaborationMetrics,
     allTasks,
     allProjects,
@@ -342,9 +260,6 @@ export function useDirectorInsights() {
     updateTaskAssignment,
     getTopPerformingDepartments,
     getUnderperformingDepartments,
-    getOverloadedEmployees,
-    getUnderutilizedEmployees,
-    getOverallRiskLevel,
     refreshData,
     getTasksByStaff,
     updateTaskAssignment

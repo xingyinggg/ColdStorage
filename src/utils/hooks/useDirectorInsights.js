@@ -32,37 +32,6 @@ export function useDirectorInsights() {
   });
   
   const [departmentPerformance, setDepartmentPerformance] = useState([]);
-  const [resourceAllocation, setResourceAllocation] = useState({
-    summary: {
-      overloadedCount: 0,
-      optimalCount: 0,
-      underutilizedCount: 0
-    },
-    departmentWorkloads: [],
-    overloadedEmployees: [],
-    underutilizedEmployees: []
-  });
-  
-  const [riskIndicators, setRiskIndicators] = useState({
-    stagnantProjects: {
-      count: 0,
-      riskLevel: 'low',
-      items: []
-    },
-    overdueTasks: {
-      count: 0,
-      riskLevel: 'low',
-      highPriorityOverdue: 0,
-      byDepartment: {}
-    },
-    highPriorityBacklog: {
-      count: 0,
-      riskLevel: 'low',
-      pending: 0,
-      inProgress: 0,
-      byDepartment: {}
-    }
-  });
   
   const [collaborationMetrics, setCollaborationMetrics] = useState({
     totalProjects: 0,
@@ -81,18 +50,13 @@ export function useDirectorInsights() {
         'Content-Type': 'application/json'
       };
 
-      // Commenting out riskResponse for now to avoid the error
       const [
         kpiResponse,
         deptResponse,
-        resourceResponse,
-        // riskResponse, // Commented out to avoid errors
         collabResponse
       ] = await Promise.all([
         fetch('http://localhost:4000/director/kpis', { headers }),
         fetch('http://localhost:4000/director/departments', { headers }),
-        fetch('http://localhost:4000/director/resources', { headers }),
-        // fetch('http://localhost:4000/director/risks', { headers }), // Commented out to avoid errors
         fetch('http://localhost:4000/director/collaboration', { headers })
       ]);
 
@@ -108,28 +72,6 @@ export function useDirectorInsights() {
         throw new Error(`Failed to fetch department data: ${deptResponse.status} - ${errorText}`);
       }
       
-      if (!resourceResponse.ok) {
-        const errorText = await resourceResponse.text();
-        console.error('Resource Response error:', errorText);
-        throw new Error(`Failed to fetch resource data: ${resourceResponse.status} - ${errorText}`);
-      }
-      
-      // Risk response check commented out
-      /* 
-      if (!riskResponse.ok) {
-        const errorText = await riskResponse.text();
-        console.error('Risk Response error:', errorText);
-        console.error('Risk Response status:', riskResponse.status);
-        try {
-          const errorJson = JSON.parse(errorText);
-          console.error('Parsed error:', errorJson);
-        } catch (e) {
-          console.error('Could not parse error as JSON');
-        }
-        throw new Error(`Failed to fetch risk data: ${riskResponse.status} - ${errorText}`);
-      }
-      */
-      
       if (!collabResponse.ok) {
         const errorText = await collabResponse.text();
         console.error('Collaboration Response error:', errorText);
@@ -139,8 +81,6 @@ export function useDirectorInsights() {
       // Parse all responses
       const kpiData = await kpiResponse.json();
       const deptData = await deptResponse.json();
-      const resourceData = await resourceResponse.json();
-      // const riskData = await riskResponse.json(); // Commented out to avoid errors
       const collabData = await collabResponse.json();
 
       // Update state with fetched data
@@ -167,23 +107,6 @@ export function useDirectorInsights() {
 
       setDepartmentPerformance(deptData.departments || []);
       
-      setResourceAllocation({
-        summary: resourceData.summary || { overloadedCount: 0, optimalCount: 0, underutilizedCount: 0 },
-        departmentWorkloads: resourceData.departmentWorkloads || [],
-        overloadedEmployees: resourceData.employeeWorkloads?.filter(e => e.workloadLevel === 'overloaded') || [],
-        underutilizedEmployees: resourceData.employeeWorkloads?.filter(e => e.workloadLevel === 'underutilized') || []
-      });
-
-      // Default risk data since we're skipping the risk endpoint
-      const defaultRiskData = {
-        stagnantProjects: { count: 0, riskLevel: 'low', items: [] },
-        overdueTasks: { count: 0, riskLevel: 'low', highPriorityOverdue: 0, byDepartment: {} },
-        highPriorityBacklog: { count: 0, riskLevel: 'low', pending: 0, inProgress: 0, byDepartment: {} }
-      };
-      
-      // Set default risk data
-      setRiskIndicators(defaultRiskData);
-
       setCollaborationMetrics({
         totalProjects: collabData.collaborationMetrics?.totalProjects || 0,
         crossDeptProjects: collabData.collaborationMetrics?.crossDeptProjects || 0,
@@ -318,37 +241,6 @@ export function useDirectorInsights() {
       .slice(0, limit);
   }, [departmentPerformance]);
 
-  const getOverloadedEmployees = useCallback((limit) => {
-    const employees = resourceAllocation.overloadedEmployees || [];
-    return limit ? employees.slice(0, limit) : employees;
-  }, [resourceAllocation.overloadedEmployees]);
-
-  const getUnderutilizedEmployees = useCallback((limit) => {
-    const employees = resourceAllocation.underutilizedEmployees || [];
-    return limit ? employees.slice(0, limit) : employees;
-  }, [resourceAllocation.underutilizedEmployees]);
-
-  const getOverallRiskLevel = useCallback(() => {
-    // Only use the risk levels if riskIndicators is properly loaded
-    if (!riskIndicators?.stagnantProjects) return 'low';
-    
-    // Get all risk levels
-    const risks = [
-      riskIndicators.stagnantProjects.riskLevel || 'low',
-      riskIndicators.overdueTasks?.riskLevel || 'low',
-      riskIndicators.highPriorityBacklog?.riskLevel || 'low'
-    ];
-    
-    // If any risk is 'high', return high
-    if (risks.includes('high')) return 'high';
-    
-    // If any risk is 'medium', return medium
-    if (risks.includes('medium')) return 'medium';
-    
-    // Otherwise, return low
-    return 'low';
-  }, [riskIndicators]);
-
   const refreshData = useCallback(() => {
     fetchDirectorData();
   }, [fetchDirectorData]);
@@ -360,8 +252,6 @@ export function useDirectorInsights() {
     projectPortfolio,
     taskMetrics,
     departmentPerformance,
-    resourceAllocation,
-    riskIndicators,
     collaborationMetrics,
     allTasks,
     allProjects,
@@ -370,9 +260,6 @@ export function useDirectorInsights() {
     updateTaskAssignment,
     getTopPerformingDepartments,
     getUnderperformingDepartments,
-    getOverloadedEmployees,
-    getUnderutilizedEmployees,
-    getOverallRiskLevel,
     refreshData,
     getTasksByStaff,
     updateTaskAssignment

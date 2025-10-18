@@ -17,7 +17,7 @@ export default function CreateTaskPage() {
   const {
     projects,
     loading: loadingProjects,
-    getProjectMembers
+    getProjectMembers,
   } = useProjects();
   const { userProfile } = useAuth();
   const { fetchUsers, getAssignableUsers } = useUsers();
@@ -33,7 +33,8 @@ export default function CreateTaskPage() {
   const [error, setError] = useState(null);
 
   // Role permissions
-  const canAssignTasks = userProfile?.role === "manager" || userProfile?.role === "director";
+  const canAssignTasks =
+    userProfile?.role === "manager" || userProfile?.role === "director";
 
   // Fetch data on mount
   useEffect(() => {
@@ -104,18 +105,18 @@ export default function CreateTaskPage() {
 
       // Add task fields (including subtasks if present)
       // Skip fields that are handled separately (status, assignTo, dueDate)
-      Object.keys(taskData).forEach(key => {
-        if (key === 'collaborators') {
-          formData.append('collaborators', JSON.stringify(taskData[key]));
-        } else if (key === 'subtasks') {
-          formData.append('subtasks', JSON.stringify(taskData[key]));
-        } else if (key === 'status') {
+      Object.keys(taskData).forEach((key) => {
+        if (key === "collaborators") {
+          formData.append("collaborators", JSON.stringify(taskData[key]));
+        } else if (key === "subtasks") {
+          formData.append("subtasks", JSON.stringify(taskData[key]));
+        } else if (key === "status") {
           // Skip status here - we'll handle it in assignment logic below
           return;
-        } else if (key === 'assignTo') {
+        } else if (key === "assignTo") {
           // Skip assignTo - it's only used for logic, not sent to backend
           return;
-        } else if (taskData[key] !== null && taskData[key] !== '') {
+        } else if (taskData[key] !== null && taskData[key] !== "") {
           formData.append(key, taskData[key]);
         }
       });
@@ -153,7 +154,8 @@ export default function CreateTaskPage() {
 
       if (result.success) {
         const task = result.task;
-        const isAssigning = task.owner_id && task.owner_id !== userProfile.emp_id;
+        const isAssigning =
+          task.owner_id && task.owner_id !== userProfile.emp_id;
 
         // Case 1: User assigns to someone else
         if (isAssigning) {
@@ -161,7 +163,8 @@ export default function CreateTaskPage() {
           const assigneeNotification = {
             emp_id: task.owner_id,
             title: `New Task Assigned (${task.title})`,
-            description: task.description || "You have been assigned a new task.",
+            description:
+              task.description || "You have been assigned a new task.",
             type: "Task Assignment",
             created_at: new Date().toISOString(),
           };
@@ -186,6 +189,9 @@ export default function CreateTaskPage() {
             type: "Task Creation",
             created_at: new Date().toISOString(),
           };
+          console.log(
+            `📝 Creating notification for creator (emp_id: ${userProfile.emp_id})`
+          );
           await createNotification(creatorNotification);
         }
 
@@ -205,7 +211,10 @@ export default function CreateTaskPage() {
       <nav className="bg-white shadow">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <h1 className="text-lg font-semibold">Create Task</h1>
-          <Link href="/dashboard/tasks" className="text-blue-600 hover:text-blue-800 text-sm">
+          <Link
+            href="/dashboard/tasks"
+            className="text-blue-600 hover:text-blue-800 text-sm"
+          >
             Back to tasks
           </Link>
         </div>
@@ -216,7 +225,10 @@ export default function CreateTaskPage() {
           {/* Role indicator */}
           <div className="bg-blue-50 p-3 rounded-md mb-6">
             <p className="text-sm text-blue-700">
-              Creating as: <span className="font-medium capitalize">{userProfile?.role}</span>
+              Creating as:{" "}
+              <span className="font-medium capitalize">
+                {userProfile?.role}
+              </span>
               {canAssignTasks && " (Can assign tasks to others)"}
             </p>
           </div>

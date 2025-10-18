@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useUnreadCount } from "@/utils/hooks/useUnreadCount";
 
 export default function SidebarLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+  const unreadCount = useUnreadCount();
+
+  // Debug log to track unread count changes
+  useEffect(() => {
+    console.log(`📊 Sidebar unread count updated: ${unreadCount}`);
+  }, [unreadCount]);
 
   const navItems = useMemo(
     () => [
@@ -46,7 +53,7 @@ export default function SidebarLayout({ children }) {
                 <li key={href}>
                   <Link
                     href={href}
-                    className={`group flex items-center ${collapsed ? "justify-center" : "px-3"} h-10 mx-2 rounded transition-colors ${active
+                    className={`group flex items-center ${collapsed ? "justify-center" : "px-3"} h-10 mx-2 rounded transition-colors relative ${active
                       ? "bg-blue-50 text-blue-700"
                       : "text-gray-700 hover:bg-gray-50"
                       }`}
@@ -54,6 +61,11 @@ export default function SidebarLayout({ children }) {
                   >
                     <Icon className={`w-5 h-5 ${collapsed ? "" : "mr-3"}`} />
                     {!collapsed && <span className="text-sm font-medium">{label}</span>}
+                    {label === "Mailbox" && unreadCount > 0 && (
+                      <span className={`${collapsed ? "absolute -top-1 -right-1" : "ml-auto"} inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full`}>
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );

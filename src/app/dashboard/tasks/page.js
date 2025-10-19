@@ -16,8 +16,6 @@ import ManagerTasksView from "./components/ManagerTasksView";
 
 // moved status constants into StaffTasksView component
 
-// Staff inline view removed; using StaffTasksView component instead
-
 // ✅ Single default export (the page)
 export default function DashboardPage() {
   const router = useRouter();
@@ -37,7 +35,7 @@ export default function DashboardPage() {
     overdueTasks = [],
     toggleTaskComplete,
     updateTask,
-  } = useTasks(); // adapt to your hook
+  } = useTasks();
   useProjects(); // keep hook initialised if needed elsewhere (no local use)
 
   useEffect(() => {

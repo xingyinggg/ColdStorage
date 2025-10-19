@@ -125,8 +125,6 @@ export default function HrTasksView({ tasks = [], onLogout }) {
           </button>
         </div>
       </div>
-      
-      {/* Removed debugging section */}
 
       <div className="flex gap-6">
         {statusOrder.map((status) => {          

@@ -12,36 +12,85 @@ export const useTasks = () => {
   const fetchTasks = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null); // Clear previous errors
+      
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-      const res = await fetch(`${apiUrl}/tasks`, {
-        headers: { Authorization: `Bearer ${session?.access_token || ""}` },
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error || `Request failed: ${res.status}`);
+      
+      if (!session || !session.access_token) {
+        console.warn("No valid session found when fetching tasks");
+        setTasks([]); // Empty tasks when no session
+        return;
       }
-      const body = await res.json();
-      // Sort tasks by priority in descending order (10 to 1), then by created_at
-      const sortedTasks = (body.tasks || []).sort((a, b) => {
-        // Handle null/undefined priorities - treat them as 0 (lowest)
-        const priorityA = a.priority !== null && a.priority !== undefined ? a.priority : 0;
-        const priorityB = b.priority !== null && b.priority !== undefined ? b.priority : 0;
+      
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      console.log("Fetching tasks from API:", apiUrl);
+      
+      try {
+        // Using more robust fetch with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
         
-        // Sort by priority descending (higher priority first)
-        if (priorityB !== priorityA) {
-          return priorityB - priorityA;
+        const res = await fetch(`${apiUrl}/tasks`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) {
+          console.error("API error status:", res.status);
+          const errorText = await res.text();
+          let errorMessage = `API Error (${res.status})`;
+          
+          try {
+            // Try to parse as JSON
+            const errorBody = JSON.parse(errorText);
+            if (errorBody && errorBody.error) {
+              errorMessage = errorBody.error;
+            }
+          } catch {
+            // If parsing fails, use the raw text
+            if (errorText) {
+              errorMessage += `: ${errorText}`;
+            }
+          }
+          
+          throw new Error(errorMessage);
         }
         
-        // If priorities are equal, sort by created_at (newer first)
-        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-      });
-      setTasks(sortedTasks);
+        const body = await res.json();
+        console.log("Tasks API response:", body);
+        
+        // Sort tasks by priority in descending order (10 to 1), then by created_at
+        const sortedTasks = (body.tasks || []).sort((a, b) => {
+          // Handle null/undefined priorities - treat them as 0 (lowest)
+          const priorityA = a.priority !== null && a.priority !== undefined ? a.priority : 0;
+          const priorityB = b.priority !== null && b.priority !== undefined ? b.priority : 0;
+          
+          // Sort by priority descending (higher priority first)
+          if (priorityB !== priorityA) {
+            return priorityB - priorityA;
+          }
+          
+          // If priorities are equal, sort by created_at (newer first)
+          return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+        });
+        
+        console.log("Sorted tasks:", sortedTasks);
+        setTasks(sortedTasks);
+        
+      } catch (fetchError) {
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Request timed out - server may be down');
+        } else {
+          throw fetchError;
+        }
+      }
     } catch (err) {
       console.error("Error in fetchTasks:", err);
-      setError(err.message);
+      setError(err.message || "Failed to fetch tasks");
     } finally {
       setLoading(false);
     }

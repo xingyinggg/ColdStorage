@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUnreadCount } from "@/utils/hooks/useUnreadCount";
+import { useAuth } from "@/utils/hooks/useAuth";
 
 export default function SidebarLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -14,17 +15,18 @@ export default function SidebarLayout({ children }) {
   useEffect(() => {
     console.log(`📊 Sidebar unread count updated: ${unreadCount}`);
   }, [unreadCount]);
+  const { isHR } = useAuth();
 
   const navItems = useMemo(
     () => [
       { label: "Dashboard", href: "/dashboard", icon: DashboardIcon },
-      { label: "Tasks", href: "/dashboard/tasks", icon: TasksIcon },
+      { label: "Tasks", href: isHR? "/dashboard/tasks/hr" : "/dashboard/tasks", icon: TasksIcon },
       { label: "Projects", href: "/projects", icon: ProjectsIcon },
       { label: "Schedule", href: "/schedule", icon: ScheduleIcon },
       { label: "Report", href: "/report", icon: ReportIcon },
       { label: "Mailbox", href: "/notifications", icon: MailboxIcon },
     ],
-    []
+    [isHR]
   );
 
   return (

@@ -36,6 +36,8 @@ export default function CreateTaskPage() {
   const canAssignTasks =
     userProfile?.role === "manager" || userProfile?.role === "director";
 
+  const isHR = userProfile?.role === "hr";
+
   // Fetch data on mount
   useEffect(() => {
     const fetchData = async () => {
@@ -45,7 +47,12 @@ export default function CreateTaskPage() {
         // Fetch all staff for standalone tasks
         const allUsersResult = await fetchUsers({ excludeSelf: true });
         if (allUsersResult.success) {
-          setAllStaff(allUsersResult.users);
+          // If user is HR, filter to only show HR staff
+          if (isHR) {
+            setAllStaff(allUsersResult.users.filter(user => user.role === "hr"));
+          } else {
+            setAllStaff(allUsersResult.users);
+          }
         }
 
         // Fetch assignable staff for managers/directors
@@ -79,6 +86,11 @@ export default function CreateTaskPage() {
         const filteredMembers = (data.members || []).filter(
           (member) => member.emp_id !== userProfile?.emp_id
         );
+        
+        // If user is HR, filter project members to only show HR staff
+        if (isHR) {
+          filteredMembers = filteredMembers.filter(member => member.role === "hr");
+        }
 
         setProjectMembers(filteredMembers);
       } catch (error) {
@@ -174,7 +186,7 @@ export default function CreateTaskPage() {
           const assignerNotification = {
             emp_id: userProfile.emp_id,
             title: `Task Assigned Successfully`,
-            description: `You assigned '${task.title}' to employee #${task.owner_id}.`,
+            description: `You assigned "${task.title}" to employee #${task.owner_id}.`,
             type: "Task Assignment Confirmation",
             created_at: new Date().toISOString(),
           };
@@ -249,6 +261,7 @@ export default function CreateTaskPage() {
             onProjectChange={setSelectedProject}
             file={file}
             onFileChange={setFile}
+            isHR={isHR}
           />
         </div>
       </main>

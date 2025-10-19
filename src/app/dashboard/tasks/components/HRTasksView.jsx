@@ -4,7 +4,10 @@ import Link from "next/link";
 import TaskCard from "@/components/tasks/TaskCard";
 import { formatDate, getPriorityColor, getStatusColor } from "./taskUtils";
 import { useAuth } from "@/utils/hooks/useAuth";
+import { useTasks } from "@/utils/hooks/useTasks";
+import { useState, useEffect } from "react";
 
+// Status mapping (from backend to frontend display)
 const statusOrder = ["unassigned", "todo", "in_progress", "done"];
 const statusLabels = {
   unassigned: "Unassigned",
@@ -12,25 +15,45 @@ const statusLabels = {
   in_progress: "In Progress",
   done: "Done",
 };
+// Map backend status values to our frontend status categories
+const statusMapping = {
+  "unassigned": "unassigned",
+  "todo": "todo",
+  "ongoing": "in_progress", // Map the backend "ongoing" status to "in_progress"
+  "in_progress": "in_progress",
+  "completed": "done",
+  "done": "done"
+};
 const statusColors = {
   unassigned: "bg-gray-50",
   todo: "bg-yellow-50",
   in_progress: "bg-blue-50",
   done: "bg-green-50",
 };
-// Backend status mapping to frontend categories
-const statusMapping = {
-  "unassigned": "unassigned",
-  "todo": "todo",
-  "ongoing": "in_progress", // Map "ongoing" to "in_progress"
-  "in_progress": "in_progress",
-  "pending": "in_progress",
-  "completed": "done",
-  "done": "done"
-};
 
-export default function StaffTasksView({ tasks = [], onLogout }) {
+export default function HrTasksView({ tasks = [], onLogout }) {
   const { user, userProfile } = useAuth();
+  const [hrStaff, setHrStaff] = useState([]);
+  const { updateTask } = useTasks();
+  
+  // Fetch HR staff members for collaborator display
+  useEffect(() => {
+    const fetchHrStaff = async () => {
+      try {
+        const response = await fetch("/api/hr/staff", {
+          credentials: "include",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setHrStaff(data.hrStaff || []);
+        }
+      } catch (error) {
+        console.error("Error fetching HR staff:", error);
+      }
+    };
+
+    fetchHrStaff();
+  }, []);
 
   // Early return if userProfile is not loaded yet
   if (!userProfile) {
@@ -45,12 +68,33 @@ export default function StaffTasksView({ tasks = [], onLogout }) {
     );
   }
 
+  // Debug the tasks we're trying to display
+  console.log("Tasks in HRTasksView:", tasks);
+  
   // Group tasks by status using the status mapping
   const grouped = statusOrder.reduce((acc, status) => {
     // Filter tasks that map to this status
     acc[status] = tasks.filter((t) => {
+      // For debugging
+      console.log(`Task ${t.title} has status: ${t.status}`);
+      
       // Map the backend status to our frontend status categories
-      const mappedStatus = statusMapping[t.status] || "todo"; // Default to todo if unknown
+      let mappedStatus;
+      
+      if (t.status === "unassigned") {
+        mappedStatus = "unassigned";
+      } else if (t.status === "todo") {
+        mappedStatus = "todo";
+      } else if (t.status === "ongoing" || t.status === "in_progress" || t.status === "pending") {
+        mappedStatus = "in_progress";
+      } else if (t.status === "completed" || t.status === "done") {
+        mappedStatus = "done";
+      } else {
+        // Default to todo if unknown
+        mappedStatus = "todo";
+      }
+      
+      console.log(`Mapped to: ${mappedStatus}`);
       return mappedStatus === status;
     });
     return acc;
@@ -59,8 +103,14 @@ export default function StaffTasksView({ tasks = [], onLogout }) {
   return (
     <div className="p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">My Tasks</h1>
+        <h1 className="text-xl font-semibold">HR Tasks</h1>
         <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/tasks/create"
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Add HR Task
+          </Link>
           <Link
             href="/dashboard"
             className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
@@ -128,12 +178,20 @@ export default function StaffTasksView({ tasks = [], onLogout }) {
                     canEdit={canEdit}
                     isOwner={isOwner}
                     isCollaborator={isCollaborator}
-                    formatDate={formatDate}
-                    getPriorityColor={getPriorityColor}
-                    getStatusColor={getStatusColor}
+                    onTaskUpdate={updateTask}
+                    currentUserId={userProfile?.emp_id}
+                    memberNames={hrStaff.reduce((acc, staff) => {
+                      acc[staff.emp_id] = staff.name;
+                      return acc;
+                    }, {})}
                   />
                 );
               })}
+              {(!grouped[status] || grouped[status].length === 0) && (
+                <div className="p-4 text-center text-gray-500 text-sm bg-white rounded-lg">
+                  No tasks in this status
+                </div>
+              )}
             </div>
           </div>
         );
@@ -142,5 +200,3 @@ export default function StaffTasksView({ tasks = [], onLogout }) {
     </div>
   );
 }
-
-

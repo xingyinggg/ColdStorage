@@ -111,7 +111,7 @@ export default function HrTasksPage() {
                 <p>Possible solutions:</p>
                 <ul className="list-disc list-inside mt-1">
                   <li>Make sure your backend server is running: <code>npm run dev:server</code></li>
-                  <li>Check that you're using <code>npm run dev:all</code> to start both frontend and backend</li>
+                  <li>Check that you&apos;re using <code>npm run dev:all</code> to start both frontend and backend</li>
                   <li>Verify your authentication token is valid (try logging out and back in)</li>
                 </ul>
               </div>

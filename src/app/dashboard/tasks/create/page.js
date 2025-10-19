@@ -186,7 +186,7 @@ export default function CreateTaskPage() {
           const assignerNotification = {
             emp_id: userProfile.emp_id,
             title: `Task Assigned Successfully`,
-            description: `You assigned '${task.title}' to employee #${task.owner_id}.`,
+            description: `You assigned "${task.title}" to employee #${task.owner_id}.`,
             type: "Task Assignment Confirmation",
             created_at: new Date().toISOString(),
           };

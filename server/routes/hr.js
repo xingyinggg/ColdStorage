@@ -323,4 +323,26 @@ function groupTasksByPeriod(tasks, period) {
   return Object.values(grouped);
 }
 
+// Get HR staff details
+router.get('/staff', async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    
+    // Get all users with HR role
+    const { data: hrStaff, error } = await supabase
+      .from('users')
+      .select('id, emp_id, name')
+      .eq('role', 'hr');
+    
+    if (error) {
+      throw error;
+    }
+    
+    res.json({ hrStaff });
+  } catch (error) {
+    console.error('Error fetching HR staff:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

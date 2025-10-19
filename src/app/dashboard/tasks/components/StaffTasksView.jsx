@@ -18,6 +18,16 @@ const statusColors = {
   in_progress: "bg-blue-50",
   done: "bg-green-50",
 };
+// Backend status mapping to frontend categories
+const statusMapping = {
+  "unassigned": "unassigned",
+  "todo": "todo",
+  "ongoing": "in_progress", // Map "ongoing" to "in_progress"
+  "in_progress": "in_progress",
+  "pending": "in_progress",
+  "completed": "done",
+  "done": "done"
+};
 
 export default function StaffTasksView({ tasks = [], onLogout }) {
   const { user, userProfile } = useAuth();
@@ -35,8 +45,14 @@ export default function StaffTasksView({ tasks = [], onLogout }) {
     );
   }
 
+  // Group tasks by status using the status mapping
   const grouped = statusOrder.reduce((acc, status) => {
-    acc[status] = tasks.filter((t) => t.status === status);
+    // Filter tasks that map to this status
+    acc[status] = tasks.filter((t) => {
+      // Map the backend status to our frontend status categories
+      const mappedStatus = statusMapping[t.status] || "todo"; // Default to todo if unknown
+      return mappedStatus === status;
+    });
     return acc;
   }, {});
 

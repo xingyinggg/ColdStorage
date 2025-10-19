@@ -1,16 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
+import TaskCard from "@/components/tasks/TaskCard";
+import { formatDate, getPriorityColor, getStatusColor } from "./taskUtils";
 import { useAuth } from "@/utils/hooks/useAuth";
 import { useTasks } from "@/utils/hooks/useTasks";
+import { useState, useEffect } from "react";
 
+// Status mapping (from backend to frontend display)
 const statusOrder = ["unassigned", "todo", "in_progress", "done"];
 const statusLabels = {
   unassigned: "Unassigned",
   todo: "To-do",
   in_progress: "In Progress",
   done: "Done",
+};
+// Map backend status values to our frontend status categories
+const statusMapping = {
+  "unassigned": "unassigned",
+  "todo": "todo",
+  "ongoing": "in_progress", // Map the backend "ongoing" status to "in_progress"
+  "in_progress": "in_progress",
+  "completed": "done",
+  "done": "done"
 };
 const statusColors = {
   unassigned: "bg-gray-50",
@@ -22,17 +34,9 @@ const statusColors = {
 export default function HrTasksView({ tasks = [], onLogout }) {
   const { user, userProfile } = useAuth();
   const [hrStaff, setHrStaff] = useState([]);
-  const [isAddingTask, setIsAddingTask] = useState(false);
-  const [newTask, setNewTask] = useState({
-    title: "",
-    description: "",
-    status: "todo",
-    collaborators: [],
-    due_date: ""
-  });
-  const { createTask } = useTasks();
-
-  // Fetch HR staff members
+  const { updateTask } = useTasks();
+  
+  // Fetch HR staff members for collaborator display
   useEffect(() => {
     const fetchHrStaff = async () => {
       try {
@@ -64,45 +68,49 @@ export default function HrTasksView({ tasks = [], onLogout }) {
     );
   }
 
+  // Debug the tasks we're trying to display
+  console.log("Tasks in HRTasksView:", tasks);
+  
+  // Group tasks by status using the status mapping
   const grouped = statusOrder.reduce((acc, status) => {
-    acc[status] = tasks.filter((t) => t.status === status);
+    // Filter tasks that map to this status
+    acc[status] = tasks.filter((t) => {
+      // For debugging
+      console.log(`Task ${t.title} has status: ${t.status}`);
+      
+      // Map the backend status to our frontend status categories
+      let mappedStatus;
+      
+      if (t.status === "unassigned") {
+        mappedStatus = "unassigned";
+      } else if (t.status === "todo") {
+        mappedStatus = "todo";
+      } else if (t.status === "ongoing" || t.status === "in_progress" || t.status === "pending") {
+        mappedStatus = "in_progress";
+      } else if (t.status === "completed" || t.status === "done") {
+        mappedStatus = "done";
+      } else {
+        // Default to todo if unknown
+        mappedStatus = "todo";
+      }
+      
+      console.log(`Mapped to: ${mappedStatus}`);
+      return mappedStatus === status;
+    });
     return acc;
   }, {});
-
-  const handleAddTask = async (e) => {
-    e.preventDefault();
-    if (!newTask.title) return;
-
-    try {
-      await createTask({
-        ...newTask,
-        owner_id: userProfile.emp_id,
-      });
-      
-      setNewTask({
-        title: "",
-        description: "",
-        status: "todo",
-        collaborators: [],
-        due_date: ""
-      });
-      setIsAddingTask(false);
-    } catch (error) {
-      console.error("Error creating task:", error);
-    }
-  };
 
   return (
     <div className="p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">HR Tasks</h1>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsAddingTask(true)}
+          <Link
+            href="/dashboard/tasks/create"
             className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
           >
             Add HR Task
-          </button>
+          </Link>
           <Link
             href="/dashboard"
             className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
@@ -117,141 +125,79 @@ export default function HrTasksView({ tasks = [], onLogout }) {
           </button>
         </div>
       </div>
-
-      {isAddingTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
-            <h2 className="text-xl font-semibold mb-4">Create HR Task</h2>
-            <form onSubmit={handleAddTask}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  value={newTask.title}
-                  onChange={(e) => setNewTask({...newTask, title: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded"
-                  required
-                />
-              </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={newTask.description}
-                  onChange={(e) => setNewTask({...newTask, description: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded"
-                  rows={3}
-                />
-              </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Collaborators (HR Staff Only)
-                </label>
-                <select
-                  multiple
-                  value={newTask.collaborators}
-                  onChange={(e) => setNewTask({
-                    ...newTask, 
-                    collaborators: Array.from(e.target.selectedOptions, option => option.value)
-                  })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded"
-                >
-                  {hrStaff.map(staff => (
-                    <option key={staff.emp_id} value={staff.emp_id}>
-                      {staff.name || staff.emp_id}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
-              </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Due Date
-                </label>
-                <input
-                  type="date"
-                  value={newTask.due_date}
-                  onChange={(e) => setNewTask({...newTask, due_date: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded"
-                />
-              </div>
-              
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddingTask(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
-                  Create Task
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      
+      {/* Removed debugging section */}
 
       <div className="flex gap-6">
-        {statusOrder.map((status) => (
-          <div key={status} className="flex-1">
+        {statusOrder.map((status) => {          
+          return (
             <div
-              className={`p-3 rounded-t-lg ${statusColors[status]} border-b border-gray-300`}
+              key={status}
+              className={`flex-1 rounded-lg shadow p-4 ${statusColors[status]}`}
             >
-              <h3 className="font-medium">
-                {statusLabels[status]} ({grouped[status]?.length || 0})
-              </h3>
-            </div>
-            <div className="bg-white rounded-b-lg shadow min-h-[200px]">
-              {grouped[status]?.map((task) => (
-                <div
-                  key={task.id}
-                  className="p-3 border-b border-gray-100 hover:bg-gray-50"
-                >
-                  <div className="font-medium">{task.title}</div>
-                  {task.description && (
-                    <div className="text-sm text-gray-600 mt-1 line-clamp-2">
-                      {task.description}
-                    </div>
-                  )}
-                  {task.due_date && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      Due: {new Date(task.due_date).toLocaleDateString()}
-                    </div>
-                  )}
-                  {task.collaborators && task.collaborators.length > 0 && (
-                    <div className="flex mt-2">
-                      {task.collaborators.map((collab, idx) => (
-                        <div
-                          key={idx}
-                          className="bg-blue-100 text-blue-800 text-xs rounded-full px-2 py-1 mr-1"
-                        >
-                          {typeof collab === 'object' ? collab.name : 
-                           hrStaff.find(s => s.emp_id === collab)?.name || collab}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+              <div className="flex items-center mb-2">
+                <span
+                  className={`w-3 h-3 rounded-full mr-2 ${
+                    status === "todo"
+                      ? "bg-yellow-400"
+                      : status === "in_progress"
+                      ? "bg-blue-400"
+                      : status === "done"
+                      ? "bg-green-400"
+                      : "bg-gray-400"
+                  }`}
+                />
+                <span className="font-semibold">
+                  {statusLabels[status]}{" "}
+                  <span className="bg-white rounded-full px-2 py-0.5 text-xs ml-1 border">
+                    {grouped[status]?.length || 0}
+                  </span>
+                </span>
+              </div>
+              <div className="space-y-3">
+                {grouped[status]?.map((task) => {
+                const isOwner = task.owner_id && userProfile?.emp_id && String(userProfile.emp_id) === String(task.owner_id);
+                
+                // More robust collaborator detection - handle both array and object formats
+                let isCollaborator = false;
+                if (task.collaborators && userProfile?.emp_id) {
+                  if (Array.isArray(task.collaborators)) {
+                    // Standard array format
+                    isCollaborator = task.collaborators.includes(String(userProfile.emp_id));
+                  } else if (typeof task.collaborators === 'object' && task.collaborators !== null) {
+                    // Object format - convert to array
+                    const collabArray = Object.values(task.collaborators);
+                    isCollaborator = collabArray.includes(String(userProfile.emp_id));
+                  }
+                }
+                
+                const canEdit = task.owner_id && userProfile?.emp_id && (isOwner || isCollaborator);
+
+                return (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    canEdit={canEdit}
+                    isOwner={isOwner}
+                    isCollaborator={isCollaborator}
+                    onTaskUpdate={updateTask}
+                    currentUserId={userProfile?.emp_id}
+                    memberNames={hrStaff.reduce((acc, staff) => {
+                      acc[staff.emp_id] = staff.name;
+                      return acc;
+                    }, {})}
+                  />
+                );
+              })}
               {(!grouped[status] || grouped[status].length === 0) && (
-                <div className="p-4 text-center text-gray-500 text-sm">
+                <div className="p-4 text-center text-gray-500 text-sm bg-white rounded-lg">
                   No tasks in this status
                 </div>
               )}
             </div>
           </div>
-        ))}
+        );
+        })}
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import TaskDetailsModal from "@/components/tasks/TaskDetailsModal";
 import { useSubtasks } from "@/utils/hooks/useSubtasks";
 import SubtaskEditModal from "@/components/tasks/SubtaskEditModal";
 import Toast from "@/components/ui/Toast";
+import RecurrenceStatus from "@/components/tasks/RecurrenceStatus";
 
 // Helper function to get priority color based on numeric value (1-10)
 const getPriorityColor = (priority) => {
@@ -202,11 +203,9 @@ export default function TaskCard({
           </h3>
           
           <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
-            {/* Recurring Badge */}
-            {task.parent_recurrence_id && (
-              <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200" title="This is a recurring task instance">
-                🔄 Recurring
-              </div>
+            {/* Recurring Badge with Status */}
+            {task.is_recurring && (
+              <RecurrenceStatus task={task} variant="compact" />
             )}
             
             {/* Subtasks count badge (visible after first load) */}

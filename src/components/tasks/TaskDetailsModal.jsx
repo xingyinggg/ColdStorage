@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useSubtasks } from "@/utils/hooks/useSubtasks";
 import RecurrenceHistoryModal from "./RecurrenceHistoryModal";
+import RecurrenceStatus from "./RecurrenceStatus";
 
 export default function TaskDetailsModal({ 
   open, 
@@ -147,10 +148,10 @@ export default function TaskDetailsModal({
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-gray-900">Task Details</h3>
           <div className="flex items-center space-x-2">
-            {/* Recurrence History Button - Only show if task is part of recurring series */}
-            {task.parent_recurrence_id && (
+            {/* Recurrence History Button - Only show if task is recurring */}
+            {task.is_recurring && (
               <button
-                title="View recurrence history"
+                title="View recurring series"
                 onClick={() => setShowRecurrenceHistory(true)}
                 className="inline-flex items-center px-2 py-1 text-xs rounded border border-purple-300 text-purple-700 hover:bg-purple-50"
               >
@@ -235,29 +236,23 @@ export default function TaskDetailsModal({
             </div>
           </div>
 
-          {/* Recurrence Information - Show if task is part of recurring series */}
-          {task.parent_recurrence_id && (
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0">
-                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-sm font-semibold text-purple-900 mb-1">🔄 Recurring Task</h4>
-                  <p className="text-sm text-purple-700">
-                    This is an instance of a recurring task series.
-                    {task.recurrence_pattern && ` Repeats: ${task.recurrence_pattern}`}
-                  </p>
-                  <button
-                    onClick={() => setShowRecurrenceHistory(true)}
-                    className="mt-2 text-xs text-purple-600 hover:text-purple-800 underline font-medium"
-                  >
-                    View all occurrences →
-                  </button>
-                </div>
-              </div>
+          {/* Recurrence Information - Show if task is recurring */}
+          {task.is_recurring && (
+            <RecurrenceStatus task={task} variant="detailed" />
+          )}
+
+          {/* View all occurrences button */}
+          {task.is_recurring && (
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowRecurrenceHistory(true)}
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                View All Occurrences in Series
+              </button>
             </div>
           )}
 
@@ -478,7 +473,8 @@ export default function TaskDetailsModal({
       <RecurrenceHistoryModal
         isOpen={showRecurrenceHistory}
         onClose={() => setShowRecurrenceHistory(false)}
-        taskId={task.parent_recurrence_id || task.id}
+        taskId={task.id}
+        seriesId={task.recurrence_series_id}
         taskTitle={task.title}
       />
     </div>

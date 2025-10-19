@@ -159,9 +159,10 @@ router.post("/", upload.single("file"), async (req, res) => {
         recurrence_interval: recurrence_interval ? parseInt(recurrence_interval) : 1,
         recurrence_end_date: recurrence_end_date || null,
         recurrence_count: recurrence_count ? parseInt(recurrence_count) : null,
+        recurrence_weekday: recurrence_weekday !== undefined ? parseInt(recurrence_weekday) : null, // Store weekday preference
       };
       
-      // Pass weekday separately (not stored in DB, used for calculation only)
+      // Pass weekday separately for immediate use in calculations
       const weekdayPreference = recurrence_weekday !== undefined ? parseInt(recurrence_weekday) : null;
 
       // Use recurrence service to create recurring task
@@ -779,18 +780,17 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     const updatedTask = data[0];
 
     // ========== HANDLE RECURRING TASK COMPLETION ==========
-    // If task status changed to "completed" and it's part of a recurring series, generate next instance
-    // This includes both the master task (first completion) and subsequent instances
-    if (cleanUpdates.status === "completed" && (updatedTask.parent_recurrence_id || updatedTask.is_recurring)) {
-      console.log("🔄 Task completed - checking for next recurrence instance...");
+    // If task status changed to "completed" and it's a recurring task, create next instance
+    if (cleanUpdates.status === "completed" && updatedTask.is_recurring) {
+      console.log("🔄 Recurring task completed - creating next instance...");
       
       try {
         const recurrenceResult = await recurrenceService.handleTaskCompletion(supabase, Number(id));
         
         if (recurrenceResult.success && recurrenceResult.nextTask) {
-          console.log("✅ Next recurring task instance created:", recurrenceResult.nextTask.id);
+          console.log("✅ Next recurring task created:", recurrenceResult.nextTask.id);
         } else if (recurrenceResult.success) {
-          console.log("✅ Recurring series completed - no more instances to create");
+          console.log("✅ Recurring series completed - no more tasks to create");
         }
       } catch (recurrenceError) {
         console.error("Error handling task recurrence:", recurrenceError);

@@ -498,14 +498,17 @@ describe("Projects Integration Tests with Test Database", () => {
     });
 
     it("should allow different user roles", async () => {
+      // Add a timestamp to make titles unique
+      const timestamp = new Date().getTime();
+      
       const staffProjectData = {
-        title: "Staff Project",
+        title: `Staff Project ${timestamp}`,
         description: "Project created by staff",
         members: ["TEST001"],
       };
 
       const managerProjectData = {
-        title: "Manager Project",
+        title: `Manager Project ${timestamp}`,
         description: "Project created by manager",
         members: ["TEST002"],
       };

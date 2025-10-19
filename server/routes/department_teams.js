@@ -116,7 +116,7 @@ router.get('/workload', async (req, res) => {
     // First get the manager's teams
     const { data: teams, error: teamError } = await supabase
       .from('department_teams')
-      .select('id, department, team_name, member_ids')
+      .select('id, department, team_name, member_ids, manager_ids')
       .contains('manager_ids', [emp_id]);
 
     if (teamError) {

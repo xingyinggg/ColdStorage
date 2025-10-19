@@ -33,7 +33,15 @@ app.use(express.json());
 app.use("/auth", authRoutes);
 app.use("/api/tasks", taskRoutes);
 
-describe("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
+// Skip integration tests if environment variables are not configured
+const skipIntegrationTests = !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (skipIntegrationTests) {
+  console.log("⚠️  Skipping recurring tasks integration tests - Supabase environment variables not configured");
+  console.log("   To run integration tests, set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
+}
+
+describe.skipIf(skipIntegrationTests)("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
   let supabaseClient;
   let testUserToken;
   let testUserId;

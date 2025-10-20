@@ -409,5 +409,3 @@ export default function SchedulePage() {
     </SidebarLayout>
   );
 }
-
-

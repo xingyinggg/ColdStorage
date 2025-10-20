@@ -197,7 +197,7 @@ export default function TaskCard({
     <>
       <div
         className={`bg-white rounded-xl border ${borderColor} shadow-sm hover:shadow-md transition-all duration-200 p-4 cursor-pointer`}
-        onClick={openDetailsModal} // Add click handler to open details modal
+        onClick={openDetailsModal} // click handler to open details modal
       >
         {/* Header with Title and Edit Button */}
         <div className="flex items-start justify-between mb-3">
@@ -299,7 +299,9 @@ export default function TaskCard({
         <div className="mt-3">
           <button
             type="button"
-            onClick={() => setShowSubtasks((v) => !v)}
+            onClick={(e) => {
+              e.stopPropagation(); // stop click event from bubbling up to parent
+              setShowSubtasks((v) => !v)}}
             className="flex items-center text-xs text-blue-600 hover:text-blue-800"
             title="Toggle subtasks"
           >

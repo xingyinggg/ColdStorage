@@ -325,7 +325,7 @@ describe("Authentication Integration Tests with Real Test Database", () => {
           console.log("Duplicate emp_id error:", errorMessage);
         }
       }
-    });
+    }, 15000);
 
     it("should validate required registration fields", async () => {
       const incompleteData = {

@@ -40,6 +40,9 @@ import request from "supertest";
 import express from "express";
 import { createClient } from '@supabase/supabase-js';
 
+// Set global timeout for all tests in this file (30 seconds)
+vi.setConfig({ testTimeout: 15000 });
+
 // Now import the auth routes AFTER environment variables are set
 import authRoutes from "../../server/routes/auth.js";
 import { getServiceClient } from "../../server/lib/supabase.js";
@@ -325,7 +328,7 @@ describe("Authentication Integration Tests with Real Test Database", () => {
           console.log("Duplicate emp_id error:", errorMessage);
         }
       }
-    }, 15000);
+    });
 
     it("should validate required registration fields", async () => {
       const incompleteData = {

@@ -170,7 +170,7 @@ router.get('/workload', async (req, res) => {
       .from('tasks')
       .select('*')
       .in('owner_id', memberIdsAsStrings)
-      .neq('status', 'completed');
+      .neq('status');
 
     if (ownedTasksError) {
       console.error('Error fetching owned tasks:', ownedTasksError);
@@ -186,7 +186,7 @@ router.get('/workload', async (req, res) => {
       const { data: collabTasks, error: collabError } = await supabase
         .from('tasks')
         .select('*')
-        .neq('status', 'completed')
+        .neq('status')
         .not('collaborators', 'is', null);
 
       if (collabError) {
@@ -226,7 +226,7 @@ router.get('/workload', async (req, res) => {
         task_status_breakdown: {
           'under review': 0,
           'ongoing': 0,
-          'unassigned': 0
+          'completed': 0
         }
       };
     });

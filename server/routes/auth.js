@@ -15,6 +15,20 @@ router.post('/register', async (req, res) => {
     const payload = parsed.data;
     const roleNormalized = payload.role.toLowerCase();
 
+    // Fast path: prevent duplicate employee ID before creating auth user
+    try {
+      const { data: existingByEmp, error: existingEmpErr } = await supabaseService
+        .from('users')
+        .select('id')
+        .eq('emp_id', payload.emp_id)
+        .limit(1);
+      if (!existingEmpErr && Array.isArray(existingByEmp) && existingByEmp.length > 0) {
+        return res.status(409).json({ error: 'Employee ID already registered' });
+      }
+    } catch (precheckErr) {
+      // Ignore precheck errors; fallback to normal flow which will still error on constraint
+    }
+
     const { data: signUpData, error: signUpError } = await supabaseAnon.auth.signUp({
       email: payload.email,
       password: payload.password,

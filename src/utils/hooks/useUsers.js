@@ -78,6 +78,36 @@ export function useUsers() {
     [fetchUsers]
   );
 
+  const getUserByEmpId = useCallback(async (empId) => {
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("No authentication token");
+      }
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const response = await fetch(`${apiUrl}/users/profile/${empId}`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result; // { emp_id, name, email }
+    } catch (error) {
+      console.error("Error fetching user by emp_id:", error);
+      return null;
+    }
+  }, []);
+
   return {
     users,
     loading,
@@ -85,5 +115,6 @@ export function useUsers() {
     fetchUsers,
     getAllStaff,
     getAssignableUsers,
+    getUserByEmpId,
   };
 }

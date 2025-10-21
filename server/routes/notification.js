@@ -4,6 +4,10 @@ import {
   getUserFromToken,
   getEmpIdForUserId,
 } from "../lib/supabase.js";
+import {
+  runDeadlineChecks,
+  getDeadlineServiceStatus,
+} from "../services/deadlineNotificationService.js";
 
 const router = Router();
 
@@ -65,6 +69,17 @@ router.get("/", async (req, res) => {
     if (!empId) {
       return res.status(401).json({ error: "Employee ID not found for user" });
     }
+
+    // Automatically check for deadline notifications when user fetches notifications
+    // This happens in the background and doesn't affect the response
+    console.log("🔍 Running background deadline check...");
+    runDeadlineChecks()
+      .then((result) => {
+        console.log("✅ Background deadline check completed:", result);
+      })
+      .catch((error) => {
+        console.log("❌ Background deadline check failed:", error.message);
+      });
 
     const { data, error } = await supabase
       .from("notifications")
@@ -213,6 +228,43 @@ router.get("/unread-count", async (req, res) => {
   } catch (error) {
     console.error("Error getting unread count:", error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Manual deadline check trigger (for development)
+router.post("/check-deadlines", async (req, res) => {
+  try {
+    const { force = false } = req.body;
+    const result = await runDeadlineChecks(force);
+
+    res.json({
+      success: true,
+      message: "Deadline check completed",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error running deadline checks:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// Get deadline service status
+router.get("/deadline-status", async (req, res) => {
+  try {
+    const status = getDeadlineServiceStatus();
+    res.json({
+      success: true,
+      data: status,
+    });
+  } catch (error) {
+    console.error("Error getting deadline status:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
   }
 });
 

@@ -5,28 +5,16 @@ import TaskCard from "@/components/tasks/TaskCard";
 import { formatDate, getPriorityColor, getStatusColor } from "./taskUtils";
 import { useAuth } from "@/utils/hooks/useAuth";
 
-const statusOrder = ["unassigned", "todo", "in_progress", "done"];
+const statusOrder = ["ongoing", "under review", "completed"];
 const statusLabels = {
-  unassigned: "Unassigned",
-  todo: "To-do",
-  in_progress: "In Progress",
-  done: "Done",
+  ongoing: "Ongoing",
+  "under review": "Under Review",
+  completed: "Completed",
 };
 const statusColors = {
-  unassigned: "bg-gray-50",
-  todo: "bg-yellow-50",
-  in_progress: "bg-blue-50",
-  done: "bg-green-50",
-};
-// Backend status mapping to frontend categories
-const statusMapping = {
-  "unassigned": "unassigned",
-  "todo": "todo",
-  "ongoing": "in_progress", // Map "ongoing" to "in_progress"
-  "in_progress": "in_progress",
-  "pending": "in_progress",
-  "completed": "done",
-  "done": "done"
+  ongoing: "bg-blue-50",
+  "under review": "bg-yellow-50",
+  completed: "bg-green-50",
 };
 
 export default function StaffTasksView({ tasks = [], onLogout, onEditTask }) {
@@ -45,14 +33,9 @@ export default function StaffTasksView({ tasks = [], onLogout, onEditTask }) {
     );
   }
 
-  // Group tasks by status using the status mapping
+  // Group tasks by status
   const grouped = statusOrder.reduce((acc, status) => {
-    // Filter tasks that map to this status
-    acc[status] = tasks.filter((t) => {
-      // Map the backend status to our frontend status categories
-      const mappedStatus = statusMapping[t.status] || "todo"; // Default to todo if unknown
-      return mappedStatus === status;
-    });
+    acc[status] = tasks.filter((t) => t.status?.toLowerCase() === status.toLowerCase());
     return acc;
   }, {});
 
@@ -86,11 +69,11 @@ export default function StaffTasksView({ tasks = [], onLogout, onEditTask }) {
               <div className="flex items-center mb-2">
                 <span
                   className={`w-3 h-3 rounded-full mr-2 ${
-                    status === "todo"
-                      ? "bg-yellow-400"
-                      : status === "in_progress"
+                    status === "ongoing"
                       ? "bg-blue-400"
-                      : status === "done"
+                      : status === "under review"
+                      ? "bg-yellow-400"
+                      : status === "completed"
                       ? "bg-green-400"
                       : "bg-gray-400"
                   }`}

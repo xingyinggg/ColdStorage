@@ -32,7 +32,7 @@ export default function SidebarLayout({ children }) {
   return (
     <div className="min-h-screen flex bg-gray-50">
       <aside
-        className={`${collapsed ? "w-16" : "w-64"} bg-white border-r border-gray-200 transition-all duration-200 flex flex-col`}
+        className={`${collapsed ? "w-16" : "w-64"} bg-white border-r border-gray-200 transition-all duration-200 flex flex-col fixed left-0 top-0 h-screen z-10`}
       >
         <div className="h-14 border-b border-gray-200 flex items-center justify-between px-3">
           {!collapsed && (
@@ -80,7 +80,7 @@ export default function SidebarLayout({ children }) {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0">
+      <main className={`flex-1 min-w-0 ${collapsed ? "ml-16" : "ml-64"} transition-all duration-200`}>
         {children}
       </main>
     </div>

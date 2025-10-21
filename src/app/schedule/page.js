@@ -145,7 +145,7 @@ export default function SchedulePage() {
   }, [view, cursorDate]);
 
   // Status options from existing usage in forms/modals
-  const statusOptions = ["ongoing", "under review", "completed", "unassigned"];
+  const statusOptions = ["ongoing", "under review", "completed"];
 
   // UI helpers for color-coding
   const getStatusChipClasses = (status) => {

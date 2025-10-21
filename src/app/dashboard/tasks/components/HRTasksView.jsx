@@ -8,27 +8,17 @@ import { useTasks } from "@/utils/hooks/useTasks";
 import { useState, useEffect } from "react";
 
 // Status mapping (from backend to frontend display)
-const statusOrder = ["unassigned", "todo", "in_progress", "done"];
+const statusOrder = ["ongoing", "under review", "completed"];
 const statusLabels = {
-  unassigned: "Unassigned",
-  todo: "To-do",
-  in_progress: "In Progress",
-  done: "Done",
+  ongoing: "Ongoing",
+  "under review": "Under Review",
+  completed: "Completed",
 };
-// Map backend status values to our frontend status categories
-const statusMapping = {
-  "unassigned": "unassigned",
-  "todo": "todo",
-  "ongoing": "in_progress", // Map the backend "ongoing" status to "in_progress"
-  "in_progress": "in_progress",
-  "completed": "done",
-  "done": "done"
-};
+
 const statusColors = {
-  unassigned: "bg-gray-50",
-  todo: "bg-yellow-50",
-  in_progress: "bg-blue-50",
-  done: "bg-green-50",
+  ongoing: "bg-blue-50",
+  "under review": "bg-yellow-50",
+  completed: "bg-green-50",
 };
 
 export default function HrTasksView({ tasks = [], onLogout }) {
@@ -71,32 +61,9 @@ export default function HrTasksView({ tasks = [], onLogout }) {
   // Debug the tasks we're trying to display
   console.log("Tasks in HRTasksView:", tasks);
   
-  // Group tasks by status using the status mapping
+  // Group tasks by status
   const grouped = statusOrder.reduce((acc, status) => {
-    // Filter tasks that map to this status
-    acc[status] = tasks.filter((t) => {
-      // For debugging
-      console.log(`Task ${t.title} has status: ${t.status}`);
-      
-      // Map the backend status to our frontend status categories
-      let mappedStatus;
-      
-      if (t.status === "unassigned") {
-        mappedStatus = "unassigned";
-      } else if (t.status === "todo") {
-        mappedStatus = "todo";
-      } else if (t.status === "ongoing" || t.status === "in_progress" || t.status === "pending") {
-        mappedStatus = "in_progress";
-      } else if (t.status === "completed" || t.status === "done") {
-        mappedStatus = "done";
-      } else {
-        // Default to todo if unknown
-        mappedStatus = "todo";
-      }
-      
-      console.log(`Mapped to: ${mappedStatus}`);
-      return mappedStatus === status;
-    });
+    acc[status] = tasks.filter((t) => t.status?.toLowerCase() === status.toLowerCase());
     return acc;
   }, {});
 

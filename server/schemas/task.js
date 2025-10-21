@@ -7,7 +7,7 @@ export const TaskSchema = z.object({
   due_date: z.string().optional().nullable(),
   project_id: z.number().optional().nullable(),
   status: z
-    .enum(["under review", "ongoing", "completed", "unassigned", "recurring_template"])
+    .enum(["ongoing", "under review", "completed"])
     .optional()
     .nullable(),
   file: z.string().nullable().optional(),

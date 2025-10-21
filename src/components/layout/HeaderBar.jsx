@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 
 export default function HeaderBar({ title, user, userProfile, roleLabel, roleColor = "gray", onLogout }) {
   return (
-    <div className="bg-white shadow-sm border-b border-gray-200">
+    <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <h1 className="text-xl font-semibold">{title}</h1>

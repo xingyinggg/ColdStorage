@@ -1,36 +1,68 @@
 // utils/hooks/useTasks.js
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
+
+const CACHE_KEY = "tasks_cache";
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const AUTO_REFRESH_INTERVAL = 30 * 1000; // 30 seconds
+const REQUEST_TIMEOUT = 15000; // 15 seconds
 
 export const useTasks = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
+  const refreshIntervalRef = useRef(null);
+  const isMountedRef = useRef(true);
+  const hasFetchedRef = useRef(false);
+
+  // Load from cache immediately
+  useEffect(() => {
+    const cachedData = sessionStorage.getItem(CACHE_KEY);
+    if (cachedData) {
+      try {
+        const { tasks: cachedTasks, timestamp } = JSON.parse(cachedData);
+        const now = Date.now();
+        
+        // Use cache if it's less than CACHE_DURATION old
+        if (now - timestamp < CACHE_DURATION) {
+          setTasks(cachedTasks);
+          setLoading(false);
+          hasFetchedRef.current = true; // Mark as having valid data
+        }
+      } catch (err) {
+        console.error("Error loading cache:", err);
+      }
+    }
+  }, []);
 
   // Fetch all tasks via Express API
-  const fetchTasks = useCallback(async () => {
+  const fetchTasks = useCallback(async (skipLoadingState = false) => {
     try {
-      setLoading(true);
-      setError(null); // Clear previous errors
+      // Only show loading state if we don't have cached data and not skipping
+      if (!skipLoadingState && !hasFetchedRef.current) {
+        setLoading(true);
+      }
+      setError(null);
       
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await supabaseRef.current.auth.getSession();
       
       if (!session || !session.access_token) {
         console.warn("No valid session found when fetching tasks");
-        setTasks([]); // Empty tasks when no session
+        if (isMountedRef.current) {
+          setTasks([]);
+          setLoading(false);
+        }
         return;
       }
       
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-      console.log("Fetching tasks from API:", apiUrl);
       
       try {
-        // Using more robust fetch with timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
         
         const res = await fetch(`${apiUrl}/tasks`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
@@ -45,13 +77,11 @@ export const useTasks = () => {
           let errorMessage = `API Error (${res.status})`;
           
           try {
-            // Try to parse as JSON
             const errorBody = JSON.parse(errorText);
             if (errorBody && errorBody.error) {
               errorMessage = errorBody.error;
             }
           } catch {
-            // If parsing fails, use the raw text
             if (errorText) {
               errorMessage += `: ${errorText}`;
             }
@@ -61,25 +91,28 @@ export const useTasks = () => {
         }
         
         const body = await res.json();
-        console.log("Tasks API response:", body);
         
         // Sort tasks by priority in descending order (10 to 1), then by created_at
         const sortedTasks = (body.tasks || []).sort((a, b) => {
-          // Handle null/undefined priorities - treat them as 0 (lowest)
           const priorityA = a.priority !== null && a.priority !== undefined ? a.priority : 0;
           const priorityB = b.priority !== null && b.priority !== undefined ? b.priority : 0;
           
-          // Sort by priority descending (higher priority first)
           if (priorityB !== priorityA) {
             return priorityB - priorityA;
           }
           
-          // If priorities are equal, sort by created_at (newer first)
           return new Date(b.created_at || 0) - new Date(a.created_at || 0);
         });
         
-        console.log("Sorted tasks:", sortedTasks);
-        setTasks(sortedTasks);
+        if (isMountedRef.current) {
+          setTasks(sortedTasks);
+          
+          // Cache the results
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+            tasks: sortedTasks,
+            timestamp: Date.now()
+          }));
+        }
         
       } catch (fetchError) {
         if (fetchError.name === 'AbortError') {
@@ -90,11 +123,15 @@ export const useTasks = () => {
       }
     } catch (err) {
       console.error("Error in fetchTasks:", err);
-      setError(err.message || "Failed to fetch tasks");
+      if (isMountedRef.current) {
+        setError(err.message || "Failed to fetch tasks");
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current && !skipLoadingState) {
+        setLoading(false);
+      }
     }
-  }, [supabase]);
+  }, []);
 
   // Get active tasks (not completed)
   const getActiveTasks = () => {
@@ -124,7 +161,7 @@ export const useTasks = () => {
   
    // Helper function to get auth token
   const getAuthToken = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseRef.current.auth.getSession();
     return session?.access_token;
   };
 
@@ -156,7 +193,6 @@ export const useTasks = () => {
       );
 
       if (!response.ok) {
-        // Surface server error message if available
         let message = `HTTP error! status: ${response.status}`;
         try {
           const text = await response.text();
@@ -165,13 +201,23 @@ export const useTasks = () => {
             message = body?.error || body?.message || message;
           }
         } catch {
-          // ignore JSON parse errors; keep default message
+          // ignore JSON parse errors
         }
         throw new Error(message);
       }
 
       const newTask = await response.json();
-      setTasks((prev) => [newTask, ...prev]);
+      if (isMountedRef.current) {
+        setTasks((prev) => {
+          const updatedTasks = [newTask, ...prev];
+          // Update cache
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+            tasks: updatedTasks,
+            timestamp: Date.now()
+          }));
+          return updatedTasks;
+        });
+      }
       return { success: true, task: newTask };
     } catch (err) {
       console.error("Create task error:", err);
@@ -184,7 +230,7 @@ export const useTasks = () => {
     try {
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await supabaseRef.current.auth.getSession();
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
       const res = await fetch(`${apiUrl}/tasks/${taskId}`, {
         method: "PUT",
@@ -199,12 +245,22 @@ export const useTasks = () => {
         throw new Error(body?.error || `Request failed: ${res.status}`);
       }
       const updated = await res.json();
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t))
-      );
+      if (isMountedRef.current) {
+        setTasks((prev) => {
+          const updatedTasks = prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t));
+          // Update cache
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+            tasks: updatedTasks,
+            timestamp: Date.now()
+          }));
+          return updatedTasks;
+        });
+      }
       return { success: true, data: updated };
     } catch (err) {
-      setError(err.message);
+      if (isMountedRef.current) {
+        setError(err.message);
+      }
       return { success: false, error: err.message };
     }
   };
@@ -214,7 +270,7 @@ export const useTasks = () => {
     try {
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await supabaseRef.current.auth.getSession();
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
       const res = await fetch(`${apiUrl}/tasks/${taskId}`, {
         method: "DELETE",
@@ -224,10 +280,22 @@ export const useTasks = () => {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.error || `Request failed: ${res.status}`);
       }
-      setTasks((prev) => prev.filter((task) => task.id !== taskId));
+      if (isMountedRef.current) {
+        setTasks((prev) => {
+          const updatedTasks = prev.filter((task) => task.id !== taskId);
+          // Update cache
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+            tasks: updatedTasks,
+            timestamp: Date.now()
+          }));
+          return updatedTasks;
+        });
+      }
       return { success: true };
     } catch (err) {
-      setError(err.message);
+      if (isMountedRef.current) {
+        setError(err.message);
+      }
       return { success: false, error: err.message };
     }
   };
@@ -237,12 +305,30 @@ export const useTasks = () => {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-  const newStatus = task.status === "completed" ? "ongoing" : "completed";
+    const newStatus = task.status === "completed" ? "ongoing" : "completed";
     return await updateTask(taskId, { status: newStatus });
   };
 
+  // Initial fetch and auto-refresh setup
   useEffect(() => {
-    fetchTasks();
+    isMountedRef.current = true;
+    
+    // Only fetch if we don't have valid cached data
+    if (!hasFetchedRef.current) {
+      fetchTasks();
+    }
+
+    // Set up auto-refresh every 30 seconds
+    refreshIntervalRef.current = setInterval(() => {
+      fetchTasks(true); // Skip loading state for background refreshes
+    }, AUTO_REFRESH_INTERVAL);
+
+    return () => {
+      isMountedRef.current = false;
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
   }, [fetchTasks]);
 
   return {

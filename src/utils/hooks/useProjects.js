@@ -1,23 +1,51 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
+
+const CACHE_KEY = "projects_cache";
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export function useProjects() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
+  const isMountedRef = useRef(true);
+  const hasFetchedRef = useRef(false);
 
   // Helper function to get auth token
   const getAuthToken = async () => {
     const {
       data: { session },
-    } = await supabase.auth.getSession();
+    } = await supabaseRef.current.auth.getSession();
     return session?.access_token;
   };
 
-  const fetchProjects = async () => {
+  // Load from cache immediately
+  useEffect(() => {
+    const cachedData = sessionStorage.getItem(CACHE_KEY);
+    if (cachedData) {
+      try {
+        const { projects: cachedProjects, timestamp } = JSON.parse(cachedData);
+        const now = Date.now();
+        
+        if (now - timestamp < CACHE_DURATION) {
+          setProjects(cachedProjects);
+          setLoading(false);
+          hasFetchedRef.current = true; // Mark as having valid data
+        }
+      } catch (err) {
+        console.error("Error loading projects cache:", err);
+      }
+    }
+  }, []);
+
+  const fetchProjects = useCallback(async () => {
     try {
-      setLoading(true);
+      // Only show loading state if we don't have cached data
+      if (!hasFetchedRef.current) {
+        setLoading(true);
+      }
+      
       const token = await getAuthToken();
 
       if (!token) {
@@ -41,15 +69,28 @@ export function useProjects() {
       }
 
       const data = await response.json();
-      setProjects(data || []);
-      setError(null);
+      
+      if (isMountedRef.current) {
+        setProjects(data || []);
+        setError(null);
+        
+        // Cache the results
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+          projects: data || [],
+          timestamp: Date.now()
+        }));
+      }
     } catch (err) {
       console.error("Fetch projects error:", err);
-      setError(err.message);
+      if (isMountedRef.current) {
+        setError(err.message);
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
 
   const createProject = async (projectData) => {
     try {
@@ -84,11 +125,23 @@ export function useProjects() {
       }
 
       const newProject = await response.json();
-      setProjects((prev) => [newProject, ...prev]);
+      if (isMountedRef.current) {
+        setProjects((prev) => {
+          const updatedProjects = [newProject, ...prev];
+          // Update cache
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+            projects: updatedProjects,
+            timestamp: Date.now()
+          }));
+          return updatedProjects;
+        });
+      }
       return newProject;
     } catch (err) {
       console.error("Create project error:", err);
-      setError(err.message);
+      if (isMountedRef.current) {
+        setError(err.message);
+      }
       throw err;
     }
   };
@@ -196,13 +249,23 @@ export function useProjects() {
       }
 
       const updatedProject = await response.json();
-      setProjects((prev) =>
-        prev.map((project) => (project.id === id ? updatedProject : project))
-      );
+      if (isMountedRef.current) {
+        setProjects((prev) => {
+          const updatedProjects = prev.map((project) => (project.id === id ? updatedProject : project));
+          // Update cache
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+            projects: updatedProjects,
+            timestamp: Date.now()
+          }));
+          return updatedProjects;
+        });
+      }
       return updatedProject;
     } catch (err) {
       console.error("Update project error:", err);
-      setError(err.message);
+      if (isMountedRef.current) {
+        setError(err.message);
+      }
       throw err;
     }
   };
@@ -233,17 +296,38 @@ export function useProjects() {
         );
       }
 
-      setProjects((prev) => prev.filter((project) => project.id !== id));
+      if (isMountedRef.current) {
+        setProjects((prev) => {
+          const updatedProjects = prev.filter((project) => project.id !== id);
+          // Update cache
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+            projects: updatedProjects,
+            timestamp: Date.now()
+          }));
+          return updatedProjects;
+        });
+      }
     } catch (err) {
       console.error("Delete project error:", err);
-      setError(err.message);
+      if (isMountedRef.current) {
+        setError(err.message);
+      }
       throw err;
     }
   };
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    isMountedRef.current = true;
+    
+    // Only fetch if we don't have valid cached data
+    if (!hasFetchedRef.current) {
+      fetchProjects();
+    }
+    
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [fetchProjects]);
 
   return {
     projects,

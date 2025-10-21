@@ -17,7 +17,7 @@ const statusColors = {
   completed: "bg-green-50",
 };
 
-export default function StaffTasksView({ tasks = [], onLogout }) {
+export default function StaffTasksView({ tasks = [], onLogout, onEditTask }) {
   const { user, userProfile } = useAuth();
 
   // Early return if userProfile is not loaded yet
@@ -108,12 +108,13 @@ export default function StaffTasksView({ tasks = [], onLogout }) {
                   <TaskCard
                     key={task.id}
                     task={task}
-                    canEdit={canEdit}
+                    canEdit={canEdit && typeof onEditTask === 'function'}
                     isOwner={isOwner}
                     isCollaborator={isCollaborator}
                     formatDate={formatDate}
                     getPriorityColor={getPriorityColor}
                     getStatusColor={getStatusColor}
+                    onTaskUpdate={onEditTask}
                   />
                 );
               })}

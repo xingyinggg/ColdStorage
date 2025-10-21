@@ -24,6 +24,8 @@ export default function TaskEditModal({
   const [file, setFile] = useState(null);
   const [removeExistingFile, setRemoveExistingFile] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
+  const [editSuccess, setEditSuccess] = useState("");
+  const [editError, setEditError] = useState("");
   const { subtasks, loading: loadingSubtasks, error: subtasksError, fetchSubtasks, createSubtask, updateSubtask, deleteSubtask } = useSubtasks();
   const [newSubtask, setNewSubtask] = useState({
     title: "",
@@ -51,6 +53,12 @@ export default function TaskEditModal({
   const cancelEditSubtask = () => {
     setEditingSubtaskId(null);
     setSavingSubtaskId(null);
+  };
+  
+  const closeEditModal = () => {
+    if (onClose) {
+      onClose();
+    }
   };
 
   const handleEditFieldChange = (field, value) => {
@@ -125,8 +133,11 @@ export default function TaskEditModal({
     return errors;
   };
 
-  const handleSave = () => {
-    if (!onSave) return;
+  const handleSave = async () => {
+    if (!onSave) {
+      console.error("TaskEditModal: No onSave function provided");
+      return;
+    }
 
     // Validate form before saving
     const errors = validateForm();
@@ -137,46 +148,67 @@ export default function TaskEditModal({
       return;
     }
 
-    // For collaborators, only allow status updates
-    if (isCollaborator && !isOwner) {
-      const updates = { status: form.status };
-      onSave(task.id, updates);
-      return;
-    }
+    try {
+      // For collaborators, only allow status updates
+      if (isCollaborator && !isOwner) {
+        console.log("Collaborator updating task status to:", form.status);
+        const updates = { status: form.status };
+        
+        try {
+          const result = await onSave(task.id, updates);
+          console.log("Collaborator update result:", result);
+          
+          // Show success message and close modal
+          setEditSuccess("Task status updated successfully!");
+          setTimeout(() => {
+            closeEditModal();
+            setEditSuccess("");
+          }, 1000);
+          
+          return;
+        } catch (error) {
+          console.error("Collaborator status update failed:", error);
+          setEditError(error.message || "Failed to update task status");
+          return;
+        }
+      }
 
-    // Full edit permissions for owners
-    // Create FormData to handle file upload
-    const formData = new FormData();
-    
-    // Add form fields (only add non-empty values)
-    if (form.title && form.title.trim()) {
-      formData.append("title", form.title.trim());
-    }
-    if (form.description !== undefined) {
-      formData.append("description", form.description);
-    }
-    // Always append priority if it's a valid number
-    if (form.priority !== null && form.priority !== undefined) {
-      formData.append("priority", form.priority.toString());
-    }
-    if (form.status) {
-      formData.append("status", form.status);
-    }
-    if (form.due_date) {
-      formData.append("due_date", form.due_date);
-    }
+      // Full edit permissions for owners
+      // Create FormData to handle file upload
+      const formData = new FormData();
+      
+      // Add form fields (only add non-empty values)
+      if (form.title && form.title.trim()) {
+        formData.append("title", form.title.trim());
+      }
+      if (form.description !== undefined) {
+        formData.append("description", form.description);
+      }
+      // Always append priority if it's a valid number
+      if (form.priority !== null && form.priority !== undefined) {
+        formData.append("priority", form.priority.toString());
+      }
+      if (form.status) {
+        formData.append("status", form.status);
+      }
+      if (form.due_date) {
+        formData.append("due_date", form.due_date);
+      }
 
-    // Handle file operations
-    if (file && file instanceof File) {
-      formData.append("file", file);
-    }
+      // Handle file operations
+      if (file && file instanceof File) {
+        formData.append("file", file);
+      }
 
-    if (removeExistingFile) {
-      formData.append("remove_file", "true");
-    }
+      if (removeExistingFile) {
+        formData.append("remove_file", "true");
+      }
 
-    // Call onSave with FormData instead of form object
-    onSave(task.id, formData);
+      // Call onSave with FormData instead of form object and await the result
+      await onSave(task.id, formData);
+    } catch (error) {
+      console.error("Error in handleSave:", error);
+    }
   };
 
   // Clear validation error when user starts typing
@@ -240,6 +272,16 @@ export default function TaskEditModal({
         {successMessage && (
           <div className="mb-3 bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-sm">
             {successMessage}
+          </div>
+        )}
+        {editSuccess && (
+          <div className="mb-3 bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-sm">
+            {editSuccess}
+          </div>
+        )}
+        {editError && (
+          <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+            {editError}
           </div>
         )}
 

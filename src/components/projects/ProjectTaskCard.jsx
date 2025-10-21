@@ -69,10 +69,17 @@ export default function ProjectTaskCard({
     
     if (!dueDate) return borderColor; // Use default if no due date
     
-    const isOverdue = dueDate < now;
+    // Consider the task's status when determining if it's overdue
+    const isTaskCompleted = task.status === 'done' || task.status === 'completed';
+    
+    // Only mark as overdue if not completed
+    const isOverdue = dueDate < now && !isTaskCompleted;
+    
     const msInDay = 24 * 60 * 60 * 1000;
     const daysUntilDue = Math.ceil((dueDate - now) / msInDay);
-    const isApproaching = daysUntilDue > 0 && daysUntilDue <= 3;
+    
+    // Only mark as approaching if not completed
+    const isApproaching = daysUntilDue > 0 && daysUntilDue <= 3 && !isTaskCompleted;
     
     if (isOverdue) {
       return "border-red-300"; // Red border for overdue tasks
@@ -91,12 +98,16 @@ export default function ProjectTaskCard({
   // Due date status calculations
   const now = new Date();
   const dueDate = task.due_date ? new Date(task.due_date) : null;
-  const isOverdue = dueDate && dueDate < now;
+  
+  // Only mark as overdue if not done/completed
+  const isOverdue = dueDate && dueDate < now && task.status !== 'done' && task.status !== 'completed';
   
   // Check if due date is approaching (within 3 days)
   const msInDay = 24 * 60 * 60 * 1000;
   const daysUntilDue = dueDate ? Math.ceil((dueDate - now) / msInDay) : null;
-  const isApproaching = dueDate && daysUntilDue > 0 && daysUntilDue <= 3;
+  
+  // Only show approaching warning if not done/completed
+  const isApproaching = dueDate && daysUntilDue > 0 && daysUntilDue <= 3 && task.status !== 'done' && task.status !== 'completed';
 
   // Simple function to get assigned user name
   const getAssignedUserName = () => {
@@ -185,6 +196,12 @@ export default function ProjectTaskCard({
                 {isApproaching && (
                   <span className="ml-1 text-amber-500 font-semibold">
                     ({daysUntilDue} day{daysUntilDue === 1 ? '' : 's'} left)
+                  </span>
+                )}
+                {/* Show past due date as regular text if task is completed */}
+                {(task.status === 'done' || task.status === 'completed') && dueDate && dueDate < now && (
+                  <span className="ml-1 text-gray-500">
+                    (Completed)
                   </span>
                 )}
               </span>

@@ -565,6 +565,11 @@ router.put("/manager/:id", async (req, res) => {
       }
     }
     
+    if (updates.status) {
+      // Normalize status case (first letter uppercase, rest lowercase)
+      cleanUpdates.status = updates.status.charAt(0).toUpperCase() + updates.status.slice(1).toLowerCase();
+    }
+    
     const { data, error } = await supabase
       .from("tasks")
       .update(cleanUpdates)
@@ -665,15 +670,8 @@ router.put("/:id", upload.single("file"), async (req, res) => {
       }
     }
     if (updates.status) {
-      const normalizedUpdateStatus = String(updates.status)
-        .toLowerCase()
-        .replace(/_/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      const allowedStatuses = ["unassigned", "ongoing", "under review", "completed"];
-      if (allowedStatuses.includes(normalizedUpdateStatus)) {
-        cleanUpdates.status = normalizedUpdateStatus;
-      }
+      // Normalize status case (first letter uppercase, rest lowercase)
+      cleanUpdates.status = updates.status.charAt(0).toUpperCase() + updates.status.slice(1).toLowerCase();
     }
     if (updates.due_date) {
       cleanUpdates.due_date = updates.due_date;

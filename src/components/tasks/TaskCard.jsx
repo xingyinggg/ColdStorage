@@ -55,7 +55,7 @@ export default function TaskCard({
   task,
   onTaskUpdate, // new prop name used in some places
   onEdit,        // backwards-compatible prop used elsewhere
-  canEdit, // ← Use this prop instead of calculating internally
+  canEdit = false, // ← Use this prop instead of calculating internally
   isOwner = false, // New prop to indicate if user is the task owner
   isCollaborator = false, // New prop to indicate if user is a collaborator
   borderColor = "border-gray-200",
@@ -63,6 +63,17 @@ export default function TaskCard({
   memberNames = {},
   projectNames = {} // Add this prop
 }) {
+  // Disable edit functionality if no update handlers are provided
+  const actualCanEdit = canEdit && (typeof onTaskUpdate === 'function' || typeof onEdit === 'function');
+  
+  // Log the update functions to help debug
+  useEffect(() => {
+    console.log("TaskCard render - onTaskUpdate type:", typeof onTaskUpdate);
+    console.log("TaskCard render - onEdit type:", typeof onEdit);
+    if (canEdit && !actualCanEdit) {
+      console.warn("TaskCard has canEdit=true but no update handlers - disabling edit functionality");
+    }
+  }, [onTaskUpdate, onEdit, canEdit, actualCanEdit]);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false); // Add details modal state
   const [editSaving, setEditSaving] = useState(false);
@@ -137,38 +148,51 @@ export default function TaskCard({
         }
       }
 
-      const updateFn = typeof onTaskUpdate === 'function' ? onTaskUpdate : onEdit;
-      if (typeof updateFn !== 'function') {
-        throw new Error('TaskCard: No update handler provided (onTaskUpdate/onEdit)');
+      console.log("[handleEditTask] Processing task update:", { taskId, updates });
+
+      // Choose the update function
+      let updateFn = onTaskUpdate || onEdit;
+      
+      if (!updateFn) {
+        console.error("[handleEditTask] No update function available");
+        throw new Error("No update handler available");
       }
 
-      await updateFn(taskId, updates);
-
+      // Call the update function
+      const result = await updateFn(taskId, updates);
+      console.log("[handleEditTask] Update result:", result);
+      
       setEditSuccess("Task updated successfully!");
       setTimeout(() => {
         closeEditModal();
         setEditSuccess("");
       }, 1000);
-
+      
+      return result;
     } catch (error) {
-      console.error("Error updating task:", error);
+      console.error("[handleEditTask] Error:", error);
       setEditError(error.message || "Failed to update task");
+      return { success: false, error: error.message || "Failed to update task" };
     } finally {
       setEditSaving(false);
     }
   };
 
-  // Use the passed canEdit prop, or fallback to calculating it if not provided
-  const userCanEdit = canEdit !== undefined ? canEdit : (currentUserId && task.owner_id && String(currentUserId) === String(task.owner_id) || (task.collaborators && Array.isArray(task.collaborators) && task.collaborators.includes(String(currentUserId))));
+  // Use the actualCanEdit variable that considers both canEdit prop and availability of update handlers
+  const userCanEdit = actualCanEdit;
 
   // Due date status calculations
   const now = new Date();
   const dueDate = task.due_date ? new Date(task.due_date) : null;
-  const isOverdue = dueDate && dueDate < now;
+  
+  // Only mark as overdue if not done/completed
+  const isOverdue = dueDate && dueDate < now && task.status !== 'done' && task.status !== 'completed';
 
   const msInDay = 24 * 60 * 60 * 1000;
   const daysUntilDue = dueDate ? Math.ceil((dueDate - now) / msInDay) : null;
-  const isApproaching = dueDate && daysUntilDue > 0 && daysUntilDue <= 3;
+  
+  // Only show approaching warning if not done/completed
+  const isApproaching = dueDate && daysUntilDue > 0 && daysUntilDue <= 3 && task.status !== 'done' && task.status !== 'completed';
 
   const getAssignedToDisplay = () => {
     // Assigned to = task owner
@@ -398,7 +422,10 @@ export default function TaskCard({
           errorMessage={editError}
           successMessage={editSuccess}
           onClose={closeEditModal}
-          onSave={handleEditTask}
+          onSave={(id, updates) => {
+            console.log("TaskEditModal onSave called with:", id, updates);
+            return handleEditTask(id, updates);
+          }}
         />
       )}
 

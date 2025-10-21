@@ -125,8 +125,11 @@ export default function TaskEditModal({
     return errors;
   };
 
-  const handleSave = () => {
-    if (!onSave) return;
+  const handleSave = async () => {
+    if (!onSave) {
+      console.error("TaskEditModal: No onSave function provided");
+      return;
+    }
 
     // Validate form before saving
     const errors = validateForm();
@@ -137,46 +140,50 @@ export default function TaskEditModal({
       return;
     }
 
-    // For collaborators, only allow status updates
-    if (isCollaborator && !isOwner) {
-      const updates = { status: form.status };
-      onSave(task.id, updates);
-      return;
-    }
+    try {
+      // For collaborators, only allow status updates
+      if (isCollaborator && !isOwner) {
+        const updates = { status: form.status };
+        await onSave(task.id, updates);
+        return;
+      }
 
-    // Full edit permissions for owners
-    // Create FormData to handle file upload
-    const formData = new FormData();
-    
-    // Add form fields (only add non-empty values)
-    if (form.title && form.title.trim()) {
-      formData.append("title", form.title.trim());
-    }
-    if (form.description !== undefined) {
-      formData.append("description", form.description);
-    }
-    // Always append priority if it's a valid number
-    if (form.priority !== null && form.priority !== undefined) {
-      formData.append("priority", form.priority.toString());
-    }
-    if (form.status) {
-      formData.append("status", form.status);
-    }
-    if (form.due_date) {
-      formData.append("due_date", form.due_date);
-    }
+      // Full edit permissions for owners
+      // Create FormData to handle file upload
+      const formData = new FormData();
+      
+      // Add form fields (only add non-empty values)
+      if (form.title && form.title.trim()) {
+        formData.append("title", form.title.trim());
+      }
+      if (form.description !== undefined) {
+        formData.append("description", form.description);
+      }
+      // Always append priority if it's a valid number
+      if (form.priority !== null && form.priority !== undefined) {
+        formData.append("priority", form.priority.toString());
+      }
+      if (form.status) {
+        formData.append("status", form.status);
+      }
+      if (form.due_date) {
+        formData.append("due_date", form.due_date);
+      }
 
-    // Handle file operations
-    if (file && file instanceof File) {
-      formData.append("file", file);
-    }
+      // Handle file operations
+      if (file && file instanceof File) {
+        formData.append("file", file);
+      }
 
-    if (removeExistingFile) {
-      formData.append("remove_file", "true");
-    }
+      if (removeExistingFile) {
+        formData.append("remove_file", "true");
+      }
 
-    // Call onSave with FormData instead of form object
-    onSave(task.id, formData);
+      // Call onSave with FormData instead of form object and await the result
+      await onSave(task.id, formData);
+    } catch (error) {
+      console.error("Error in handleSave:", error);
+    }
   };
 
   // Clear validation error when user starts typing

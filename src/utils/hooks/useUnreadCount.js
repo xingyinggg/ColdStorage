@@ -10,8 +10,14 @@ export function useUnreadCount() {
   );
 
   useEffect(() => {
+    // Immediately get the current count when hook mounts
+    const currentCount = notificationStore.getUnreadCount();
+    if (currentCount !== unreadCount) {
+      setUnreadCount(currentCount);
+    }
+
     const unsubscribe = notificationStore.subscribe((count) => {
-      //   console.log(`Store notified: unread count changed to ${count}`);
+      console.log(`📢 Store notified: unread count changed to ${count}`);
       setUnreadCount(count);
     });
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUnreadCount } from "@/utils/hooks/useUnreadCount";
 import { useAuth } from "@/utils/hooks/useAuth";
+import NotificationInitializer from "@/components/notifications/NotificationInitializer";
 
 export default function SidebarLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -31,6 +32,7 @@ export default function SidebarLayout({ children }) {
 
   return (
     <div className="min-h-screen flex bg-gray-50">
+      <NotificationInitializer />
       <aside
         className={`${collapsed ? "w-16" : "w-64"} bg-white border-r border-gray-200 transition-all duration-200 flex flex-col`}
       >

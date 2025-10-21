@@ -83,7 +83,7 @@ class DeadlineNotificationService {
             const existingNotification = await this.checkExistingNotification(
               task.id,
               empId,
-              "upcoming_deadline", // Updated type
+              "Upcoming Deadline", // Updated type
               days
             );
 
@@ -94,7 +94,7 @@ class DeadlineNotificationService {
               const notification = await this.createDeadlineNotification({
                 emp_id: empId,
                 task_id: task.id,
-                type: "upcoming_deadline",
+                type: "Upcoming Deadline",
                 title: title,
                 description: `Your task "${task.title}" is due in ${days} day${
                   days > 1 ? "s" : ""
@@ -104,7 +104,7 @@ class DeadlineNotificationService {
 
               if (notification) {
                 notifications.push({
-                  type: "upcoming_deadline",
+                  type: "Upcoming Deadline",
                   days_remaining: days,
                   task_id: task.id,
                   title: title,
@@ -173,14 +173,14 @@ class DeadlineNotificationService {
           const existingNotification = await this.checkExistingNotification(
             task.id,
             empId,
-            "deadline_missed"
+            "Deadline Missed"
           );
 
           if (!existingNotification) {
             const notification = await this.createDeadlineNotification({
               emp_id: empId,
               task_id: task.id,
-              type: "deadline_missed",
+              type: "Deadline Missed",
               title: `Overdue: ${task.title}`,
               description: `Your task "${task.title}" was due on ${task.due_date} and is now overdue. Please complete it as soon as possible.`,
               metadata: null, // Not using metadata since column doesn't exist
@@ -188,7 +188,7 @@ class DeadlineNotificationService {
 
             if (notification) {
               notifications.push({
-                type: "deadline_missed",
+                type: "Deadline Missed",
                 task_id: task.id,
                 emp_id: empId,
               });
@@ -229,7 +229,7 @@ class DeadlineNotificationService {
 
       // For upcoming deadline notifications, also check the title contains the days
       // This ensures we don't send duplicate "7 days before" notifications
-      if (type === "upcoming_deadline" && daysRemaining !== null) {
+      if (type === "Upcoming Deadline" && daysRemaining !== null) {
         query = query.like("title", `${daysRemaining} days before%`);
       }
 

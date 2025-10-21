@@ -1,73 +1,107 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
+import { createClient } from "@/utils/supabase/client";
 
 /**
- * Hook for managing deadline notifications in development environment
- * Provides manual trigger and status checking for deadline notifications
+ * Hook for managing deadline notifications
+ * Provides automatic and manual triggering of deadline checks
  */
 export const useDeadlineNotifications = () => {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
   const [lastResult, setLastResult] = useState(null);
+  const supabase = createClient();
+  const lastCheckRef = useRef(0);
+  const cooldownMs = 2 * 60 * 1000; // 2 minute cooldown between manual checks
 
   /**
    * Manually trigger deadline checks
    * @param {boolean} force - Skip cooldown if true
    * @returns {Promise<Object>} Result of deadline checks
    */
-  const triggerDeadlineCheck = async (force = false) => {
-    setLoading(true);
-    try {
-      const response = await fetch("/api/notifications/check-deadlines", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`, // Adjust based on your auth setup
-        },
-        body: JSON.stringify({ force }),
-      });
-
-      const result = await response.json();
-      setLastResult(result);
-
-      if (result.success) {
-        console.log("Deadline check completed:", result.data);
-        return result.data;
-      } else {
-        throw new Error(result.error || "Deadline check failed");
+  const triggerDeadlineCheck = useCallback(
+    async (force = false) => {
+      // Respect cooldown unless forced
+      const now = Date.now();
+      if (!force && now - lastCheckRef.current < cooldownMs) {
+        console.log("⏱️ Deadline check skipped (cooldown)");
+        return { skipped: true, reason: "cooldown" };
       }
-    } catch (error) {
-      console.error("Error triggering deadline check:", error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
+
+      setLoading(true);
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error("No authentication token");
+        }
+
+        const apiUrl =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+        const response = await fetch(`${apiUrl}/notification/check-deadlines`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ force }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const result = await response.json();
+        setLastResult(result);
+        lastCheckRef.current = now;
+
+        console.log("✅ Deadline check completed:", result);
+        return result;
+      } catch (error) {
+        console.error("❌ Error triggering deadline check:", error);
+        setLastResult({ error: error.message });
+        throw error;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [supabase, cooldownMs]
+  );
 
   /**
    * Get current deadline service status
    * @returns {Promise<Object>} Service status
    */
-  const getDeadlineStatus = async () => {
+  const getDeadlineStatus = useCallback(async () => {
     try {
-      const response = await fetch("/api/notifications/deadline-status", {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("No authentication token");
+      }
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const response = await fetch(`${apiUrl}/notification/deadline-status`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`, // Adjust based on your auth setup
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
-      const result = await response.json();
-
-      if (result.success) {
-        setStatus(result.data);
-        return result.data;
-      } else {
-        throw new Error(result.error || "Failed to get status");
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
+
+      const result = await response.json();
+      setStatus(result.data);
+      return result.data;
     } catch (error) {
       console.error("Error getting deadline status:", error);
       throw error;
     }
-  };
+  }, [supabase]);
 
   /**
    * Check if deadline service is ready for another check

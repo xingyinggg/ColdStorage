@@ -45,7 +45,7 @@ jobs:
         run: npm run test:integration
 
       - name: Notify Telegram (success)
-        if: ${{ success() && secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != '' }}
+        if: ${{ success() }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -55,6 +55,10 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_WORKFLOW: ${{ github.workflow }}
         run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "Telegram secrets not set; skipping notification."
+            exit 0
+          fi
           SHORT_SHA=${GITHUB_SHA::7}
           MESSAGE="✅ ${GITHUB_WORKFLOW} passed for ${GITHUB_REPOSITORY}@${GITHUB_REF_NAME} (commit ${SHORT_SHA}) by ${GITHUB_ACTOR}"
           curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage \

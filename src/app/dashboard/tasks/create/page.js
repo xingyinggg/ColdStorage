@@ -20,7 +20,7 @@ export default function CreateTaskPage() {
     getProjectMembers,
   } = useProjects();
   const { userProfile } = useAuth();
-  const { fetchUsers, getAssignableUsers } = useUsers();
+  const { fetchUsers, getAssignableUsers, getUserByEmpId } = useUsers();
 
   // States
   const [selectedProject, setSelectedProject] = useState("");
@@ -86,7 +86,7 @@ export default function CreateTaskPage() {
         const filteredMembers = (data.members || []).filter(
           (member) => member.emp_id !== userProfile?.emp_id
         );
-        
+
         // If user is HR, filter project members to only show HR staff
         if (isHR) {
           filteredMembers = filteredMembers.filter(member => member.role === "hr");
@@ -168,32 +168,8 @@ export default function CreateTaskPage() {
         const task = result.task;
         const isAssigning =
           task.owner_id && task.owner_id !== userProfile.emp_id;
-
-        // Case 1: User assigns to someone else
-        if (isAssigning) {
-          // Notify the assignee
-          const assigneeNotification = {
-            emp_id: task.owner_id,
-            title: `New Task Assigned (${task.title})`,
-            description:
-              task.description || "You have been assigned a new task.",
-            type: "Task Assignment",
-            created_at: new Date().toISOString(),
-          };
-          await createNotification(assigneeNotification);
-
-          // Notify the assigner
-          const assignerNotification = {
-            emp_id: userProfile.emp_id,
-            title: `Task Assigned Successfully`,
-            description: `You assigned "${task.title}" to employee #${task.owner_id}.`,
-            type: "Task Assignment Confirmation",
-            created_at: new Date().toISOString(),
-          };
-          await createNotification(assignerNotification);
-        }
-        // Case 2: User creates for themselves
-        else {
+        console.log(`This is the result of isassigning ${isAssigning}`)
+        if (!isAssigning) {
           const creatorNotification = {
             emp_id: userProfile.emp_id,
             title: `New Task Created (${task.title})`,
@@ -205,6 +181,57 @@ export default function CreateTaskPage() {
             `📝 Creating notification for creator (emp_id: ${userProfile.emp_id})`
           );
           await createNotification(creatorNotification);
+        } else {
+          try {
+            const assignee = await getUserByEmpId(task.owner_id);
+            const assigner = await getUserByEmpId(userProfile.emp_id);
+
+            // 2️⃣ Notify the assignee (show who assigned it)
+            const assigneeNotification = {
+              emp_id: task.owner_id,
+              title: `New Task Assigned (${task.title})`,
+              description: `${assigner?.name || "Someone"} has assigned you a new task: "${task.title}".`,
+              type: "Task Assignment",
+              created_at: new Date().toISOString(),
+            };
+            await createNotification(assigneeNotification);
+
+            // 3️⃣ Notify the assigner (show who they assigned to)
+            const assignerNotification = {
+              emp_id: userProfile.emp_id,
+              title: `Task Assigned Successfully`,
+              description: `You assigned "${task.title}" to ${assignee?.name || "an employee"}.`,
+              type: "Task Assignment Confirmation",
+              created_at: new Date().toISOString(),
+            };
+            await createNotification(assignerNotification);
+          } catch (err) {
+            console.error("Error creating task assignment notifications:", err);
+          }
+        }
+        if (Array.isArray(taskData.collaborators) && taskData.collaborators.length > 0) {
+          try {
+            for (const collaboratorEmpId of taskData.collaborators) {
+              // Skip notifying yourself
+              if (collaboratorEmpId === userProfile.emp_id) continue;
+
+              const collaborator = await getUserByEmpId(collaboratorEmpId);
+              const assigner = await getUserByEmpId(userProfile.emp_id);
+
+              const collaboratorNotification = {
+                emp_id: collaboratorEmpId,
+                title: `Added as collaborator for (${task.title})`,
+                description: `${assigner?.name || "Someone"} has added you as a collaborator for the shared task: "${task.title}".`,
+                type: "Shared Task",
+                created_at: new Date().toISOString(),
+              };
+
+              await createNotification(collaboratorNotification);
+              console.log(`📩 Sent collaborator notification to ${collaborator?.name}`);
+            }
+          } catch (err) {
+            console.error("Error notifying collaborators:", err);
+          }
         }
 
         router.push("/dashboard");

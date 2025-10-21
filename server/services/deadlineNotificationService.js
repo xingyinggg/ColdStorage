@@ -1,25 +1,18 @@
-import { getServiceClient } from "../lib/supabase.js";
-
-/**
- * Deadline Notification Service
- * Handles checking for upcoming deadlines and sending notifications
- * Optimized for development environment - runs on-demand instead of cron
- */
+import { getServiceClient } from '../lib/supabase.js';
 
 class DeadlineNotificationService {
-  constructor(dbClient = null) {
-    this.db = dbClient || getServiceClient(); // Allow dependency injection for testing
-    this.lastCheck = null; // Track when we last checked to avoid spam
-    this.checkCooldown = 5 * 60 * 1000; // 5 minutes cooldown between checks
+  constructor() {
+    // Don't initialize supabase client during construction
+    this.supabase = null;
+    this.lastCheck = null;
   }
 
-  /**
-   * Check if we should run deadline notifications (respects cooldown)
-   * @returns {boolean} Whether to run the check
-   */
-  shouldCheckDeadlines() {
-    if (!this.lastCheck) return true;
-    return Date.now() - this.lastCheck > this.checkCooldown;
+  // Initialize the supabase client when first needed
+  getSupabaseClient() {
+    if (!this.supabase) {
+      this.supabase = getServiceClient();
+    }
+    return this.supabase;
   }
 
   /**
@@ -29,228 +22,276 @@ class DeadlineNotificationService {
    */
   async checkUpcomingDeadlines(forceCheck = false) {
     try {
-      // Respect cooldown unless forced
-      if (!forceCheck && !this.shouldCheckDeadlines()) {
-        return {
-          success: true,
-          message: "Deadline check skipped due to cooldown",
-          notifications: [],
-          skipped: true,
-        };
+      // Check cooldown (5 minutes for automatic checks, can be bypassed with force)
+      if (!forceCheck && this.lastCheck) {
+        const timeSinceLastCheck = Date.now() - this.lastCheck;
+        const cooldownPeriod = 5 * 60 * 1000; // 5 minutes
+
+        if (timeSinceLastCheck < cooldownPeriod) {
+          const remainingTime = cooldownPeriod - timeSinceLastCheck;
+          const remainingMinutes = Math.ceil(remainingTime / (60 * 1000));
+          
+          return {
+            success: true,
+            message: "Deadline check skipped due to cooldown",
+            nextCheckAvailable: new Date(Date.now() + remainingTime).toISOString(),
+            remainingMinutes,
+            notifications: [],
+            skipped: true
+          };
+        }
       }
 
+      // Update last check time
       this.lastCheck = Date.now();
-      const today = new Date();
-      const notifications = [];
+
+      const checkDays = [1, 3, 7];
+      const allNotifications = [];
+      let totalCreated = 0;
       let duplicatesPrevented = 0;
 
-      // Check for deadlines in 1, 3, and 7 days
-      const checkDays = [1, 3, 7];
+      const supabase = this.getSupabaseClient();
 
       for (const days of checkDays) {
-        const targetDate = new Date(today);
-        targetDate.setDate(today.getDate() + days);
+        // Calculate target date
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + days);
+        const targetDateStr = targetDate.toISOString().split('T')[0];
 
-        // Format dates for the query
-        const startDate = targetDate.toISOString().split("T")[0];
-        const endDate = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0];
+        // Query tasks due on target date
+        const { data: tasks, error: tasksError } = await supabase
+          .from('tasks')
+          .select('id, title, due_date, owner_id, collaborators, status')
+          .eq('due_date', targetDateStr)
+          .neq('status', 'completed');
 
-        // Query tasks with deadlines on target date
-        const { data: tasks, error } = await this.db
-          .from("tasks")
-          .select("id, title, due_date, owner_id, collaborators, status")
-          .gte("due_date", startDate)
-          .lt("due_date", endDate)
-          .neq("status", "completed");
-
-        if (error) {
-          console.error("Error fetching tasks for deadline check:", error);
+        if (tasksError) {
+          console.error(`Error fetching tasks for ${days} days:`, tasksError);
           continue;
         }
 
-        for (const task of tasks || []) {
-          // Get all people who should receive notifications (owner + collaborators)
+        if (!tasks || tasks.length === 0) {
+          console.log(`No tasks found due in ${days} days (${targetDateStr})`);
+          continue;
+        }
+
+        console.log(`Found ${tasks.length} tasks due in ${days} days`);
+
+        // Process each task
+        for (const task of tasks) {
+          // Get recipients (owner + collaborators)
           const recipients = [task.owner_id];
           if (task.collaborators && Array.isArray(task.collaborators)) {
-            recipients.push(...task.collaborators.map((id) => parseInt(id)));
+            recipients.push(...task.collaborators.map(id => parseInt(id)));
           }
 
-          // Create notifications for each recipient
+          // Create notification for each recipient
           for (const empId of recipients) {
-            // Check if notification already sent
+            // Check for existing notification to prevent duplicates
             const existingNotification = await this.checkExistingNotification(
               task.id,
               empId,
-              "Upcoming Deadline", // Updated type
+              "Upcoming Deadline",
               days
             );
 
-            if (!existingNotification) {
-              // Create the notification title in the format you specified
-              const title = `${days} days before ${task.title} is due`;
-
-              const notification = await this.createDeadlineNotification({
-                emp_id: empId,
-                task_id: task.id,
-                type: "Upcoming Deadline",
-                title: title,
-                description: `Your task "${task.title}" is due in ${days} day${
-                  days > 1 ? "s" : ""
-                } (${task.due_date}). Please make sure to complete it on time.`,
-                metadata: null, // Not using metadata since column doesn't exist
-              });
-
-              if (notification) {
-                notifications.push({
-                  type: "Upcoming Deadline",
-                  days_remaining: days,
-                  task_id: task.id,
-                  title: title,
-                });
-              }
-            } else {
+            if (existingNotification) {
               duplicatesPrevented++;
+              console.log(`Duplicate notification prevented for task ${task.id}, emp ${empId}, ${days} days`);
+              continue;
+            }
+
+            // Create notification
+            const notification = await this.createDeadlineNotification({
+              emp_id: empId,
+              task_id: task.id,
+              type: "Upcoming Deadline",
+              notification_category: "deadline",
+              title: `${days} days before ${task.title} is due`,
+              description: `Your task "${task.title}" is due in ${days} day${days > 1 ? 's' : ''} (${task.due_date}). Please make sure to complete it on time.`,
+              metadata: null,
+            });
+
+            if (notification) {
+              allNotifications.push({
+                type: "Upcoming Deadline",
+                days_remaining: days,
+                task_id: task.id,
+                title: `${days} days before ${task.title} is due`
+              });
+              totalCreated++;
+              console.log(`Created ${days}-day deadline notification for task: ${task.title}`);
             }
           }
         }
       }
 
       return {
-        notifications,
+        success: true,
+        message: `Deadline check completed. Created ${totalCreated} notifications.`,
+        data: {
+          upcoming: {
+            notifications: allNotifications,
+            created: totalCreated,
+            duplicates_prevented: duplicatesPrevented
+          }
+        },
+        notifications: allNotifications,
+        totalNotifications: totalCreated,
         duplicates_prevented: duplicatesPrevented,
+        timestamp: new Date().toISOString()
       };
+
     } catch (error) {
-      console.error("Error checking upcoming deadlines:", error);
-      throw error;
+      console.error('Error in checkUpcomingDeadlines:', error);
+      return {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
     }
   }
 
   /**
-   * Check for missed deadlines (overdue tasks)
+   * Check for missed deadlines (past due date)
    * @param {boolean} forceCheck - Skip cooldown if true
    * @returns {Object} Result with notifications created
    */
   async checkMissedDeadlines(forceCheck = false) {
     try {
-      // Respect cooldown unless forced
-      if (!forceCheck && !this.shouldCheckDeadlines()) {
+      const today = new Date().toISOString().split('T')[0];
+      const supabase = this.getSupabaseClient();
+
+      // Query overdue tasks
+      const { data: overdueTasks, error: tasksError } = await supabase
+        .from('tasks')
+        .select('id, title, due_date, owner_id, collaborators, status')
+        .lt('due_date', today)
+        .neq('status', 'completed');
+
+      if (tasksError) {
+        console.error('Error fetching overdue tasks:', tasksError);
         return {
-          success: true,
-          message: "Missed deadline check skipped due to cooldown",
-          notifications: [],
-          skipped: true,
+          success: false,
+          error: tasksError.message,
+          timestamp: new Date().toISOString()
         };
       }
 
-      const today = new Date().toISOString().split("T")[0];
-      const notifications = [];
-      let duplicatesPrevented = 0;
-
-      // Query tasks that are overdue
-      const { data: tasks, error } = await this.db
-        .from("tasks")
-        .select("id, title, due_date, owner_id, collaborators, status")
-        .lt("due_date", today)
-        .neq("status", "completed");
-
-      if (error) {
-        console.error("Error fetching overdue tasks:", error);
-        throw error;
+      if (!overdueTasks || overdueTasks.length === 0) {
+        return {
+          success: true,
+          message: 'No overdue tasks found',
+          notifications: [],
+          totalNotifications: 0,
+          timestamp: new Date().toISOString()
+        };
       }
 
-      for (const task of tasks || []) {
-        // Get all people who should receive notifications (owner + collaborators)
+      const allNotifications = [];
+      let totalCreated = 0;
+      let duplicatesPrevented = 0;
+
+      // Process each overdue task
+      for (const task of overdueTasks) {
+        // Get recipients (owner + collaborators)
         const recipients = [task.owner_id];
         if (task.collaborators && Array.isArray(task.collaborators)) {
-          recipients.push(...task.collaborators.map((id) => parseInt(id)));
+          recipients.push(...task.collaborators.map(id => parseInt(id)));
         }
 
-        // Create notifications for each recipient
+        // Create notification for each recipient
         for (const empId of recipients) {
-          // Check if notification already sent for this overdue task
+          // Check for existing missed deadline notification
           const existingNotification = await this.checkExistingNotification(
             task.id,
             empId,
-            "Deadline Missed"
+            "Deadline Missed",
+            0 // Special case for missed deadlines
           );
 
-          if (!existingNotification) {
-            const notification = await this.createDeadlineNotification({
-              emp_id: empId,
-              task_id: task.id,
-              type: "Deadline Missed",
-              title: `Overdue: ${task.title}`,
-              description: `Your task "${task.title}" was due on ${task.due_date} and is now overdue. Please complete it as soon as possible.`,
-              metadata: null, // Not using metadata since column doesn't exist
-            });
-
-            if (notification) {
-              notifications.push({
-                type: "Deadline Missed",
-                task_id: task.id,
-                emp_id: empId,
-              });
-            }
-          } else {
+          if (existingNotification) {
             duplicatesPrevented++;
+            continue;
+          }
+
+          // Create missed deadline notification
+          const notification = await this.createDeadlineNotification({
+            emp_id: empId,
+            task_id: task.id,
+            type: "Deadline Missed",
+            notification_category: "deadline",
+            title: `Overdue: ${task.title} deadline has passed`,
+            description: `Your task "${task.title}" was due on ${task.due_date} and is now overdue. Please complete it as soon as possible.`,
+            metadata: null,
+          });
+
+          if (notification) {
+            allNotifications.push({
+              type: "Deadline Missed",
+              task_id: task.id,
+              title: `Overdue: ${task.title} deadline has passed`
+            });
+            totalCreated++;
           }
         }
       }
 
       return {
-        notifications,
+        success: true,
+        message: `Missed deadline check completed. Created ${totalCreated} notifications.`,
+        notifications: allNotifications,
+        totalNotifications: totalCreated,
         duplicates_prevented: duplicatesPrevented,
+        timestamp: new Date().toISOString()
       };
+
     } catch (error) {
-      console.error("Error checking missed deadlines:", error);
-      throw error;
+      console.error('Error in checkMissedDeadlines:', error);
+      return {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
     }
   }
 
   /**
-   * Check if a notification already exists to prevent duplicates
-   * @param {number} taskId - Task ID
-   * @param {number} userId - User ID
-   * @param {string} type - Notification type
-   * @param {number} daysRemaining - Days remaining (for deadline reminders)
-   * @returns {boolean} True if notification exists
+   * Check for existing notification to prevent duplicates
    */
-  async checkExistingNotification(taskId, userId, type, daysRemaining = null) {
+  async checkExistingNotification(taskId, empId, type, days) {
     try {
-      let query = this.db
-        .from("notifications")
-        .select("id")
-        .eq("emp_id", parseInt(userId)) // Ensure it's a number
-        .eq("task_id", parseInt(taskId)) // Ensure it's a number
-        .eq("type", type)
-        .eq("read", false);
+      const supabase = this.getSupabaseClient();
+      
+      let query = supabase
+        .from('notifications')
+        .select('id')
+        .eq('task_id', taskId)
+        .eq('emp_id', empId)
+        .eq('type', type)
+        .eq('read', false);
 
-      // For upcoming deadline notifications, also check the title contains the days
-      // This ensures we don't send duplicate "7 days before" notifications
-      if (type === "Upcoming Deadline" && daysRemaining !== null) {
-        query = query.like("title", `${daysRemaining} days before%`);
+      // For upcoming deadlines, also check the title contains the specific day count
+      if (type === "Upcoming Deadline" && days > 0) {
+        query = query.ilike('title', `%${days} days%`);
       }
 
-      const { data, error } = await query;
+      const { data, error } = await query.limit(1).single();
 
-      if (error) {
-        console.error("Error checking existing notification:", error);
-        return false;
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        console.error('Error checking existing notification:', error);
+        return null;
       }
 
-      return data && data.length > 0;
+      return data;
     } catch (error) {
-      console.error("Error in checkExistingNotification:", error);
-      return false;
+      console.error('Error in checkExistingNotification:', error);
+      return null;
     }
   }
 
   /**
-   * Create a deadline notification
-   * @param {Object} notificationData - Notification data
-   * @returns {Object} Created notification or null
+   * Create deadline notification in database
    */
   async createDeadlineNotification({
     emp_id,
@@ -258,122 +299,157 @@ class DeadlineNotificationService {
     type,
     title,
     description,
-    metadata, // We'll store key info in title/description instead
+    metadata,
+    notification_category = "deadline"
   }) {
     try {
-      const { data, error } = await this.db
-        .from("notifications")
-        .insert({
-          emp_id: parseInt(emp_id), // Ensure it's a number for bigint
-          task_id: parseInt(task_id), // Ensure it's a number for bigint
-          type,
-          notification_category: "deadline",
-          title,
-          description,
-          read: false,
-          created_at: new Date().toISOString(),
-          sent_at: new Date().toISOString(),
-        })
+      const supabase = this.getSupabaseClient();
+      
+      const notificationData = {
+        emp_id: parseInt(emp_id),
+        task_id: parseInt(task_id),
+        type,
+        notification_category,
+        title,
+        description,
+        read: false,
+        created_at: new Date().toISOString(),
+        sent_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert(notificationData)
         .select()
         .single();
 
       if (error) {
-        console.error("Error creating deadline notification:", error);
-        return null;
+        console.error('Error creating deadline notification:', error);
+        throw new Error(`Failed to create deadline notification: ${error.message}`);
       }
 
       return data;
     } catch (error) {
-      console.error("Error in createDeadlineNotification:", error);
-      return null;
+      console.error('Error in createDeadlineNotification:', error);
+      throw error;
     }
   }
 
   /**
-   * Manually trigger deadline checks (for development)
-   * This replaces the cron scheduler for localhost development
-   * @param {boolean} forceCheck - Skip cooldown if true
-   * @returns {Object} Combined results from both checks
+   * Run all deadline checks (for manual triggers)
    */
   async runDeadlineChecks(forceCheck = false) {
     try {
-      console.log("Running manual deadline checks...");
+      console.log('Running manual deadline checks...');
+      
+      const upcomingResult = await this.checkUpcomingDeadlines(forceCheck);
+      const missedResult = await this.checkMissedDeadlines(forceCheck);
 
-      const upcomingResults = await this.checkUpcomingDeadlines(forceCheck);
-      const missedResults = await this.checkMissedDeadlines(forceCheck);
+      const totalNotifications = 
+        (upcomingResult.totalNotifications || 0) + 
+        (missedResult.totalNotifications || 0);
 
-      const combinedResults = {
+      return {
         success: true,
-        timestamp: new Date().toISOString(),
-        upcoming: upcomingResults,
-        missed: missedResults,
-        totalNotifications:
-          (upcomingResults.notifications?.length || 0) +
-          (missedResults.notifications?.length || 0),
+        message: `All deadline checks completed. Created ${totalNotifications} total notifications.`,
+        data: {
+          upcoming: upcomingResult,
+          missed: missedResult,
+          totalNotifications
+        },
+        totalNotifications,
+        timestamp: new Date().toISOString()
       };
 
-      console.log(
-        `Deadline checks completed. Created ${combinedResults.totalNotifications} notifications.`
-      );
-      return combinedResults;
     } catch (error) {
-      console.error("Error in manual deadline checks:", error);
+      console.error('Error in runDeadlineChecks:', error);
       return {
         success: false,
         error: error.message,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toISOString()
       };
     }
   }
 
   /**
-   * Get status of the deadline service
-   * @returns {Object} Service status info
+   * Get last check status
    */
   getStatus() {
     return {
-      mode: "development",
       lastCheck: this.lastCheck,
-      cooldownMs: this.checkCooldown,
-      nextCheckAvailable: this.lastCheck
-        ? new Date(this.lastCheck + this.checkCooldown).toISOString()
-        : "immediately",
+      nextCheckAvailable: this.lastCheck ? new Date(this.lastCheck + 5 * 60 * 1000).toISOString() : null,
+      cooldownActive: this.lastCheck ? (Date.now() - this.lastCheck) < (5 * 60 * 1000) : false
     };
   }
 
   /**
-   * Error handler for the service
-   * @param {Error} error - Error object
+   * Setup deadline scheduler (for development/production environments)
    */
-  onError(error) {
-    console.error("DeadlineNotificationService error:", error);
+  setupScheduler() {
+    // In test environment, don't set up actual cron jobs
+    if (process.env.NODE_ENV === 'test') {
+      console.log('Test environment detected, skipping deadline scheduler setup');
+      return;
+    }
+
+    // For development/production, you could add cron scheduling here
+    console.log('Deadline notification service initialized for on-demand checking');
   }
 }
 
-// Create singleton instance
-const deadlineNotificationService = new DeadlineNotificationService();
+// Create and export service instance - but don't initialize supabase client yet
+let deadlineNotificationService;
 
-// Export individual functions for backwards compatibility with tests
-export const checkUpcomingDeadlines = async (forceCheck = false) => {
-  return await deadlineNotificationService.checkUpcomingDeadlines(forceCheck);
-};
+try {
+  deadlineNotificationService = new DeadlineNotificationService();
+} catch (error) {
+  console.warn('Could not initialize deadline notification service:', error.message);
+  deadlineNotificationService = null;
+}
 
-export const checkMissedDeadlines = async (forceCheck = false) => {
-  return await deadlineNotificationService.checkMissedDeadlines(forceCheck);
-};
+// Export service instance and individual functions
+export default deadlineNotificationService;
 
-export const createDeadlineNotification = async (notificationData) => {
-  return await deadlineNotificationService.createDeadlineNotification(
-    notificationData
-  );
-};
+// Export individual functions for testing
+export async function checkUpcomingDeadlines(forceCheck = false) {
+  if (!deadlineNotificationService) {
+    throw new Error('Deadline notification service not available');
+  }
+  return deadlineNotificationService.checkUpcomingDeadlines(forceCheck);
+}
 
-export const runDeadlineChecks = async (forceCheck = false) => {
-  return await deadlineNotificationService.runDeadlineChecks(forceCheck);
-};
+export async function checkMissedDeadlines(forceCheck = false) {
+  if (!deadlineNotificationService) {
+    throw new Error('Deadline notification service not available');
+  }
+  return deadlineNotificationService.checkMissedDeadlines(forceCheck);
+}
 
-export const getDeadlineServiceStatus = () => {
-  return deadlineNotificationService.getStatus();
-};
+export async function createDeadlineNotification(data) {
+  if (!deadlineNotificationService) {
+    throw new Error('Deadline notification service not available');
+  }
+  return deadlineNotificationService.createDeadlineNotification(data);
+}
 
-export { DeadlineNotificationService, deadlineNotificationService };
+export async function runDeadlineChecks(forceCheck = false) {
+  if (!deadlineNotificationService) {
+    throw new Error('Deadline notification service not available');
+  }
+  return deadlineNotificationService.runDeadlineChecks(forceCheck);
+}
+
+export function setupDeadlineScheduler() {
+  if (!deadlineNotificationService) {
+    console.warn('Deadline notification service not available for scheduler setup');
+    return;
+  }
+  return deadlineNotificationService.setupScheduler();
+}
+
+export function getDeadlineServiceStatus() {
+  if (!deadlineNotificationService) {
+    return { available: false, error: 'Service not initialized' };
+  }
+  return { available: true, ...deadlineNotificationService.getStatus() };
+}

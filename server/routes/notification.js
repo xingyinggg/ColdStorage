@@ -1,118 +1,125 @@
-import { Router } from "express";
+import express from "express";
 import {
-  getServiceClient,
+  supabase,
   getUserFromToken,
   getEmpIdForUserId,
+  getUserRole,
 } from "../lib/supabase.js";
-import {
-  runDeadlineChecks,
-  getDeadlineServiceStatus,
-} from "../services/deadlineNotificationService.js";
 
-const router = Router();
+// Import deadline notification functions - but handle gracefully if not available
+let runDeadlineChecks;
+try {
+  const deadlineModule = await import(
+    "../services/deadlineNotificationService.js"
+  );
+  runDeadlineChecks = deadlineModule.runDeadlineChecks;
+} catch (error) {
+  console.warn("Deadline notification service not available:", error.message);
+  runDeadlineChecks = null;
+}
 
-router.post("/", async (req, res) => {
-  try {
-    const supabase = getServiceClient();
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+const router = express.Router();
 
-    if (!token) {
-      return res.status(401).json({ error: "No token provided" });
-    }
-
-    const user = await getUserFromToken(token);
-    if (!user) {
-      return res.status(401).json({ error: "Invalid token" });
-    }
-
-    const { title, description, type, emp_id, created_at } = req.body;
-
-    if (!title || !description || !type || !emp_id) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    const { data, error } = await supabase
-      .from("notifications")
-      .insert([{ title, description, type, emp_id, created_at, read: false }])
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Supabase insert error:", error);
-      return res.status(500).json({ error: error.message });
-    }
-
-    res.json(data);
-  } catch (error) {
-    console.error("Error creating notification:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
+// GET /notification - Get all notifications for authenticated user
 router.get("/", async (req, res) => {
   try {
-    res.type("application/json");
-    const supabase = getServiceClient();
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
-    if (!token) {
-      return res.status(401).json({ error: "No token provided" });
-    }
-
-    const user = await getUserFromToken(token);
+    // Get and validate user
+    const user = await getUserFromToken(req.headers.authorization);
     if (!user) {
-      return res.status(401).json({ error: "Invalid token" });
+      return res.status(401).json({ error: "Invalid or missing token" });
     }
+
     const empId = await getEmpIdForUserId(user.id);
     if (!empId) {
       return res.status(401).json({ error: "Employee ID not found for user" });
     }
 
-    // Automatically check for deadline notifications when user fetches notifications
-    // This happens in the background and doesn't affect the response
-    console.log("🔍 Running background deadline check...");
-    runDeadlineChecks()
-      .then((result) => {
-        console.log("✅ Background deadline check completed:", result);
-      })
-      .catch((error) => {
-        console.log("❌ Background deadline check failed:", error.message);
-      });
-
-    const { data, error } = await supabase
+    // Fetch notifications from database
+    const { data: notifications, error } = await supabase
       .from("notifications")
-      .select("id, type, title, description, created_at, read")
+      .select("*")
       .eq("emp_id", empId)
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Supabase error:", error);
-      return res.status(500).json({ error: error.message });
+      console.error("Error fetching notifications:", error);
+      return res.status(500).json({ error: "Failed to fetch notifications" });
     }
 
-    res.json(data || []);
-  } catch (e) {
-    console.error("Error fetching notifications:", e);
-    res.status(500).json({ error: e.message });
+    // Automatically check for deadline notifications when user fetches notifications
+    // This happens in the background and doesn't affect the response
+    if (runDeadlineChecks) {
+      runDeadlineChecks().catch((error) => {
+        console.log("Background deadline check failed:", error.message);
+      });
+    }
+
+    res.json(notifications || []);
+  } catch (error) {
+    console.error("Error in GET /notification:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Mark a notification as read
-router.patch("/:id/read", async (req, res) => {
+// POST /notification - Create a new notification
+router.post("/", async (req, res) => {
   try {
-    const supabase = getServiceClient();
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const { recipient_id, title, type, description, emp_id } = req.body;
 
-    if (!token) {
-      return res.status(401).json({ error: "No token provided" });
+    // Validate required fields
+    if (!title || !type || !emp_id) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const user = await getUserFromToken(token);
+    // Get and validate user for authorization
+    const user = await getUserFromToken(req.headers.authorization);
     if (!user) {
-      return res.status(401).json({ error: "Invalid token" });
+      return res.status(401).json({ error: "Invalid or missing token" });
+    }
+
+    const currentEmpId = await getEmpIdForUserId(user.id);
+    if (!currentEmpId) {
+      return res.status(401).json({ error: "Employee ID not found for user" });
+    }
+
+    // Create notification
+    const notificationData = {
+      recipient_id,
+      title,
+      type,
+      description,
+      emp_id,
+      created_at: new Date().toISOString(),
+      read: false,
+    };
+
+    const { data, error } = await supabase
+      .from("notifications")
+      .insert(notificationData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating notification:", error);
+      return res.status(500).json({ error: "Failed to create notification" });
+    }
+
+    res.status(201).json(data);
+  } catch (error) {
+    console.error("Error in POST /notification:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// PATCH /notification/:id/read - Mark a single notification as read
+router.patch("/:id/read", async (req, res) => {
+  try {
+    const notificationId = req.params.id;
+
+    // Get and validate user
+    const user = await getUserFromToken(req.headers.authorization);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid or missing token" });
     }
 
     const empId = await getEmpIdForUserId(user.id);
@@ -120,20 +127,21 @@ router.patch("/:id/read", async (req, res) => {
       return res.status(401).json({ error: "Employee ID not found for user" });
     }
 
-    const { id } = req.params;
-
-    // Update notification to mark as read, but only for the current user
+    // Update notification as read
     const { data, error } = await supabase
       .from("notifications")
-      .update({ read: true })
-      .eq("id", id)
-      .eq("emp_id", empId)
+      .update({
+        read: true,
+        read_at: new Date().toISOString(),
+      })
+      .eq("id", notificationId)
+      .eq("emp_id", empId) // Ensure user can only update their own notifications
       .select()
       .single();
 
     if (error) {
-      console.error("Supabase update error:", error);
-      return res.status(500).json({ error: error.message });
+      console.error("Error updating notification:", error);
+      return res.status(500).json({ error: "Failed to update notification" });
     }
 
     if (!data) {
@@ -142,25 +150,18 @@ router.patch("/:id/read", async (req, res) => {
 
     res.json(data);
   } catch (error) {
-    console.error("Error marking notification as read:", error);
-    res.status(500).json({ error: error.message });
+    console.error("Error in PATCH /notification/:id/read:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Mark all notifications as read
+// PATCH /notification/mark-all-read - Mark all notifications as read for the user
 router.patch("/mark-all-read", async (req, res) => {
   try {
-    const supabase = getServiceClient();
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
-    if (!token) {
-      return res.status(401).json({ error: "No token provided" });
-    }
-
-    const user = await getUserFromToken(token);
+    // Get and validate user
+    const user = await getUserFromToken(req.headers.authorization);
     if (!user) {
-      return res.status(401).json({ error: "Invalid token" });
+      return res.status(401).json({ error: "Invalid or missing token" });
     }
 
     const empId = await getEmpIdForUserId(user.id);
@@ -168,102 +169,95 @@ router.patch("/mark-all-read", async (req, res) => {
       return res.status(401).json({ error: "Employee ID not found for user" });
     }
 
-    // Update all notifications for this user to mark as read
+    // Update all unread notifications as read
     const { data, error } = await supabase
       .from("notifications")
-      .update({ read: true })
+      .update({
+        read: true,
+        read_at: new Date().toISOString(),
+      })
       .eq("emp_id", empId)
       .eq("read", false)
       .select();
 
     if (error) {
-      console.error("Supabase update error:", error);
-      return res.status(500).json({ error: error.message });
+      console.error("Error updating notifications:", error);
+      return res.status(500).json({ error: "Failed to update notifications" });
     }
 
     res.json({
       message: "All notifications marked as read",
       updated_count: data?.length || 0,
-      data: data,
+      data: data || [],
     });
   } catch (error) {
-    console.error("Error marking all notifications as read:", error);
-    res.status(500).json({ error: error.message });
+    console.error("Error in PATCH /notification/mark-all-read:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Get unread notification count
-router.get("/unread-count", async (req, res) => {
-  try {
-    const supabase = getServiceClient();
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
-    if (!token) {
-      return res.status(401).json({ error: "No token provided" });
-    }
-
-    const user = await getUserFromToken(token);
-    if (!user) {
-      return res.status(401).json({ error: "Invalid token" });
-    }
-
-    const empId = await getEmpIdForUserId(user.id);
-    if (!empId) {
-      return res.status(401).json({ error: "Employee ID not found for user" });
-    }
-
-    const { count, error } = await supabase
-      .from("notifications")
-      .select("*", { count: "exact", head: true })
-      .eq("emp_id", empId)
-      .eq("read", false);
-
-    if (error) {
-      console.error("Supabase count error:", error);
-      return res.status(500).json({ error: error.message });
-    }
-
-    res.json({ unread_count: count || 0 });
-  } catch (error) {
-    console.error("Error getting unread count:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Manual deadline check trigger (for development)
+// POST /notification/check-deadlines - Manually trigger deadline checks
 router.post("/check-deadlines", async (req, res) => {
   try {
-    const { force = false } = req.body;
-    const result = await runDeadlineChecks(force);
+    // Get and validate user
+    const user = await getUserFromToken(req.headers.authorization);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid or missing token" });
+    }
 
-    res.json({
-      success: true,
-      message: "Deadline check completed",
-      data: result,
-    });
+    if (!runDeadlineChecks) {
+      return res.status(503).json({
+        error: "Deadline notification service not available",
+        success: false,
+      });
+    }
+
+    const { force } = req.body;
+    const result = await runDeadlineChecks(force || false);
+
+    res.json(result);
   } catch (error) {
-    console.error("Error running deadline checks:", error);
+    console.error("Error in deadline check:", error);
     res.status(500).json({
+      error: "Failed to check deadlines",
       success: false,
-      error: error.message,
+      message: error.message,
     });
   }
 });
 
-// Get deadline service status
+// GET /notification/deadline-status - Get deadline service status
 router.get("/deadline-status", async (req, res) => {
   try {
-    const status = getDeadlineServiceStatus();
+    // Get and validate user
+    const user = await getUserFromToken(req.headers.authorization);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid or missing token" });
+    }
+
+    if (!runDeadlineChecks) {
+      return res.json({
+        success: false,
+        message: "Deadline notification service not available",
+        data: { available: false },
+      });
+    }
+
+    const deadlineModule = await import(
+      "../services/deadlineNotificationService.js"
+    );
+    const status = deadlineModule.getDeadlineServiceStatus();
+
     res.json({
       success: true,
+      message: "Deadline service status retrieved",
       data: status,
     });
   } catch (error) {
     console.error("Error getting deadline status:", error);
     res.status(500).json({
+      error: "Failed to get deadline status",
       success: false,
-      error: error.message,
     });
   }
 });

@@ -25,7 +25,7 @@ export default function TaskForm({
     title: "",
     description: "",
     priority: 5,
-    status: isSubtask ? "ongoing" : (canAssignTasks ? "unassigned" : "ongoing"),
+    status: "ongoing",
     collaborators: [],
     assignTo: "",
     dueDate: "",
@@ -179,7 +179,6 @@ export default function TaskForm({
             <option value="ongoing">Ongoing</option>
             <option value="under review">Under Review</option>
             <option value="completed">Completed</option>
-            {!isSubtask && canAssignTasks && <option value="unassigned">Unassigned</option>}
           </select>
         </div>
       </div>

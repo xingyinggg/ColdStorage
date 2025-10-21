@@ -68,14 +68,14 @@ export default function TaskCard({
   
   // Log the update functions to help debug
   useEffect(() => {
-    console.log("TaskCard render - onTaskUpdate type:", typeof onTaskUpdate);
-    console.log("TaskCard render - onEdit type:", typeof onEdit);
+    // console.log("TaskCard render - onTaskUpdate type:", typeof onTaskUpdate);
+    // console.log("TaskCard render - onEdit type:", typeof onEdit);
     if (canEdit && !actualCanEdit) {
       console.warn("TaskCard has canEdit=true but no update handlers - disabling edit functionality");
     }
   }, [onTaskUpdate, onEdit, canEdit, actualCanEdit]);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [detailsModalOpen, setDetailsModalOpen] = useState(false); // Add details modal state
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [editSuccess, setEditSuccess] = useState("");
@@ -428,7 +428,7 @@ export default function TaskCard({
           }}
         />
       )}
-
+i
       {userCanEdit && (
         <SubtaskEditModal
           open={subtaskEditOpen}

@@ -24,6 +24,8 @@ export default function TaskEditModal({
   const [file, setFile] = useState(null);
   const [removeExistingFile, setRemoveExistingFile] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
+  const [editSuccess, setEditSuccess] = useState("");
+  const [editError, setEditError] = useState("");
   const { subtasks, loading: loadingSubtasks, error: subtasksError, fetchSubtasks, createSubtask, updateSubtask, deleteSubtask } = useSubtasks();
   const [newSubtask, setNewSubtask] = useState({
     title: "",
@@ -51,6 +53,12 @@ export default function TaskEditModal({
   const cancelEditSubtask = () => {
     setEditingSubtaskId(null);
     setSavingSubtaskId(null);
+  };
+  
+  const closeEditModal = () => {
+    if (onClose) {
+      onClose();
+    }
   };
 
   const handleEditFieldChange = (field, value) => {
@@ -143,9 +151,26 @@ export default function TaskEditModal({
     try {
       // For collaborators, only allow status updates
       if (isCollaborator && !isOwner) {
+        console.log("Collaborator updating task status to:", form.status);
         const updates = { status: form.status };
-        await onSave(task.id, updates);
-        return;
+        
+        try {
+          const result = await onSave(task.id, updates);
+          console.log("Collaborator update result:", result);
+          
+          // Show success message and close modal
+          setEditSuccess("Task status updated successfully!");
+          setTimeout(() => {
+            closeEditModal();
+            setEditSuccess("");
+          }, 1000);
+          
+          return;
+        } catch (error) {
+          console.error("Collaborator status update failed:", error);
+          setEditError(error.message || "Failed to update task status");
+          return;
+        }
       }
 
       // Full edit permissions for owners
@@ -247,6 +272,16 @@ export default function TaskEditModal({
         {successMessage && (
           <div className="mb-3 bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-sm">
             {successMessage}
+          </div>
+        )}
+        {editSuccess && (
+          <div className="mb-3 bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-sm">
+            {editSuccess}
+          </div>
+        )}
+        {editError && (
+          <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+            {editError}
           </div>
         )}
 

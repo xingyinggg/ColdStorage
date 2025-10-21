@@ -554,7 +554,7 @@ router.put("/manager/:id", async (req, res) => {
     const updates = req.body || {};
     
     // Clean and validate updates - especially priority
-    const cleanUpdates = { ...updates };
+    let cleanUpdates = { ...updates };
     if (cleanUpdates.priority !== undefined && cleanUpdates.priority !== null && cleanUpdates.priority !== "") {
       const parsedPriority = parseInt(cleanUpdates.priority, 10);
       if (!isNaN(parsedPriority) && parsedPriority >= 1 && parsedPriority <= 10) {
@@ -651,7 +651,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     const { remove_file, ...updates } = req.body || {};
 
     // Clean and validate updates object
-    const cleanUpdates = {};
+    let cleanUpdates = {};
     if (updates.title && updates.title.trim()) {
       cleanUpdates.title = updates.title.trim();
     }
@@ -679,10 +679,10 @@ router.put("/:id", upload.single("file"), async (req, res) => {
       cleanUpdates.due_date = updates.due_date;
     }
 
-    // Get current task to check existing file and ownership
+    // Get current task to check existing file and ownership (including collaborators)
     const { data: currentTask, error: fetchError } = await supabase
       .from("tasks")
-      .select("file, owner_id")
+      .select("file, owner_id, collaborators")
       .eq("id", Number(id))
       .single();
 
@@ -693,13 +693,55 @@ router.put("/:id", upload.single("file"), async (req, res) => {
 
     // NOW we can use currentTask for logging
     // Check if user owns the task or is collaborator (use loose comparison for string/number)
-    if (currentTask.owner_id != empId) {
-      const collaborators = currentTask.collaborators || [];
-      const isCollaborator = collaborators.includes(String(empId));
+    const isOwner = currentTask.owner_id == empId;
+    
+    // If not the owner, check if they're a collaborator
+    if (!isOwner) {
+      // Handle collaborators which might be array, JSON string, or null/undefined
+      let collaborators = [];
+      
+      if (typeof currentTask.collaborators === 'string') {
+        try {
+          // Try to parse if it's a JSON string
+          collaborators = JSON.parse(currentTask.collaborators);
+        } catch (e) {
+          console.error("Failed to parse collaborators JSON string:", e);
+          // If parsing fails, treat as empty array
+        }
+      } else if (Array.isArray(currentTask.collaborators)) {
+        collaborators = currentTask.collaborators;
+      }
+      
+      // Make sure collaborators is always an array
+      if (!Array.isArray(collaborators)) {
+        collaborators = [];
+      }
+      
+      // Ensure we're comparing strings to handle numeric vs string IDs
+      const isCollaborator = collaborators.some(collabId => 
+        collabId && String(collabId) === String(empId)
+      );
+      
+      console.log("Collaborator check:", {
+        taskId: Number(id),
+        empId,
+        isOwner,
+        collaborators,
+        isCollaborator
+      });
   
       if (!isCollaborator) {
         return res.status(403).json({ error: "You can only edit tasks you own or collaborate on" });
       }
+      
+      // If collaborator but not owner, restrict updates to only status field
+      let allowedUpdates = {};
+      if (cleanUpdates.status) {
+        allowedUpdates.status = cleanUpdates.status;
+      }
+      
+      console.log("Collaborator updates restricted to:", allowedUpdates);
+      cleanUpdates = allowedUpdates;
     }
 
     // Handle file operations
@@ -757,13 +799,14 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     }
 
     cleanUpdates.file = newFileUrl;
-
-    // Update the task
+    
+    console.log("Final updates to apply:", cleanUpdates);
+    
+    // Update the task - don't restrict to owner_id since we've already verified access
     const { data, error } = await supabase
       .from("tasks")
       .update(cleanUpdates)
       .eq("id", Number(id))
-      .eq("owner_id", empId)
       .select();
 
     if (error) {
@@ -773,7 +816,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
 
     if (!data || data.length === 0) {
       return res.status(404).json({
-        error: "Task not found or you don't have permission to edit it",
+        error: "Task not found",
       });
     }
 

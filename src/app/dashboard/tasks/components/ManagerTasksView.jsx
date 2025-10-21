@@ -127,7 +127,7 @@ function MyTasksTab({ tasks = [], currentUserEmpId, loading, onEditTask }) {
                   formatDate={formatDate}
                   getPriorityColor={getPriorityColor}
                   getStatusColor={getStatusColor}
-                  onEdit={(id, updates) => onEditTask(id, updates)}
+                  onTaskUpdate={(id, updates) => onEditTask(id, updates)}
                 />
               );
             })}

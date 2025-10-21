@@ -103,7 +103,11 @@ export default function DashboardPage() {
     return (
       <SidebarLayout>
         <div>
-          <StaffTasksView tasks={tasks} onLogout={handleLogout} />
+          <StaffTasksView 
+            tasks={tasks} 
+            onLogout={handleLogout}
+            onEditTask={updateTask} 
+          />
           <AllTasksSection
             tasks={tasks}
             onMarkComplete={toggleTaskComplete}
@@ -215,20 +219,43 @@ function AllTasksSection({
                     canEdit={canEdit}
                     isOwner={isOwner}
                     isCollaborator={isCollaborator}
-                    onEdit={async (id, updates) => {
-                      const result = await onEditTask(id, updates);
-                      if (result && result.success) {
+                    onTaskUpdate={async (id, updates) => {
+                      try {
+                        console.log("Updating task:", id, updates);
+                        const result = await onEditTask(id, updates);
                         setFeedback({
                           type: "success",
                           message: "Task updated successfully.",
                         });
-                      } else {
+                        console.log("Task update result:", result);
+                        return { success: true, data: result }; // Ensure we return a success indicator
+                      } catch (error) {
+                        console.error("Error updating task:", error);
                         setFeedback({
                           type: "error",
-                          message: result?.error || "Failed to update task.",
+                          message: error?.message || "Failed to update task.",
                         });
+                        return { success: false, error: error?.message || "Failed to update task" };
                       }
-                      return result;
+                    }}
+                    // Also provide onEdit for backward compatibility
+                    onEdit={async (id, updates) => {
+                      try {
+                        console.log("Editing task:", id, updates);
+                        const result = await onEditTask(id, updates);
+                        setFeedback({
+                          type: "success",
+                          message: "Task updated successfully.",
+                        });
+                        return { success: true, data: result };
+                      } catch (error) {
+                        console.error("Error updating task:", error);
+                        setFeedback({
+                          type: "error",
+                          message: error?.message || "Failed to update task.",
+                        });
+                        return { success: false, error: error?.message || "Failed to update task" };
+                      }
                     }}
                   />
                 );

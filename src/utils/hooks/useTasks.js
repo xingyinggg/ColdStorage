@@ -182,28 +182,67 @@ export const useTasks = () => {
   // Update a task
   const updateTask = async (taskId, updates) => {
     try {
+      console.log("useTasks.updateTask - starting update for task:", taskId, "with updates:", updates);
+      
       const {
         data: { session },
       } = await supabase.auth.getSession();
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      
+      // Ensure updates are serializable for JSON
+      const cleanUpdates = { ...updates };
+      
+      // Handle FormData vs regular object
+      let body;
+      let headers = { Authorization: `Bearer ${session?.access_token || ""}` };
+      
+      if (updates instanceof FormData) {
+        body = updates;
+        // FormData sets its own Content-Type header with boundary
+      } else {
+        body = JSON.stringify(cleanUpdates);
+        headers["Content-Type"] = "application/json";
+      }
+      
       const res = await fetch(`${apiUrl}/tasks/${taskId}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token || ""}`,
-        },
-        body: JSON.stringify(updates),
+        headers,
+        body,
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error || `Request failed: ${res.status}`);
+      
+      // Get the response data
+      let responseData;
+      try {
+        responseData = await res.json();
+      } catch (err) {
+        responseData = {};
       }
-      const updated = await res.json();
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t))
-      );
+      
+      if (!res.ok) {
+        throw new Error(responseData?.error || `Request failed: ${res.status}`);
+      }
+      
+      const updated = responseData;
+      console.log("useTasks.updateTask - received response:", updated);
+      
+      // Update the task in local state with the server response
+      setTasks((prev) => {
+        const newTasks = prev.map((t) => {
+          if (t.id === taskId) {
+            console.log("useTasks.updateTask - updating local task:", t.id, "old status:", t.status, "new status:", updated.status);
+            return { ...t, ...updated };
+          }
+          return t;
+        });
+        return newTasks;
+      });
+      
+      // Force a refetch to ensure we have the latest data
+      setTimeout(fetchTasks, 500);
+      
       return { success: true, data: updated };
     } catch (err) {
+      console.error("useTasks.updateTask - error:", err);
       setError(err.message);
       return { success: false, error: err.message };
     }

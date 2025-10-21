@@ -8,6 +8,24 @@ import { TaskSchema } from "../schemas/task.js";
 import multer from "multer";
 import recurrenceService from "../services/recurrenceService.js";
 
+// Function to normalize status to match test expectations
+function normalizeStatus(status) {
+  if (!status) return "ongoing"; // Default status
+  
+  // Convert to lowercase for easier matching
+  const statusLower = status.toLowerCase();
+  
+  // Map of status values
+  const statusMap = {
+    'ongoing': 'ongoing',
+    'unassigned': 'unassigned',
+    'completed': 'completed',
+    'under review': 'Under Review'
+  };
+  
+  return statusMap[statusLower] || status;
+}
+
 const router = Router();
 
 // Configure multer for file upload
@@ -45,7 +63,7 @@ router.post("/", upload.single("file"), async (req, res) => {
       title,
       description,
       priority,
-      status = "ongoing",
+      status: rawStatus = "ongoing",
       due_date,
       project_id,
       collaborators: collaboratorsStr,
@@ -112,7 +130,7 @@ router.post("/", upload.single("file"), async (req, res) => {
 
     // Determine final owner_id and status
     let finalOwnerId = empId; // Default to current user
-    let finalStatus = status;
+    let finalStatus = normalizeStatus(rawStatus);
 
     // Handle assignment logic (only for managers/directors)
     const userRole = await getUserRole(empId); // You'll need this helper function
@@ -670,8 +688,8 @@ router.put("/:id", upload.single("file"), async (req, res) => {
       }
     }
     if (updates.status) {
-      // Normalize status case (first letter uppercase, rest lowercase)
-      cleanUpdates.status = updates.status.charAt(0).toUpperCase() + updates.status.slice(1).toLowerCase();
+      // Use our standardized status normalization function
+      cleanUpdates.status = normalizeStatus(updates.status);
     }
     if (updates.due_date) {
       cleanUpdates.due_date = updates.due_date;

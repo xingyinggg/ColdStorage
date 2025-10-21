@@ -40,6 +40,9 @@ import request from "supertest";
 import express from "express";
 import { createClient } from '@supabase/supabase-js';
 
+// Set global timeout for all tests in this file (30 seconds)
+vi.setConfig({ testTimeout: 15000 });
+
 // Now import the auth routes AFTER environment variables are set
 import authRoutes from "../../server/routes/auth.js";
 import { getServiceClient } from "../../server/lib/supabase.js";

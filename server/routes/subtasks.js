@@ -153,10 +153,31 @@ router.post("/", async (req, res) => {
       title,
       description = null,
       priority = null,
-      status = "ongoing",
+      status: rawStatus = "ongoing",
       due_date = null,
       collaborators = [],
     } = req.body || {};
+    
+    // Function to normalize status (copied from tasks.js)
+    function normalizeStatus(status) {
+      if (!status) return "ongoing"; // Default status
+      
+      // Convert to lowercase for easier matching
+      const statusLower = status.toLowerCase();
+      
+      // Map of status values
+      const statusMap = {
+        'ongoing': 'ongoing',
+        'unassigned': 'unassigned',
+        'completed': 'completed',
+        'under review': 'Under Review'
+      };
+      
+      return statusMap[statusLower] || status;
+    }
+    
+    // Normalize the status
+    const status = normalizeStatus(rawStatus);
 
     if (!parent_task_id || !title || !String(title).trim()) {
       return res.status(400).json({ error: "parent_task_id and title are required" });
@@ -251,6 +272,30 @@ router.put("/:id", async (req, res) => {
     }
 
     const updates = { ...req.body };
+    
+    // Function to normalize status
+    function normalizeStatus(status) {
+      if (!status) return "ongoing"; // Default status
+      
+      // Convert to lowercase for easier matching
+      const statusLower = status.toLowerCase();
+      
+      // Map of status values
+      const statusMap = {
+        'ongoing': 'ongoing',
+        'unassigned': 'unassigned',
+        'completed': 'completed',
+        'under review': 'Under Review'
+      };
+      
+      return statusMap[statusLower] || status;
+    }
+    
+    // Normalize status if present
+    if (updates.status) {
+      updates.status = normalizeStatus(updates.status);
+    }
+    
     // Normalize priority
     if (updates.priority !== undefined) {
       const p = parseInt(updates.priority, 10);

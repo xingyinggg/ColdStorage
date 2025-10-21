@@ -86,7 +86,7 @@ function StaffReports() {
         </h3>
         
         {myProjects.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">You're not assigned to any projects yet.</p>
+          <p className="text-gray-500 text-center py-8">You are not assigned to any projects yet.</p>
         ) : (
           <div className="space-y-3">
             {myProjects.map((project) => (

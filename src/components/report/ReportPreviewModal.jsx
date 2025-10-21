@@ -40,7 +40,7 @@ export default function ReportPreviewModal({ reportType, data, onClose, userRole
           <div>
             <h5 className="text-sm font-medium text-gray-700 mb-2">Description:</h5>
             <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
-              {data.description || 'No description provided'}
+              {data.description || "No description provided"}
             </p>
           </div>
           

@@ -428,7 +428,7 @@ export default function TaskCard({
           }}
         />
       )}
-i
+
       {userCanEdit && (
         <SubtaskEditModal
           open={subtaskEditOpen}

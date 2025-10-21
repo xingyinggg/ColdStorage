@@ -272,10 +272,17 @@ export function useNotification() {
       if (!res.ok)
         throw new Error(body?.error || `Request failed: ${res.status}`);
 
-      setUnreadCount(body.unread_count || 0);
+      const newCount = body.unread_count || 0;
+      setUnreadCount(newCount);
+
+      // Update the global store to notify all components
+      notificationStore.setUnreadCount(newCount);
+
+      console.log(`✅ Updated unread count: ${newCount}`);
     } catch (err) {
       console.error("Error in fetchUnreadCount:", err);
       setUnreadCount(0);
+      // Don't update store on error to maintain last known good state
     }
   }, [supabase]);
   // Fetch all notifications via Express API
@@ -324,6 +331,14 @@ export function useNotification() {
   useEffect(() => {
     fetchNotification();
     fetchUnreadCount();
+
+    // Set up periodic refresh for real-time updates (every 30 seconds)
+    const intervalId = setInterval(() => {
+      console.log("🔄 Periodic notification refresh...");
+      fetchUnreadCount(); // Quick count refresh
+    }, 30000);
+
+    return () => clearInterval(intervalId);
   }, [fetchNotification, fetchUnreadCount]);
 
   // Additional effect to keep unread count in sync with notification state

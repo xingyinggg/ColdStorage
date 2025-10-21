@@ -1,9 +1,8 @@
 import express from "express";
 import {
-  supabase,
+  getServiceClient,
   getUserFromToken,
   getEmpIdForUserId,
-  getUserRole,
 } from "../lib/supabase.js";
 
 // Import deadline notification functions - but handle gracefully if not available
@@ -20,11 +19,18 @@ try {
 
 const router = express.Router();
 
+// Helper function to extract token from authorization header
+function extractToken(authHeader) {
+  if (!authHeader) return null;
+  return authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
+}
+
 // GET /notification - Get all notifications for authenticated user
 router.get("/", async (req, res) => {
   try {
     // Get and validate user
-    const user = await getUserFromToken(req.headers.authorization);
+    const token = extractToken(req.headers.authorization);
+    const user = await getUserFromToken(token);
     if (!user) {
       return res.status(401).json({ error: "Invalid or missing token" });
     }
@@ -35,6 +41,7 @@ router.get("/", async (req, res) => {
     }
 
     // Fetch notifications from database
+    const supabase = getServiceClient();
     const { data: notifications, error } = await supabase
       .from("notifications")
       .select("*")
@@ -61,6 +68,41 @@ router.get("/", async (req, res) => {
   }
 });
 
+// GET /notification/unread-count - Get unread notification count for authenticated user
+router.get("/unread-count", async (req, res) => {
+  try {
+    // Get and validate user
+    const token = extractToken(req.headers.authorization);
+    const user = await getUserFromToken(token);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid or missing token" });
+    }
+
+    const empId = await getEmpIdForUserId(user.id);
+    if (!empId) {
+      return res.status(401).json({ error: "Employee ID not found for user" });
+    }
+
+    // Count unread notifications
+    const supabase = getServiceClient();
+    const { count, error } = await supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("emp_id", empId)
+      .eq("read", false);
+
+    if (error) {
+      console.error("Error counting notifications:", error);
+      return res.status(500).json({ error: "Failed to count notifications" });
+    }
+
+    res.json({ unread_count: count || 0 });
+  } catch (error) {
+    console.error("Error in GET /notification/unread-count:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // POST /notification - Create a new notification
 router.post("/", async (req, res) => {
   try {
@@ -72,7 +114,8 @@ router.post("/", async (req, res) => {
     }
 
     // Get and validate user for authorization
-    const user = await getUserFromToken(req.headers.authorization);
+    const token = extractToken(req.headers.authorization);
+    const user = await getUserFromToken(token);
     if (!user) {
       return res.status(401).json({ error: "Invalid or missing token" });
     }
@@ -93,6 +136,7 @@ router.post("/", async (req, res) => {
       read: false,
     };
 
+    const supabase = getServiceClient();
     const { data, error } = await supabase
       .from("notifications")
       .insert(notificationData)
@@ -114,10 +158,11 @@ router.post("/", async (req, res) => {
 // PATCH /notification/:id/read - Mark a single notification as read
 router.patch("/:id/read", async (req, res) => {
   try {
-    const notificationId = req.params.id;
+    const { id: notificationId } = req.params;
 
     // Get and validate user
-    const user = await getUserFromToken(req.headers.authorization);
+    const token = extractToken(req.headers.authorization);
+    const user = await getUserFromToken(token);
     if (!user) {
       return res.status(401).json({ error: "Invalid or missing token" });
     }
@@ -128,6 +173,7 @@ router.patch("/:id/read", async (req, res) => {
     }
 
     // Update notification as read
+    const supabase = getServiceClient();
     const { data, error } = await supabase
       .from("notifications")
       .update({
@@ -159,7 +205,8 @@ router.patch("/:id/read", async (req, res) => {
 router.patch("/mark-all-read", async (req, res) => {
   try {
     // Get and validate user
-    const user = await getUserFromToken(req.headers.authorization);
+    const token = extractToken(req.headers.authorization);
+    const user = await getUserFromToken(token);
     if (!user) {
       return res.status(401).json({ error: "Invalid or missing token" });
     }
@@ -170,6 +217,7 @@ router.patch("/mark-all-read", async (req, res) => {
     }
 
     // Update all unread notifications as read
+    const supabase = getServiceClient();
     const { data, error } = await supabase
       .from("notifications")
       .update({
@@ -200,7 +248,8 @@ router.patch("/mark-all-read", async (req, res) => {
 router.post("/check-deadlines", async (req, res) => {
   try {
     // Get and validate user
-    const user = await getUserFromToken(req.headers.authorization);
+    const token = extractToken(req.headers.authorization);
+    const user = await getUserFromToken(token);
     if (!user) {
       return res.status(401).json({ error: "Invalid or missing token" });
     }
@@ -230,7 +279,8 @@ router.post("/check-deadlines", async (req, res) => {
 router.get("/deadline-status", async (req, res) => {
   try {
     // Get and validate user
-    const user = await getUserFromToken(req.headers.authorization);
+    const token = extractToken(req.headers.authorization);
+    const user = await getUserFromToken(token);
     if (!user) {
       return res.status(401).json({ error: "Invalid or missing token" });
     }

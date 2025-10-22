@@ -138,7 +138,8 @@ export const useAuth = () => {
       isMountedRef.current = false;
       subscription.unsubscribe();
     };
-  }, [fetchUserProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - fetchUserProfile is stable with useCallback
 
   return {
     user,

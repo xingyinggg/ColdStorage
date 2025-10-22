@@ -1,12 +1,12 @@
 // utils/hooks/useManagerProjects.js
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 
 export const useManagerProjects = () => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
 
   // Fetch all projects via Express API (for managers)
   const fetchAllProjects = useCallback(async () => {
@@ -14,7 +14,7 @@ export const useManagerProjects = () => {
       setLoading(true);
       setError(null);
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await supabaseRef.current.auth.getSession();
       if (!session?.access_token) {
         throw new Error("No authentication token");
       }
@@ -40,12 +40,12 @@ export const useManagerProjects = () => {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
   // Create a new project
   const createProject = useCallback(async (projectData) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await supabaseRef.current.auth.getSession();
       if (!session?.access_token) {
         throw new Error("No authentication token");
       }
@@ -75,10 +75,10 @@ export const useManagerProjects = () => {
       setError(err.message);
       return { success: false, error: err.message };
     }
-  }, [supabase, fetchAllProjects]);  // Delete a project
+  }, [fetchAllProjects]);  // Delete a project
     const deleteProject = useCallback(async (projectId) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await supabaseRef.current.auth.getSession();
       if (!session?.access_token) {
         throw new Error("No authentication token");
       }
@@ -105,7 +105,7 @@ export const useManagerProjects = () => {
       setError(err.message);
       return { success: false, error: err.message };
     }
-  }, [supabase, fetchAllProjects]);
+  }, [fetchAllProjects]);
 
   // Get projects by status
   const getProjectsByStatus = (status) => {
@@ -126,7 +126,8 @@ export const useManagerProjects = () => {
 
   useEffect(() => {
     fetchAllProjects();
-  }, [fetchAllProjects]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     projects,

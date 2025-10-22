@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useSubtasks } from "@/utils/hooks/useSubtasks";
 import RecurrenceHistoryModal from "./RecurrenceHistoryModal";
@@ -13,7 +13,6 @@ export default function TaskDetailsModal({
   memberNames = {},
   projectNames = {} // Add this prop
 }) {
-  const [collaboratorNames, setCollaboratorNames] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -21,15 +20,15 @@ export default function TaskDetailsModal({
   const [showRecurrenceHistory, setShowRecurrenceHistory] = useState(false);
   const { subtasks, loading: loadingSubtasks, error: subtasksError, fetchSubtasks } = useSubtasks();
 
-  // Get collaborator names when task changes
-  useEffect(() => {
+  // Memoize collaborator names to prevent unnecessary recalculations
+  const collaboratorNames = useMemo(() => {
     if (task?.collaborators && Array.isArray(task.collaborators)) {
-      const names = task.collaborators.map(empId => 
-        memberNames[empId] || `User ${empId}`
+      return task.collaborators.map(empId => 
+        memberNames?.[empId] || `User ${empId}`
       );
-      setCollaboratorNames(names);
     }
-  }, [task, memberNames]);
+    return [];
+  }, [task?.id, JSON.stringify(task?.collaborators), JSON.stringify(memberNames)]); // Use JSON.stringify for stable comparison
 
   // Fetch subtasks when modal opens for a given task
   useEffect(() => {

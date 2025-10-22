@@ -22,21 +22,33 @@ export function useProjects() {
 
   // Load from cache immediately
   useEffect(() => {
-    const cachedData = sessionStorage.getItem(CACHE_KEY);
-    if (cachedData) {
-      try {
-        const { projects: cachedProjects, timestamp } = JSON.parse(cachedData);
-        const now = Date.now();
-        
-        if (now - timestamp < CACHE_DURATION) {
-          setProjects(cachedProjects);
-          setLoading(false);
-          hasFetchedRef.current = true; // Mark as having valid data
-        }
-      } catch (err) {
-        console.error("Error loading projects cache:", err);
+    const loadCache = async () => {
+      // Check if we have a valid session first
+      const token = await getAuthToken();
+      if (!token) {
+        console.log('No session, skipping projects cache load');
+        return;
       }
-    }
+
+      const cachedData = sessionStorage.getItem(CACHE_KEY);
+      if (cachedData) {
+        try {
+          const { projects: cachedProjects, timestamp } = JSON.parse(cachedData);
+          const now = Date.now();
+          
+          if (now - timestamp < CACHE_DURATION) {
+            setProjects(cachedProjects);
+            setLoading(false);
+            hasFetchedRef.current = true; // Mark as having valid data
+          }
+        } catch (err) {
+          console.error("Error loading projects cache:", err);
+        }
+      }
+    };
+    
+    loadCache();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchProjects = useCallback(async () => {

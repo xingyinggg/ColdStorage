@@ -10,7 +10,7 @@ export const useTasks = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
   
   // Refs for cleanup and preventing unnecessary fetches
   const isMountedRef = useRef(true);
@@ -19,23 +19,34 @@ export const useTasks = () => {
 
   // Load cached tasks immediately on mount
   useEffect(() => {
-    const cached = sessionStorage.getItem(CACHE_KEY);
-    if (cached) {
-      try {
-        const { tasks: cachedTasks, timestamp } = JSON.parse(cached);
-        const age = Date.now() - timestamp;
-        
-        if (age < CACHE_DURATION && cachedTasks?.length > 0) {
-          console.log('Loading tasks from cache (age:', Math.round(age / 1000), 'seconds)');
-          setTasks(cachedTasks);
-          setLoading(false);
-          hasFetchedRef.current = true;
-        }
-      } catch (err) {
-        console.warn('Failed to parse cached tasks:', err);
-        sessionStorage.removeItem(CACHE_KEY);
+    const loadCache = async () => {
+      // Check if we have a valid session first
+      const { data: { session } } = await supabaseRef.current.auth.getSession();
+      if (!session?.access_token) {
+        console.log('No session, skipping cache load');
+        return;
       }
-    }
+
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        try {
+          const { tasks: cachedTasks, timestamp } = JSON.parse(cached);
+          const age = Date.now() - timestamp;
+          
+          if (age < CACHE_DURATION && cachedTasks?.length > 0) {
+            console.log('Loading tasks from cache (age:', Math.round(age / 1000), 'seconds)');
+            setTasks(cachedTasks);
+            setLoading(false);
+            hasFetchedRef.current = true;
+          }
+        } catch (err) {
+          console.warn('Failed to parse cached tasks:', err);
+          sessionStorage.removeItem(CACHE_KEY);
+        }
+      }
+    };
+    
+    loadCache();
   }, []);
 
   // Fetch all tasks via Express API
@@ -49,7 +60,7 @@ export const useTasks = () => {
       
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await supabaseRef.current.auth.getSession();
       
       if (!session || !session.access_token) {
         console.warn("No valid session found when fetching tasks");
@@ -136,7 +147,8 @@ export const useTasks = () => {
         setLoading(false);
       }
     }
-  }, [supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Set up auto-refresh
   useEffect(() => {
@@ -206,7 +218,7 @@ export const useTasks = () => {
   
   // Helper function to get auth token
   const getAuthToken = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseRef.current.auth.getSession();
     return session?.access_token;
   };
 

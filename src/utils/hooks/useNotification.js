@@ -1,5 +1,5 @@
 // utils/hooks/useNotification.js
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { notificationStore } from "@/utils/notificationStore";
 import React, { createContext, useContext } from "react";
@@ -65,7 +65,7 @@ export function useNotification() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
 
   // Utility function to recalculate unread count from current notifications
   const recalculateUnreadCount = useCallback(
@@ -81,7 +81,7 @@ export function useNotification() {
       notificationStore.setUnreadCount(count);
       return count;
     },
-    [unreadCount]
+    [] // Remove unreadCount from deps - we're not reading it, only setting it
   );
 
   //const { data: { session } } = await supabase.auth.getSession();
@@ -89,7 +89,7 @@ export function useNotification() {
   const getAuthToken = async () => {
     const {
       data: { session },
-    } = await supabase.auth.getSession();
+    } = await supabaseRef.current.auth.getSession();
     console.log("Auth token:", session?.access_token);
     return session?.access_token;
   };
@@ -254,7 +254,7 @@ export function useNotification() {
       const {
         data: { session },
         error: sessErr,
-      } = await supabase.auth.getSession();
+      } = await supabaseRef.current.auth.getSession();
       if (sessErr) throw sessErr;
       if (!session?.access_token) {
         // Silently return if not authenticated - this is expected on initial load
@@ -289,7 +289,7 @@ export function useNotification() {
       setUnreadCount(0);
       // Don't update store on error to maintain last known good state
     }
-  }, [supabase]);
+  }, []);
   // Fetch all notifications via Express API
   const fetchNotification = useCallback(async () => {
     try {
@@ -299,7 +299,7 @@ export function useNotification() {
       const {
         data: { session },
         error: sessErr,
-      } = await supabase.auth.getSession();
+      } = await supabaseRef.current.auth.getSession();
       if (sessErr) throw sessErr;
       if (!session?.access_token) {
         // Silently return if not authenticated - this is expected on initial load
@@ -337,7 +337,7 @@ export function useNotification() {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [recalculateUnreadCount]);
 
   useEffect(() => {
     fetchNotification();
@@ -350,14 +350,16 @@ export function useNotification() {
     }, 30000);
 
     return () => clearInterval(intervalId);
-  }, [fetchNotification, fetchUnreadCount]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - functions are stable, only run on mount
 
   // Additional effect to keep unread count in sync with notification state
   useEffect(() => {
     if (notification.length > 0) {
       recalculateUnreadCount(notification);
     }
-  }, [notification, recalculateUnreadCount]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notification]); // Only depend on notification array, recalculateUnreadCount is stable
 
   return {
     notification,

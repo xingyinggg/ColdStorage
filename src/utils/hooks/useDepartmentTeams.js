@@ -78,6 +78,7 @@ export function useDepartmentTeams() {
 
   useEffect(() => {
     fetchTeamWorkload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {

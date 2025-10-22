@@ -1,5 +1,5 @@
 // utils/hooks/useManagerTasks.js
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 
 export const useManagerTasks = () => {
@@ -8,12 +8,12 @@ export const useManagerTasks = () => {
   const [staffMembers, setStaffMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
 
   const getToken = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseRef.current.auth.getSession();
     return session?.access_token;
-  }, [supabase]);
+  }, []);
 
   // Fallback: direct Supabase fetch for all tasks with owner enrichment
   // COMMENTED OUT - App should fully rely on API calls
@@ -190,7 +190,8 @@ export const useManagerTasks = () => {
       setLoading(false);
     };
     load();
-  }, [fetchAllTasks, fetchAllProjects, fetchStaffMembers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - functions are stable with useCallback
 
   return {
     allTasks,

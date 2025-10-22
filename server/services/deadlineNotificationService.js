@@ -80,9 +80,30 @@ class DeadlineNotificationService {
         // Process each task
         for (const task of tasks) {
           // Get recipients (owner + collaborators)
-          const recipients = [task.owner_id];
+          const recipients = [];
+          
+          // Add owner if exists and is valid
+          if (task.owner_id) {
+            const ownerId = parseInt(task.owner_id);
+            if (!isNaN(ownerId)) {
+              recipients.push(ownerId);
+            }
+          }
+          
+          // Add collaborators if they exist and are valid
           if (task.collaborators && Array.isArray(task.collaborators)) {
-            recipients.push(...task.collaborators.map(id => parseInt(id)));
+            for (const id of task.collaborators) {
+              const collabId = parseInt(id);
+              if (!isNaN(collabId)) {
+                recipients.push(collabId);
+              }
+            }
+          }
+          
+          // Skip if no valid recipients
+          if (recipients.length === 0) {
+            console.warn(`Task ${task.id} (${task.title}) has no valid recipients, skipping deadline notification`);
+            continue;
           }
 
           // Create notification for each recipient
@@ -195,9 +216,30 @@ class DeadlineNotificationService {
       // Process each overdue task
       for (const task of overdueTasks) {
         // Get recipients (owner + collaborators)
-        const recipients = [task.owner_id];
+        const recipients = [];
+        
+        // Add owner if exists and is valid
+        if (task.owner_id) {
+          const ownerId = parseInt(task.owner_id);
+          if (!isNaN(ownerId)) {
+            recipients.push(ownerId);
+          }
+        }
+        
+        // Add collaborators if they exist and are valid
         if (task.collaborators && Array.isArray(task.collaborators)) {
-          recipients.push(...task.collaborators.map(id => parseInt(id)));
+          for (const id of task.collaborators) {
+            const collabId = parseInt(id);
+            if (!isNaN(collabId)) {
+              recipients.push(collabId);
+            }
+          }
+        }
+        
+        // Skip if no valid recipients
+        if (recipients.length === 0) {
+          console.warn(`Task ${task.id} has no valid recipients, skipping deadline notification`);
+          continue;
         }
 
         // Create notification for each recipient
@@ -303,11 +345,23 @@ class DeadlineNotificationService {
     notification_category = "deadline"
   }) {
     try {
+      // Validate required fields
+      const parsedEmpId = parseInt(emp_id);
+      const parsedTaskId = parseInt(task_id);
+      
+      if (isNaN(parsedEmpId) || parsedEmpId === null) {
+        throw new Error(`Invalid emp_id: ${emp_id}`);
+      }
+      
+      if (isNaN(parsedTaskId) || parsedTaskId === null) {
+        throw new Error(`Invalid task_id: ${task_id}`);
+      }
+      
       const supabase = this.getSupabaseClient();
       
       const notificationData = {
-        emp_id: parseInt(emp_id),
-        task_id: parseInt(task_id),
+        emp_id: parsedEmpId,
+        task_id: parsedTaskId,
         type,
         notification_category,
         title,

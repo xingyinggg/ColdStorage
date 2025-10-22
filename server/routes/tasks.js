@@ -623,39 +623,39 @@ router.put("/manager/:id", async (req, res) => {
 });
 
 // Manager: Get staff members list
-// router.get("/manager/staff-members", async (req, res) => {
-//   try {
-//     const supabase = getServiceClient();
-//     const authHeader = req.headers.authorization || "";
-//     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-//     if (!token) return res.status(401).json({ error: "Missing access token" });
+router.get("/manager/staff-members", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: "Missing access token" });
 
-//     const user = await getUserFromToken(token);
-//     if (!user) return res.status(401).json({ error: "Invalid token" });
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: "Invalid token" });
 
-//     // Verify manager role
-//     const { data: requester, error: reqErr } = await supabase
-//       .from("users")
-//       .select("id, role")
-//       .eq("id", user.id)
-//       .single();
-//     if (reqErr) return res.status(400).json({ error: reqErr.message });
-//     const userRole = (requester?.role || "").toLowerCase();
-//     if (userRole !== "manager" && userRole !== "director") {
-//       return res.status(403).json({ error: "Forbidden: managers and directors only" });
-//     } 
+    // Verify manager role
+    const { data: requester, error: reqErr } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("id", user.id)
+      .single();
+    if (reqErr) return res.status(400).json({ error: reqErr.message });
+    const userRole = (requester?.role || "").toLowerCase();
+    if (userRole !== "manager" && userRole !== "director") {
+      return res.status(403).json({ error: "Forbidden: managers and directors only" });
+    } 
 
-//     const { data, error } = await supabase
-//       .from("users")
-//       .select("emp_id, name, role, department")
-//       .eq("role", "staff")
-//       .order("name");
-//     if (error) return res.status(400).json({ error: error.message });
-//     res.json({ staffMembers: data || [] });
-//   } catch (e) {
-//     res.status(500).json({ error: e.message });
-//   }
-// });
+    const { data, error } = await supabase
+      .from("users")
+      .select("emp_id, name, role, department")
+      .eq("role", "staff")
+      .order("name");
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ staffMembers: data || [] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // Replace the PUT route (lines 265-420) with this fixed version:
 router.put("/:id", upload.single("file"), async (req, res) => {

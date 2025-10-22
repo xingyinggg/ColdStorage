@@ -189,7 +189,7 @@ export default function DashboardPage() {
     if (Object.keys(projectNames).length === 0) {
       fetchProjectNames();
     }
-  }, [getProjectNames, projectNames]);
+  }, [getProjectNames]); // Remove projectNames from dependencies to prevent infinite loop
 
   // Utility functions
   const formatDate = (dateString) => {

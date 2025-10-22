@@ -256,7 +256,12 @@ export function useNotification() {
         error: sessErr,
       } = await supabase.auth.getSession();
       if (sessErr) throw sessErr;
-      if (!session?.access_token) throw new Error("Not authenticated");
+      if (!session?.access_token) {
+        // Silently return if not authenticated - this is expected on initial load
+        console.log("⚠️ Not authenticated - skipping unread count fetch");
+        setUnreadCount(0);
+        return;
+      }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
       const res = await fetch(`${apiUrl}/notification/unread-count`, {
@@ -296,7 +301,13 @@ export function useNotification() {
         error: sessErr,
       } = await supabase.auth.getSession();
       if (sessErr) throw sessErr;
-      if (!session?.access_token) throw new Error("Not authenticated");
+      if (!session?.access_token) {
+        // Silently return if not authenticated - this is expected on initial load
+        console.log("⚠️ Not authenticated - skipping notifications fetch");
+        setNotification([]);
+        setLoading(false);
+        return;
+      }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
       const res = await fetch(`${apiUrl}/notification`, {

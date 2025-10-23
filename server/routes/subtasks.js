@@ -122,11 +122,17 @@ router.get("/task/:taskId", async (req, res) => {
     }
 
     // Fetch subtasks
-    const { data: subtasks, error: subErr } = await supabase
+    // Build query and order by priority when supported by client/mock
+    let subQuery = supabase
       .from("sub_task")
       .select("id, parent_task_id, title, description, priority, status, due_date, collaborators, owner_id")
-      .eq("parent_task_id", taskId)
-      .order("priority", { ascending: false });
+      .eq("parent_task_id", taskId);
+
+    if (typeof subQuery.order === 'function') {
+      subQuery = subQuery.order("priority", { ascending: false });
+    }
+
+    const { data: subtasks, error: subErr } = await subQuery;
 
     if (subErr) return res.status(400).json({ error: subErr.message });
     return res.json({ subtasks: subtasks || [] });

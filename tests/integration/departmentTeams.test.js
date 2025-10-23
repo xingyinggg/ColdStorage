@@ -5,17 +5,17 @@ import path from 'path';
 // Load test environment variables FIRST (before any imports)
 dotenv.config({ path: path.join(process.cwd(), 'tests', '.env.test') });
 
-// Validate that test environment variables are loaded
-if (!process.env.SUPABASE_TEST_URL || !process.env.SUPABASE_TEST_SERVICE_KEY) {
-  console.error('❌ Missing test environment variables');
-  console.error('SUPABASE_TEST_URL:', !!process.env.SUPABASE_TEST_URL);
-  console.error('SUPABASE_TEST_SERVICE_KEY:', !!process.env.SUPABASE_TEST_SERVICE_KEY);
-  throw new Error('Test environment variables not loaded');
-}
+// Determine if we should skip due to missing env
+const hasTestEnv = !!process.env.SUPABASE_TEST_URL && !!process.env.SUPABASE_TEST_SERVICE_KEY;
+const skipIntegrationTests = !hasTestEnv;
 
-// Override environment variables to force test database usage
-process.env.SUPABASE_URL = process.env.SUPABASE_TEST_URL;
-process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_TEST_SERVICE_KEY;
+if (hasTestEnv) {
+  // Override environment variables to force test database usage
+  process.env.SUPABASE_URL = process.env.SUPABASE_TEST_URL;
+  process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_TEST_SERVICE_KEY;
+} else {
+  console.log('⚠️  Skipping department teams integration tests - Supabase test env not configured');
+}
 
 // Mock auth functions
 vi.mock("../../server/lib/supabase.js", () => ({
@@ -63,7 +63,7 @@ const app = express();
 app.use(express.json());
 app.use("/department-teams", departmentTeamsRoutes);
 
-describe("Department Teams Integration Tests", () => {
+describe.skipIf(skipIntegrationTests)("Department Teams Integration Tests", () => {
   let supabaseClient;
   let managerToken;
   let staffToken;

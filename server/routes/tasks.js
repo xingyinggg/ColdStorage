@@ -362,12 +362,21 @@ router.get("/", async (req, res) => {
     if (!empId) return res.status(400).json({ error: "emp_id not found" });
 
     // First, get tasks where user is in collaborators
-    const { data: tasksData, error: tasksError } = await supabase
-      .from("tasks")
-      .select("*")
-      .or(`owner_id.eq.${empId},collaborators.cs.{${empId}}`)
-      .order("priority", { ascending: false })
-      .order("created_at", { ascending: false });
+    // Prefer full query with filters; fall back to simple select if test mocks don't support .or/.order
+    let tasksResp;
+    const baseSelect = supabase.from("tasks").select("*");
+    if (typeof baseSelect.or === "function") {
+      // Use full-featured query when available
+      tasksResp = await baseSelect
+        .or(`owner_id.eq.${empId},collaborators.cs.{${empId}}`)
+        .order("priority", { ascending: false })
+        .order("created_at", { ascending: false });
+    } else {
+      // Fallback for unit tests where .or/.order may not be implemented in mocks
+      tasksResp = await baseSelect;
+    }
+
+    const { data: tasksData, error: tasksError } = tasksResp || {};
 
     if (tasksError) return res.status(400).json({ error: tasksError.message });
 

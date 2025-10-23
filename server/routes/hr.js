@@ -346,39 +346,45 @@ function groupTasksByPeriod(tasks, period) {
   const grouped = {};
   
   // Skip tasks with invalid dates
-  const validTasks = tasks.filter(task => task && task.created_at);
-  console.log(`Found ${validTasks.length} tasks with created_at dates`);
+  const validTasks = tasks.filter(task => task && (task.due_date || task.created_at));
+  console.log(`Found ${validTasks.length} tasks with valid dates`);
   
   validTasks.forEach(task => {
     try {
-      const date = new Date(task.created_at);
+      // Prefer due_date over created_at since it has full date
+      const dateStr = task.due_date || task.created_at;
+      let date;
+      
+      if (dateStr.includes('-')) {
+        // Handle YYYY-MM-DD format
+        date = new Date(dateStr);
+      } else {
+        // Handle time-only format by using current date
+        console.log('Task has time-only created_at:', dateStr);
+        date = new Date(); // Use current date as fallback
+      }
       
       // Skip if date is invalid
       if (isNaN(date.getTime())) {
-        console.log('Invalid date found:', task.created_at);
+        console.log('Invalid date:', dateStr);
         return;
       }
       
       let key;
-      
       if (period === 'monthly') {
-        // Ensure consistent YYYY-MM format
-        const month = date.getMonth() + 1; // Convert 0-based month to 1-based
+        const month = date.getMonth() + 1; // Convert 0-based to 1-based
         const year = date.getFullYear();
         key = `${year}-${String(month).padStart(2, '0')}`;
       } else if (period === 'weekly') {
-        const week = Math.ceil(date.getDate() / 7);
+        // For weekly, use YYYY-MM-WW format
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+        const week = Math.ceil((date.getDate() + firstDay.getDay()) / 7);
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-W${week}`;
       } else {
-        // Default to monthly if period is unknown
+        // Default to monthly
         const month = date.getMonth() + 1;
         const year = date.getFullYear();
         key = `${year}-${String(month).padStart(2, '0')}`;
-      }
-      
-      if (!key) {
-        console.log('Could not generate key for date:', date);
-        return; // Skip if key couldn't be generated
       }
       
       if (!grouped[key]) {
@@ -390,25 +396,13 @@ function groupTasksByPeriod(tasks, period) {
         grouped[key].completed++;
       }
     } catch (e) {
-      console.error('Error processing task for trends:', e, task);
+      console.error('Error processing task:', e);
     }
   });
   
   // Sort periods chronologically
   const result = Object.values(grouped).sort((a, b) => a.period.localeCompare(b.period));
   console.log('Final grouped trends data:', result);
-  
-  // Return sample data if no valid periods were found
-  if (result.length === 0) {
-    console.log('No valid periods found, using sample data');
-    return [
-      { period: '2025-06', completed: 45, total: 60 },
-      { period: '2025-07', completed: 52, total: 68 },
-      { period: '2025-08', completed: 48, total: 70 },
-      { period: '2025-09', completed: 60, total: 75 },
-      { period: '2025-10', completed: 55, total: 80 }
-    ];
-  }
   
   return result;
 }

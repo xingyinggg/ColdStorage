@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import SidebarLayout from "@/components/layout/SidebarLayout";
 import { useTasks } from "@/utils/hooks/useTasks";
 import { useProjects } from "@/utils/hooks/useProjects";
@@ -43,12 +44,13 @@ export default function SchedulePage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("");
 
-  const { tasks, loading: tasksLoading, error: tasksError, fetchTasks } = useTasks();
-  const { projects, loading: projectsLoading } = useProjects();
+  const { user, isStaff, userProfile, loading: authLoading } = useAuth();
+  const { tasks, loading: tasksLoading, error: tasksError, fetchTasks } = useTasks(user);
+  const { projects, loading: projectsLoading } = useProjects(user);
   const { users, fetchUsers } = useUsers();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
-  const { isStaff, userProfile, loading: authLoading } = useAuth();
+  const router = useRouter();
 
   // Load users for assignee filter only if not staff
   useEffect(() => {

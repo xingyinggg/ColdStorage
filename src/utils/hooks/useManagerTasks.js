@@ -9,6 +9,12 @@ export const useManagerTasks = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const supabaseRef = useRef(createClient());
+  const hasCacheRef = useRef(false);
+
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  const TASKS_CACHE_KEY = 'manager_tasks_cache_v1';
+  const PROJECTS_CACHE_KEY = 'manager_projects_cache_v1';
+  const STAFF_CACHE_KEY = 'manager_staff_cache_v1';
 
   const getToken = useCallback(async () => {
     const { data: { session } } = await supabaseRef.current.auth.getSession();
@@ -81,6 +87,9 @@ export const useManagerTasks = () => {
       });
       
       setAllTasks(sortedTasks);
+      try {
+        sessionStorage.setItem(TASKS_CACHE_KEY, JSON.stringify({ data: sortedTasks, timestamp: Date.now() }));
+      } catch {}
     } catch (err) {
       console.error('Error fetching all tasks:', err);
       setError(err.message);
@@ -98,7 +107,11 @@ export const useManagerTasks = () => {
       });
       if (!res.ok) throw new Error(`Request failed: ${res.status}`);
       const data = await res.json();
-      setAllProjects(Array.isArray(data) ? data : (data?.projects || []));
+      const projects = Array.isArray(data) ? data : (data?.projects || []);
+      setAllProjects(projects);
+      try {
+        sessionStorage.setItem(PROJECTS_CACHE_KEY, JSON.stringify({ data: projects, timestamp: Date.now() }));
+      } catch {}
     } catch (err) {
       console.error('Error fetching all projects:', err);
       setError(err.message);
@@ -137,7 +150,11 @@ export const useManagerTasks = () => {
         throw new Error(body?.error || `Request failed: ${res.status}`);
       }
       const body = await res.json();
-      setStaffMembers(body.staffMembers || []);
+      const staff = body.staffMembers || [];
+      setStaffMembers(staff);
+      try {
+        sessionStorage.setItem(STAFF_CACHE_KEY, JSON.stringify({ data: staff, timestamp: Date.now() }));
+      } catch {}
     } catch (err) {
       console.error('Error fetching staff members:', err);
       setError(err.message);
@@ -184,8 +201,37 @@ export const useManagerTasks = () => {
 
 
   useEffect(() => {
+    // Try to load cached data first for instant rendering
+    try {
+      const tasksCached = JSON.parse(sessionStorage.getItem(TASKS_CACHE_KEY) || 'null');
+      const projectsCached = JSON.parse(sessionStorage.getItem(PROJECTS_CACHE_KEY) || 'null');
+      const staffCached = JSON.parse(sessionStorage.getItem(STAFF_CACHE_KEY) || 'null');
+
+      const now = Date.now();
+      let hadAnyCache = false;
+
+      if (tasksCached && now - tasksCached.timestamp < CACHE_DURATION && Array.isArray(tasksCached.data)) {
+        setAllTasks(tasksCached.data);
+        hadAnyCache = true;
+      }
+      if (projectsCached && now - projectsCached.timestamp < CACHE_DURATION && Array.isArray(projectsCached.data)) {
+        setAllProjects(projectsCached.data);
+        hadAnyCache = true;
+      }
+      if (staffCached && now - staffCached.timestamp < CACHE_DURATION && Array.isArray(staffCached.data)) {
+        setStaffMembers(staffCached.data);
+        hadAnyCache = true;
+      }
+
+      if (hadAnyCache) {
+        setLoading(false); // show cached content immediately
+        hasCacheRef.current = true;
+      }
+    } catch {}
+
     const load = async () => {
-      setLoading(true);
+      // Only show full-screen loader if no cache was available
+      if (!hasCacheRef.current) setLoading(true);
       await Promise.all([fetchAllTasks(), fetchAllProjects(), fetchStaffMembers()]);
       setLoading(false);
     };

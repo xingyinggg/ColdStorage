@@ -19,6 +19,7 @@ import ManagerTasksView from "./components/ManagerTasksView";
 // ✅ Single default export (the page)
 export default function DashboardPage() {
   const router = useRouter();
+  const [hasHydrated, setHasHydrated] = useState(false);
   const {
     user,
     userProfile,
@@ -35,23 +36,52 @@ export default function DashboardPage() {
     overdueTasks = [],
     toggleTaskComplete,
     updateTask,
-  } = useTasks();
-  useProjects(); // keep hook initialised if needed elsewhere (no local use)
+  } = useTasks(user);
+  useProjects(user); // keep hook initialised if needed elsewhere (no local use)
 
   useEffect(() => {
     if (!authLoading && !user) router.push("/login");
   }, [user, authLoading, router]);
+
+  // Ensure first client render matches SSR to avoid hydration mismatches
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
 
   const handleLogout = async () => {
     await signOut();
     router.push("/login");
   };
 
-  if (authLoading) {
+  // During hydration, render the same structure as SSR
+  if (!hasHydrated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
+      <SidebarLayout>
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </SidebarLayout>
+    );
+  }
+
+  // Block only if we haven't determined auth yet; keep UI on background refresh
+  if (!user && authLoading) {
+    return (
+      <SidebarLayout>
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </SidebarLayout>
+    );
+  }
+  // Avoid access denied flicker while profile/role is still resolving
+  if (user && authLoading && !userProfile) {
+    return (
+      <SidebarLayout>
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </SidebarLayout>
     );
   }
   if (!user) return null;
@@ -119,20 +149,31 @@ export default function DashboardPage() {
     );
   }
 
-  // Fallback for unknown role
+  // Fallback for unknown role: only show Access Denied when role is definitively unrecognized
+  if (userProfile?.role) {
+    return (
+      <SidebarLayout>
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-xl font-bold mb-4">Access Denied</h2>
+            <p className="text-gray-600 mb-4">Your role is not recognized.</p>
+            <button
+              onClick={handleLogout}
+              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </SidebarLayout>
+    );
+  }
+
+  // Profile not ready yet, show lightweight loader
   return (
     <SidebarLayout>
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-bold mb-4">Access Denied</h2>
-          <p className="text-gray-600 mb-4">Your role is not recognized.</p>
-          <button
-            onClick={handleLogout}
-            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-          >
-            Logout
-          </button>
-        </div>
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
       </div>
     </SidebarLayout>
   );

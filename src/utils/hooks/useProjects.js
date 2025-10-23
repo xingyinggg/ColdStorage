@@ -4,66 +4,84 @@ import { createClient } from "@/utils/supabase/client";
 const CACHE_KEY = "projects_cache";
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-export function useProjects() {
+export function useProjects(user = null) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const supabaseRef = useRef(createClient());
   const isMountedRef = useRef(true);
   const hasFetchedRef = useRef(false);
+  const fetchInProgressRef = useRef(false);
+  const hasEverLoadedRef = useRef(false);
 
   // Helper function to get auth token
-  const getAuthToken = async () => {
+  const getAuthToken = useCallback(async () => {
     const {
       data: { session },
     } = await supabaseRef.current.auth.getSession();
     return session?.access_token;
-  };
+  }, []);
 
-  // Load from cache immediately
+  // Load cache on mount ONLY if we've loaded data before (subsequent visits)
   useEffect(() => {
-    const loadCache = async () => {
-      // Check if we have a valid session first
-      const token = await getAuthToken();
-      if (!token) {
-        console.log('No session, skipping projects cache load');
-        return;
-      }
-
-      const cachedData = sessionStorage.getItem(CACHE_KEY);
-      if (cachedData) {
-        try {
-          const { projects: cachedProjects, timestamp } = JSON.parse(cachedData);
-          const now = Date.now();
+    const cachedData = sessionStorage.getItem(CACHE_KEY);
+    if (cachedData) {
+      try {
+        const { projects: cachedProjects, timestamp } = JSON.parse(cachedData);
+        const now = Date.now();
+        
+        if (now - timestamp < CACHE_DURATION && cachedProjects?.length > 0) {
+          // Check if this is a subsequent load (after initial sign-in)
+          const hasLoadedBefore = sessionStorage.getItem('projects_ever_loaded') === 'true';
           
-          if (now - timestamp < CACHE_DURATION) {
+          if (hasLoadedBefore) {
+            console.log('✓ Showing cached', cachedProjects.length, 'projects immediately');
             setProjects(cachedProjects);
             setLoading(false);
-            hasFetchedRef.current = true; // Mark as having valid data
+            hasFetchedRef.current = true;
+            hasEverLoadedRef.current = true;
+          } else {
+            console.log('First load after sign-in - waiting for fresh data (projects)');
+            // Don't load cache, keep showing loading spinner
           }
-        } catch (err) {
-          console.error("Error loading projects cache:", err);
         }
+      } catch (err) {
+        console.error("Error loading projects cache:", err);
+        sessionStorage.removeItem(CACHE_KEY);
       }
-    };
-    
-    loadCache();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }
   }, []);
 
   const fetchProjects = useCallback(async () => {
+    // Don't fetch if no user (not authenticated)
+    if (!user) {
+      console.log('⏸️ Skipping projects fetch - no user authenticated');
+      return;
+    }
+
+    // Prevent duplicate fetches
+    if (fetchInProgressRef.current) {
+      return;
+    }
+
     try {
-      // Only show loading state if we don't have cached data
-      if (!hasFetchedRef.current) {
+      fetchInProgressRef.current = true;
+      
+      // Show loading spinner ONLY on first load (not subsequent loads with cache)
+      if (!hasEverLoadedRef.current) {
         setLoading(true);
       }
       
       const token = await getAuthToken();
 
       if (!token) {
-        setError("User not authenticated");
+        console.log(`⚠️ No session for projects`);
+        fetchInProgressRef.current = false;
+        setLoading(false);
         return;
       }
+
+      console.log("📡 Fetching projects...");
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/projects`,
@@ -82,27 +100,27 @@ export function useProjects() {
 
       const data = await response.json();
       
-      if (isMountedRef.current) {
-        setProjects(data || []);
-        setError(null);
-        
-        // Cache the results
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-          projects: data || [],
-          timestamp: Date.now()
-        }));
-      }
+      setProjects(data || []);
+      setError(null);
+      hasFetchedRef.current = true;
+      
+      // Cache the results
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+        projects: data || [],
+        timestamp: Date.now()
+      }));
+      
+      // Mark that we've loaded data successfully
+      sessionStorage.setItem('projects_ever_loaded', 'true');
+      hasEverLoadedRef.current = true;
     } catch (err) {
-      console.error("Fetch projects error:", err);
-      if (isMountedRef.current) {
-        setError(err.message);
-      }
+      console.error("❌ Fetch projects error:", err);
+      setError(err.message);
     } finally {
-      if (isMountedRef.current) {
-        setLoading(false);
-      }
+      fetchInProgressRef.current = false;
+      setLoading(false);
     }
-  }, []);
+  }, [user, getAuthToken]);
 
   const createProject = async (projectData) => {
     try {
@@ -328,18 +346,23 @@ export function useProjects() {
     }
   };
 
+  // Fetch when user becomes available
   useEffect(() => {
     isMountedRef.current = true;
     
-    // Only fetch if we don't have valid cached data
-    if (!hasFetchedRef.current) {
-      fetchProjects();
+    if (!user) {
+      console.log('⏸️ useProjects: Waiting for user to authenticate...');
+      return;
     }
+
+    console.log('✓ useProjects: User authenticated, fetching projects for user:', user.id);
+    fetchProjects();
     
     return () => {
       isMountedRef.current = false;
     };
-  }, [fetchProjects]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]); // Only depend on user, fetchProjects is stable
 
   return {
     projects,

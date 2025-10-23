@@ -6,36 +6,41 @@ const CACHE_KEY = 'user_profile_cache';
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
 export const useAuth = () => {
-  const [user, setUser] = useState(null);
-  const [userProfile, setUserProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Initialize state synchronously from cache to avoid first-render flicker on remounts
+  let initialUser = null;
+  let initialProfile = null;
+  let initialLoading = true;
+  let initialFetched = false;
+
+  if (typeof window !== 'undefined') {
+    try {
+      const cachedData = sessionStorage.getItem(CACHE_KEY);
+      if (cachedData) {
+        const { user: cachedUser, profile: cachedProfile, timestamp } = JSON.parse(cachedData);
+        const now = Date.now();
+        if (now - timestamp < CACHE_DURATION && cachedUser && cachedProfile) {
+          initialUser = cachedUser;
+          initialProfile = cachedProfile;
+          initialLoading = false;
+          initialFetched = true;
+        }
+      }
+    } catch {
+      // Ignore cache parse errors and fall back to defaults
+    }
+  }
+
+  const [user, setUser] = useState(initialUser);
+  const [userProfile, setUserProfile] = useState(initialProfile);
+  const [loading, setLoading] = useState(initialLoading);
   const [error, setError] = useState(null);
   const supabaseRef = useRef(createClient());
   const isMountedRef = useRef(true);
-  const hasFetchedRef = useRef(false);
-
-  // Load from cache immediately
-  useEffect(() => {
-    const cachedData = sessionStorage.getItem(CACHE_KEY);
-    if (cachedData) {
-      try {
-        const { user: cachedUser, profile: cachedProfile, timestamp } = JSON.parse(cachedData);
-        const now = Date.now();
-        
-        if (now - timestamp < CACHE_DURATION) {
-          setUser(cachedUser);
-          setUserProfile(cachedProfile);
-          setLoading(false);
-          hasFetchedRef.current = true; // Mark as having valid data
-        }
-      } catch (err) {
-        console.error("Error loading auth cache:", err);
-      }
-    }
-  }, []);
+  const hasFetchedRef = useRef(initialFetched);
 
   // Fetch user and their profile data including role
   const fetchUserProfile = useCallback(async (skipLoadingState = false) => {
+    console.log('🔄 useAuth: fetchUserProfile called');
     try {
       // Only set loading state if we don't have cached data
       if (!skipLoadingState && !hasFetchedRef.current) {
@@ -47,6 +52,7 @@ export const useAuth = () => {
       if (authError) throw authError;
       
       if (user && isMountedRef.current) {
+        console.log('✓ useAuth: Got user from Supabase, id:', user.id);
         setUser(user);
         
         // Fetch user profile with role from users table
@@ -60,15 +66,19 @@ export const useAuth = () => {
         
         if (isMountedRef.current) {
           setUserProfile(profile);
+          hasFetchedRef.current = true;
           
-          // Cache the results
+          // Cache the results - ensure we have both user and profile
           sessionStorage.setItem(CACHE_KEY, JSON.stringify({
             user,
             profile,
             timestamp: Date.now()
           }));
+          
+          console.log('✓ useAuth: User profile loaded:', profile.role, 'emp_id:', profile.emp_id);
         }
       } else if (isMountedRef.current) {
+        console.log('⚠️ useAuth: No user found in Supabase');
         setUser(null);
         setUserProfile(null);
         sessionStorage.removeItem(CACHE_KEY);
@@ -101,6 +111,9 @@ export const useAuth = () => {
         setUser(null);
         setUserProfile(null);
         sessionStorage.removeItem(CACHE_KEY);
+        // Clear the "ever loaded" flags so next sign-in shows loading spinner
+        sessionStorage.removeItem('tasks_ever_loaded');
+        sessionStorage.removeItem('projects_ever_loaded');
       }
     } catch (err) {
       if (isMountedRef.current) {
@@ -125,6 +138,8 @@ export const useAuth = () => {
             setUser(null);
             setUserProfile(null);
             sessionStorage.removeItem(CACHE_KEY);
+            sessionStorage.removeItem('tasks_ever_loaded');
+            sessionStorage.removeItem('projects_ever_loaded');
             hasFetchedRef.current = false;
           }
         } else if (event === 'SIGNED_IN' && session) {

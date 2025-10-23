@@ -31,9 +31,10 @@ export default function SidebarLayout({ children }) {
   );
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="min-h-screen flex bg-gray-50" suppressHydrationWarning>
       <NotificationInitializer />
       <aside
+        suppressHydrationWarning
         className={`${collapsed ? "w-16" : "w-64"} bg-white border-r border-gray-200 transition-all duration-200 flex flex-col fixed left-0 top-0 h-screen z-10`}
       >
         <div className="h-14 border-b border-gray-200 flex items-center justify-between px-3">
@@ -49,8 +50,8 @@ export default function SidebarLayout({ children }) {
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-3">
-          <ul className="space-y-1">
+        <nav className="flex-1 overflow-y-auto py-3" suppressHydrationWarning>
+          <ul className="space-y-1" suppressHydrationWarning>
             {navItems.map(({ label, href, icon: Icon }) => {
               const active = pathname === href || (href !== "/dashboard" && pathname?.startsWith(href));
               return (

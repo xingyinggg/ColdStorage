@@ -24,7 +24,7 @@ const statusColors = {
 export default function HrTasksView({ tasks = [], onLogout }) {
   const { user, userProfile } = useAuth();
   const [hrStaff, setHrStaff] = useState([]);
-  const { updateTask } = useTasks();
+  const { updateTask } = useTasks(user);
   
   // Fetch HR staff members for collaborator display
   useEffect(() => {

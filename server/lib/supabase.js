@@ -15,8 +15,25 @@ export function getAnonClient() {
 }
 
 export async function getUserFromToken(token) {
-  const supabase = getServiceClient();
-  const { data, error } = await supabase.auth.getUser(token);
+  if (!token) {
+    throw new Error('No token provided');
+  }
+  
+  // Create a client with the user's access token
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    }
+  );
+  
+  // Now getUser() will use the token from the headers
+  const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
   return data?.user || null;
 }

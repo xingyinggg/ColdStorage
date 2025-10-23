@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 const CACHE_KEY = 'tasks_cache';
@@ -190,23 +190,16 @@ export const useTasks = () => {
     };
   }, []);
 
-  // Get active tasks (not completed)
-  const getActiveTasks = () => {
+  // Memoized computed values to prevent unnecessary re-renders
+  const activeTasks = useMemo(() => {
     return tasks.filter((task) => task.status !== "completed");
-  };
+  }, [tasks]);
 
-  // Get completed tasks
-  const getCompletedTasks = () => {
+  const completedTasks = useMemo(() => {
     return tasks.filter((task) => task.status === "completed");
-  };
+  }, [tasks]);
 
-  // Get tasks by priority
-  const getTasksByPriority = (priority) => {
-    return tasks.filter((task) => task.priority === priority);
-  };
-
-  // Get overdue tasks
-  const getOverdueTasks = () => {
+  const overdueTasks = useMemo(() => {
     const today = new Date();
     return tasks.filter(
       (task) =>
@@ -214,6 +207,11 @@ export const useTasks = () => {
         new Date(task.due_date) < today &&
         task.status !== "completed"
     );
+  }, [tasks]);
+
+  // Get tasks by priority (still a function since it takes a parameter)
+  const getTasksByPriority = (priority) => {
+    return tasks.filter((task) => task.priority === priority);
   };
   
   // Helper function to get auth token
@@ -413,9 +411,9 @@ export const useTasks = () => {
     tasks,
     loading,
     error,
-    activeTasks: getActiveTasks(),
-    completedTasks: getCompletedTasks(),
-    overdueTasks: getOverdueTasks(),
+    activeTasks,
+    completedTasks,
+    overdueTasks,
     fetchTasks,
     createTask,
     updateTask,

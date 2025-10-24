@@ -709,7 +709,7 @@ export default function ProjectsPage() {
                                 <div className="flex items-center">
                                   <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full mr-1"></div>
                                   <span className="text-xs">
-                                    Done: {taskCounts.completed}
+                                    Completed: {taskCounts.completed}
                                   </span>
                                 </div>
                               </div>

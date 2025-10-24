@@ -36,6 +36,7 @@ import {
   getEmpIdForUserId,
   getUserRole,
 } from "../../server/lib/supabase.js";
+import { connect } from "http2";
 
 vi.mock("../../server/lib/supabase.js", async () => {
   const actual = await vi.importActual("../../server/lib/supabase.js");
@@ -151,342 +152,346 @@ describe.skipIf(skipIntegrationTests)("CS-US165: Upcoming deadline notification 
     }
   });
 
-  it("CS-US165-TC1 should send notification 7 days before deadline", async () => {
-    // Create a task due in exactly 7 days from today
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 7);
-    const dueDateString = dueDate.toISOString().split("T")[0];
+  describe("CS-US165: Upcoming deadline notification - Integration Tests", () => {
+    it("CS-US165-TC1 should send notification 7 days before deadline", async () => {
+      // Create a task due in exactly 7 days from today
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 7);
+      const dueDateString = dueDate.toISOString().split("T")[0];
 
-    console.log(
-      `Creating task due on: ${dueDateString} (7 days from ${
-        new Date().toISOString().split("T")[0]
-      })`
-    );
-
-    const testTask = {
-      title: "Integration Test Task - 7 Days",
-      description: "Task for testing 7-day deadline notification",
-      status: "ongoing", // Check if this should be different
-      priority: 3, // Try as number instead of string
-      due_date: dueDateString,
-      owner_id: 1, // int8 format for employee ID
-      collaborators: [], // Empty array
-      created_at: new Date().toTimeString().split(" ")[0], // HH:MM:SS format
-    };
-
-    console.log("Creating test task:", testTask);
-
-    // Insert task into test database
-    const { data: createdTask, error: createError } = await supabaseClient
-      .from("tasks")
-      .insert(testTask)
-      .select()
-      .single();
-
-    if (createError) {
-      console.error("Task creation error:", createError);
-      throw new Error(`Task creation failed: ${createError.message}`);
-    }
-
-    expect(createError).toBeNull();
-    expect(createdTask).toBeDefined();
-    createdTaskIds.push(createdTask.id);
-
-    console.log("Created task:", createdTask);
-
-    // Verify the task was created with correct due_date
-    const { data: verifyTask } = await supabaseClient
-      .from("tasks")
-      .select("*")
-      .eq("id", createdTask.id)
-      .single();
-
-    console.log("Verified task in DB:", verifyTask);
-
-    // Run deadline notification service
-    console.log("Running deadline check...");
-    const result = await checkUpcomingDeadlines(true);
-
-    console.log("Deadline check result:", JSON.stringify(result, null, 2));
-
-    expect(result).toBeDefined();
-    if (!result.success) {
-      console.error("Deadline check failed. Full result:", result);
-      throw new Error(
-        `Deadline check failed: ${result.error || "Unknown error"}`
-      );
-    }
-    expect(result.success).toBe(true);
-
-    // Verify 7-day notification was created
-    const { data: notifications, error: notifError } = await supabaseClient
-      .from("notifications")
-      .select("*")
-      .eq("task_id", createdTask.id);
-
-    if (notifError) {
-      console.error("Error fetching notifications:", notifError);
-    }
-
-    console.log("All notifications for task:", notifications);
-
-    if (notifications && notifications.length > 0) {
-      const sevenDayNotif = notifications.find(
-        (n) => n.title?.includes("7 days") || n.title?.includes("7 day")
+      console.log(
+        `Creating task due on: ${dueDateString} (7 days from ${new Date().toISOString().split("T")[0]
+        })`
       );
 
-      expect(sevenDayNotif).toBeDefined();
-      if (sevenDayNotif) {
-        expect(sevenDayNotif.emp_id).toBe(1);
-        expect(sevenDayNotif.task_id).toBe(createdTask.id);
-        expect(sevenDayNotif.title).toContain("7 day");
-        createdNotificationIds.push(sevenDayNotif.id);
+      const testTask = {
+        title: "Integration Test Task - 7 Days",
+        description: "Task for testing 7-day deadline notification",
+        status: "ongoing", // Check if this should be different
+        priority: 3, // Try as number instead of string
+        due_date: dueDateString,
+        owner_id: 1, // int8 format for employee ID
+        collaborators: [], // Empty array
+        created_at: new Date().toTimeString().split(" ")[0], // HH:MM:SS format
+      };
+
+      console.log("Creating test task:", testTask);
+
+      // Insert task into test database
+      const { data: createdTask, error: createError } = await supabaseClient
+        .from("tasks")
+        .insert(testTask)
+        .select()
+        .single();
+
+      if (createError) {
+        console.error("Task creation error:", createError);
+        throw new Error(`Task creation failed: ${createError.message}`);
       }
-    }
-  });
 
-  it("CS-US165-TC2 should send notification 3 days before deadline", async () => {
-    // Create a task due in exactly 3 days from today
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 3);
-    const dueDateString = dueDate.toISOString().split("T")[0];
+      expect(createError).toBeNull();
+      expect(createdTask).toBeDefined();
+      createdTaskIds.push(createdTask.id);
 
-    console.log(
-      `Creating task due on: ${dueDateString} (3 days from ${
-        new Date().toISOString().split("T")[0]
-      })`
-    );
+      console.log("Created task:", createdTask);
 
-    const testTask = {
-      title: "Integration Test Task - 3 Days",
-      description: "Task for testing 3-day deadline notification",
-      status: "ongoing",
-      priority: 3,
-      due_date: dueDateString,
-      owner_id: 1,
-      collaborators: [],
-      created_at: new Date().toTimeString().split(" ")[0],
-    };
+      // Verify the task was created with correct due_date
+      const { data: verifyTask } = await supabaseClient
+        .from("tasks")
+        .select("*")
+        .eq("id", createdTask.id)
+        .single();
 
-    console.log("Creating test task:", testTask);
+      console.log("Verified task in DB:", verifyTask);
 
-    const { data: createdTask, error: createError } = await supabaseClient
-      .from("tasks")
-      .insert(testTask)
-      .select()
-      .single();
+      // Run deadline notification service
+      console.log("Running deadline check...");
+      const result = await checkUpcomingDeadlines(true);
 
-    if (createError) {
-      console.error("Task creation error:", createError);
-      throw new Error(`Task creation failed: ${createError.message}`);
-    }
+      console.log("Deadline check result:", JSON.stringify(result, null, 2));
 
-    expect(createError).toBeNull();
-    expect(createdTask).toBeDefined();
-    createdTaskIds.push(createdTask.id);
-
-    console.log("Created task:", createdTask);
-
-    // Run deadline notification service
-    console.log("Running deadline check...");
-    const result = await checkUpcomingDeadlines(true);
-
-    console.log("Deadline check result:", JSON.stringify(result, null, 2));
-
-    expect(result).toBeDefined();
-    if (!result.success) {
-      console.error("Deadline check failed. Full result:", result);
-      throw new Error(
-        `Deadline check failed: ${result.error || "Unknown error"}`
-      );
-    }
-    expect(result.success).toBe(true);
-
-    // Verify 3-day notification was created
-    const { data: notifications } = await supabaseClient
-      .from("notifications")
-      .select("*")
-      .eq("task_id", createdTask.id);
-
-    console.log("All notifications for task:", notifications);
-
-    if (notifications && notifications.length > 0) {
-      const threeDayNotif = notifications.find(
-        (n) => n.title?.includes("3 days") || n.title?.includes("3 day")
-      );
-
-      expect(threeDayNotif).toBeDefined();
-      if (threeDayNotif) {
-        expect(threeDayNotif.emp_id).toBe(1);
-        expect(threeDayNotif.task_id).toBe(createdTask.id);
-        expect(threeDayNotif.title).toContain("3 day");
-        createdNotificationIds.push(threeDayNotif.id);
+      expect(result).toBeDefined();
+      if (!result.success) {
+        console.error("Deadline check failed. Full result:", result);
+        throw new Error(
+          `Deadline check failed: ${result.error || "Unknown error"}`
+        );
       }
-    }
-  });
+      expect(result.success).toBe(true);
 
-  it("CS-US165-TC3 should send notification 1 day before deadline", async () => {
-    // Create a task due in exactly 1 day from today
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 1);
-    const dueDateString = dueDate.toISOString().split("T")[0];
+      // Verify 7-day notification was created
+      const { data: notifications, error: notifError } = await supabaseClient
+        .from("notifications")
+        .select("*")
+        .eq("task_id", createdTask.id);
 
-    console.log(
-      `Creating task due on: ${dueDateString} (1 day from ${
-        new Date().toISOString().split("T")[0]
-      })`
-    );
-
-    const testTask = {
-      title: "Integration Test Task - 1 Day",
-      description: "Task for testing 1-day deadline notification",
-      status: "ongoing",
-      priority: 2,
-      due_date: dueDateString,
-      owner_id: 1,
-      collaborators: [],
-      created_at: new Date().toTimeString().split(" ")[0],
-    };
-
-    console.log("Creating test task:", testTask);
-
-    const { data: createdTask, error: createError } = await supabaseClient
-      .from("tasks")
-      .insert(testTask)
-      .select()
-      .single();
-
-    if (createError) {
-      console.error("Task creation error:", createError);
-      throw new Error(`Task creation failed: ${createError.message}`);
-    }
-
-    expect(createError).toBeNull();
-    expect(createdTask).toBeDefined();
-    createdTaskIds.push(createdTask.id);
-
-    console.log("Created task:", createdTask);
-
-    // Run deadline notification service
-    console.log("Running deadline check...");
-    const result = await checkUpcomingDeadlines(true);
-
-    console.log("Deadline check result:", JSON.stringify(result, null, 2));
-
-    expect(result).toBeDefined();
-    if (!result.success) {
-      console.error("Deadline check failed. Full result:", result);
-      throw new Error(
-        `Deadline check failed: ${result.error || "Unknown error"}`
-      );
-    }
-    expect(result.success).toBe(true);
-
-    // Verify 1-day notification was created
-    const { data: notifications } = await supabaseClient
-      .from("notifications")
-      .select("*")
-      .eq("task_id", createdTask.id);
-
-    console.log("All notifications for task:", notifications);
-
-    if (notifications && notifications.length > 0) {
-      const oneDayNotif = notifications.find((n) => n.title?.includes("1 day"));
-
-      expect(oneDayNotif).toBeDefined();
-      if (oneDayNotif) {
-        expect(oneDayNotif.emp_id).toBe(1);
-        expect(oneDayNotif.task_id).toBe(createdTask.id);
-        expect(oneDayNotif.title).toContain("1 day");
-        createdNotificationIds.push(oneDayNotif.id);
+      if (notifError) {
+        console.error("Error fetching notifications:", notifError);
       }
-    }
-  });
 
-  it("CS-US165-TC4 should send notifications to task owners and collaborators", async () => {
-    // Create a task due in 3 days with owner and collaborators
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 3);
-    const dueDateString = dueDate.toISOString().split("T")[0];
+      console.log("All notifications for task:", notifications);
 
-    console.log(
-      `Creating team task due on: ${dueDateString} (3 days from ${
-        new Date().toISOString().split("T")[0]
-      })`
-    );
+      if (notifications && notifications.length > 0) {
+        const sevenDayNotif = notifications.find(
+          (n) => n.title?.includes("7 days") || n.title?.includes("7 day")
+        );
 
-    const testTask = {
-      title: "Integration Test Task - Team",
-      description: "Task for testing notifications to owner and collaborators",
-      status: "ongoing",
-      priority: 8,
-      due_date: dueDateString,
-      owner_id: 1,
-      collaborators: [2], // Add collaborator as int8
-      created_at: new Date().toTimeString().split(" ")[0],
-    };
+        expect(sevenDayNotif).toBeDefined();
+        if (sevenDayNotif) {
+          expect(sevenDayNotif.emp_id).toBe(1);
+          expect(sevenDayNotif.task_id).toBe(createdTask.id);
+          expect(sevenDayNotif.title).toContain("7 day");
+          createdNotificationIds.push(sevenDayNotif.id);
+        }
+      }
+    });
 
-    console.log("Creating test task:", testTask);
+    it("CS-US165-TC2 should send notification 3 days before deadline", async () => {
+      // Create a task due in exactly 3 days from today
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 3);
+      const dueDateString = dueDate.toISOString().split("T")[0];
 
-    const { data: createdTask, error: createError } = await supabaseClient
-      .from("tasks")
-      .insert(testTask)
-      .select()
-      .single();
-
-    if (createError) {
-      console.error("Task creation error:", createError);
-      throw new Error(`Task creation failed: ${createError.message}`);
-    }
-
-    expect(createError).toBeNull();
-    expect(createdTask).toBeDefined();
-    createdTaskIds.push(createdTask.id);
-
-    console.log("Created task:", createdTask);
-
-    // Run deadline notification service
-    console.log("Running deadline check...");
-    const result = await checkUpcomingDeadlines(true);
-
-    console.log("Deadline check result:", JSON.stringify(result, null, 2));
-
-    expect(result).toBeDefined();
-    if (!result.success) {
-      console.error("Deadline check failed. Full result:", result);
-      throw new Error(
-        `Deadline check failed: ${result.error || "Unknown error"}`
+      console.log(
+        `Creating task due on: ${dueDateString} (3 days from ${new Date().toISOString().split("T")[0]
+        })`
       );
-    }
-    expect(result.success).toBe(true);
 
-    // Verify notifications were created for both owner and collaborators
-    const { data: notifications } = await supabaseClient
-      .from("notifications")
-      .select("*")
-      .eq("task_id", createdTask.id);
+      const testTask = {
+        title: "Integration Test Task - 3 Days",
+        description: "Task for testing 3-day deadline notification",
+        status: "ongoing",
+        priority: 3,
+        due_date: dueDateString,
+        owner_id: 1,
+        collaborators: [],
+        created_at: new Date().toTimeString().split(" ")[0],
+      };
 
-    console.log("All notifications for team task:", notifications);
+      console.log("Creating test task:", testTask);
 
-    expect(notifications).toBeDefined();
+      const { data: createdTask, error: createError } = await supabaseClient
+        .from("tasks")
+        .insert(testTask)
+        .select()
+        .single();
 
-    if (notifications && notifications.length > 0) {
-      // Should have notifications for both owner and collaborator
-      const ownerNotifs = notifications.filter((n) => n.emp_id === 1);
-      const collaboratorNotifs = notifications.filter((n) => n.emp_id === 2);
+      if (createError) {
+        console.error("Task creation error:", createError);
+        throw new Error(`Task creation failed: ${createError.message}`);
+      }
 
-      console.log("Owner notifications:", ownerNotifs);
-      console.log("Collaborator notifications:", collaboratorNotifs);
+      expect(createError).toBeNull();
+      expect(createdTask).toBeDefined();
+      createdTaskIds.push(createdTask.id);
 
-      // At least one notification should exist
-      expect(notifications.length).toBeGreaterThan(0);
+      console.log("Created task:", createdTask);
 
-      // Add all notifications to cleanup
-      notifications.forEach((notif) => {
-        createdNotificationIds.push(notif.id);
-        expect(notif.task_id).toBe(createdTask.id);
-        expect([1, 2]).toContain(notif.emp_id);
-      });
-    }
+      // Run deadline notification service
+      console.log("Running deadline check...");
+      const result = await checkUpcomingDeadlines(true);
+
+      console.log("Deadline check result:", JSON.stringify(result, null, 2));
+
+      expect(result).toBeDefined();
+      if (!result.success) {
+        console.error("Deadline check failed. Full result:", result);
+        throw new Error(
+          `Deadline check failed: ${result.error || "Unknown error"}`
+        );
+      }
+      expect(result.success).toBe(true);
+
+      // Verify 3-day notification was created
+      const { data: notifications } = await supabaseClient
+        .from("notifications")
+        .select("*")
+        .eq("task_id", createdTask.id);
+
+      console.log("All notifications for task:", notifications);
+
+      if (notifications && notifications.length > 0) {
+        const threeDayNotif = notifications.find(
+          (n) => n.title?.includes("3 days") || n.title?.includes("3 day")
+        );
+
+        expect(threeDayNotif).toBeDefined();
+        if (threeDayNotif) {
+          expect(threeDayNotif.emp_id).toBe(1);
+          expect(threeDayNotif.task_id).toBe(createdTask.id);
+          expect(threeDayNotif.title).toContain("3 day");
+          createdNotificationIds.push(threeDayNotif.id);
+        }
+      }
+    });
+
+    it("CS-US165-TC3 should send notification 1 day before deadline", async () => {
+      // Create a task due in exactly 1 day from today
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 1);
+      const dueDateString = dueDate.toISOString().split("T")[0];
+
+      console.log(
+        `Creating task due on: ${dueDateString} (1 day from ${new Date().toISOString().split("T")[0]
+        })`
+      );
+
+      const testTask = {
+        title: "Integration Test Task - 1 Day",
+        description: "Task for testing 1-day deadline notification",
+        status: "ongoing",
+        priority: 2,
+        due_date: dueDateString,
+        owner_id: 1,
+        collaborators: [],
+        created_at: new Date().toTimeString().split(" ")[0],
+      };
+
+      console.log("Creating test task:", testTask);
+
+      const { data: createdTask, error: createError } = await supabaseClient
+        .from("tasks")
+        .insert(testTask)
+        .select()
+        .single();
+
+      if (createError) {
+        console.error("Task creation error:", createError);
+        throw new Error(`Task creation failed: ${createError.message}`);
+      }
+
+      expect(createError).toBeNull();
+      expect(createdTask).toBeDefined();
+      createdTaskIds.push(createdTask.id);
+
+      console.log("Created task:", createdTask);
+
+      // Run deadline notification service
+      console.log("Running deadline check...");
+      const result = await checkUpcomingDeadlines(true);
+
+      console.log("Deadline check result:", JSON.stringify(result, null, 2));
+
+      expect(result).toBeDefined();
+      if (!result.success) {
+        console.error("Deadline check failed. Full result:", result);
+        throw new Error(
+          `Deadline check failed: ${result.error || "Unknown error"}`
+        );
+      }
+      expect(result.success).toBe(true);
+
+      // Verify 1-day notification was created
+      const { data: notifications } = await supabaseClient
+        .from("notifications")
+        .select("*")
+        .eq("task_id", createdTask.id);
+
+      console.log("All notifications for task:", notifications);
+
+      if (notifications && notifications.length > 0) {
+        const oneDayNotif = notifications.find((n) => n.title?.includes("1 day"));
+
+        expect(oneDayNotif).toBeDefined();
+        if (oneDayNotif) {
+          expect(oneDayNotif.emp_id).toBe(1);
+          expect(oneDayNotif.task_id).toBe(createdTask.id);
+          expect(oneDayNotif.title).toContain("1 day");
+          createdNotificationIds.push(oneDayNotif.id);
+        }
+      }
+    });
+
+    it("CS-US165-TC4 should send notifications to task owners and collaborators", async () => {
+      // Create a task due in 3 days with owner and collaborators
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 3);
+      const dueDateString = dueDate.toISOString().split("T")[0];
+
+      console.log(
+        `Creating team task due on: ${dueDateString} (3 days from ${new Date().toISOString().split("T")[0]
+        })`
+      );
+
+      const testTask = {
+        title: "Integration Test Task - Team",
+        description: "Task for testing notifications to owner and collaborators",
+        status: "ongoing",
+        priority: 8,
+        due_date: dueDateString,
+        owner_id: 1,
+        collaborators: [2], // Add collaborator as int8
+        created_at: new Date().toTimeString().split(" ")[0],
+      };
+
+      console.log("Creating test task:", testTask);
+
+      const { data: createdTask, error: createError } = await supabaseClient
+        .from("tasks")
+        .insert(testTask)
+        .select()
+        .single();
+
+      if (createError) {
+        console.error("Task creation error:", createError);
+        throw new Error(`Task creation failed: ${createError.message}`);
+      }
+
+      expect(createError).toBeNull();
+      expect(createdTask).toBeDefined();
+      createdTaskIds.push(createdTask.id);
+
+      console.log("Created task:", createdTask);
+
+      // Run deadline notification service
+      console.log("Running deadline check...");
+      const result = await checkUpcomingDeadlines(true);
+
+      console.log("Deadline check result:", JSON.stringify(result, null, 2));
+
+      expect(result).toBeDefined();
+      if (!result.success) {
+        console.error("Deadline check failed. Full result:", result);
+        throw new Error(
+          `Deadline check failed: ${result.error || "Unknown error"}`
+        );
+      }
+      expect(result.success).toBe(true);
+
+      // Verify notifications were created for both owner and collaborators
+      const { data: notifications } = await supabaseClient
+        .from("notifications")
+        .select("*")
+        .eq("task_id", createdTask.id);
+
+      console.log("All notifications for team task:", notifications);
+
+      expect(notifications).toBeDefined();
+
+      if (notifications && notifications.length > 0) {
+        // Should have notifications for both owner and collaborator
+        const ownerNotifs = notifications.filter((n) => n.emp_id === 1);
+        const collaboratorNotifs = notifications.filter((n) => n.emp_id === 2);
+
+        console.log("Owner notifications:", ownerNotifs);
+        console.log("Collaborator notifications:", collaboratorNotifs);
+
+        // At least one notification should exist
+        expect(notifications.length).toBeGreaterThan(0);
+
+        // Add all notifications to cleanup
+        notifications.forEach((notif) => {
+          createdNotificationIds.push(notif.id);
+          expect(notif.task_id).toBe(createdTask.id);
+          expect([1, 2]).toContain(notif.emp_id);
+        });
+      }
+    });
+  });
+  describe("CS-US14: Notification for Task Creation", () => {
+    // Placeholder - implement real tests later
+
+
+    it.todo("CS-US14-TC1: Select notification based on employee ID - pending");
   });
 });

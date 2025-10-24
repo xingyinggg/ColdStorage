@@ -86,6 +86,10 @@ router.post("/", upload.single("file"), async (req, res) => {
         taskPriority = parsedPriority;
       }
     }
+    // Ensure non-null priority to satisfy DB NOT NULL constraint
+    if (taskPriority === null) {
+      taskPriority = 5; // sensible default
+    }
 
     // Parse collaborators
     let collaborators = [];

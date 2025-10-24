@@ -4,6 +4,17 @@ import path from 'path';
 // Load test env
 dotenv.config({ path: path.join(process.cwd(), "tests", ".env.test") });
 
+// Determine if test env is present; if so, force server to use test DB
+const hasTestEnv = !!process.env.SUPABASE_TEST_URL && !!process.env.SUPABASE_TEST_SERVICE_KEY;
+if (hasTestEnv) {
+    process.env.SUPABASE_URL = process.env.SUPABASE_TEST_URL;
+    process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_TEST_SERVICE_KEY;
+} else {
+    // Make the skip reason visible in CI logs
+    // Note: We'll guard the suite below so this file doesn't fail when env is missing
+    console.log('⚠️ Skipping notification routes integration tests - Supabase test env not configured');
+}
+
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import express from 'express';
 import supertest from 'supertest';
@@ -31,14 +42,22 @@ import notificationRouter from '../../server/routes/notification.js';
 
 // Helper to create test Supabase client
 function getTestSupabaseClient() {
+    const url = process.env.SUPABASE_TEST_URL || process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_TEST_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+        throw new Error('Supabase test env missing (URL/key)');
+    }
     return createClient(
-        process.env.SUPABASE_TEST_URL,
-        process.env.SUPABASE_TEST_SERVICE_KEY,
+        url,
+        key,
         { auth: { autoRefreshToken: false, persistSession: false } }
     );
 }
 
-describe('Notification routes - integration', () => {
+// Vitest compatibility helper (works across versions)
+const describeIf = (cond) => (cond ? describe : describe.skip);
+
+describeIf(hasTestEnv)('Notification routes - integration', () => {
     let app;
     let request;
     let supabaseClient;
@@ -47,12 +66,12 @@ describe('Notification routes - integration', () => {
     beforeAll(async () => {
         supabaseClient = getTestSupabaseClient();
 
-        // Point the mocked getServiceClient to our test client
-        vi.mocked(getServiceClient).mockImplementation(() => supabaseClient);
+    // Point the mocked getServiceClient to our test client
+    getServiceClient.mockImplementation(() => supabaseClient);
 
-        // Basic auth mocks
-        vi.mocked(getUserFromToken).mockResolvedValue({ id: '550e8400-e29b-41d4-a716-446655440001', email: 'staff@example.com' });
-        vi.mocked(getEmpIdForUserId).mockResolvedValue(1);
+    // Basic auth mocks
+    getUserFromToken.mockResolvedValue({ id: '550e8400-e29b-41d4-a716-446655440001', email: 'staff@example.com' });
+    getEmpIdForUserId.mockResolvedValue(1);
 
         // Create express app and mount router
         app = express();

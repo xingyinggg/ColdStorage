@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 const CACHE_KEY = 'tasks_cache';
@@ -6,18 +6,20 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
 const REQUEST_TIMEOUT = 15000; // 15 seconds
 
-export const useTasks = () => {
+export const useTasks = (user = null) => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
   
   // Refs for cleanup and preventing unnecessary fetches
   const isMountedRef = useRef(true);
   const hasFetchedRef = useRef(false);
   const autoRefreshTimerRef = useRef(null);
+  const fetchInProgressRef = useRef(false);
+  const hasEverLoadedRef = useRef(false); // Track if user has ever loaded data in this session
 
-  // Load cached tasks immediately on mount
+  // Load cache on mount ONLY if we've loaded data before (subsequent visits)
   useEffect(() => {
     const cached = sessionStorage.getItem(CACHE_KEY);
     if (cached) {
@@ -26,10 +28,19 @@ export const useTasks = () => {
         const age = Date.now() - timestamp;
         
         if (age < CACHE_DURATION && cachedTasks?.length > 0) {
-          console.log('Loading tasks from cache (age:', Math.round(age / 1000), 'seconds)');
-          setTasks(cachedTasks);
-          setLoading(false);
-          hasFetchedRef.current = true;
+          // Check if this is a subsequent load (after initial sign-in)
+          const hasLoadedBefore = sessionStorage.getItem('tasks_ever_loaded') === 'true';
+          
+          if (hasLoadedBefore) {
+            console.log('✓ Showing cached', cachedTasks.length, 'tasks immediately');
+            setTasks(cachedTasks);
+            setLoading(false);
+            hasFetchedRef.current = true;
+            hasEverLoadedRef.current = true;
+          } else {
+            console.log('First load after sign-in - waiting for fresh data');
+            // Don't load cache, keep showing loading spinner
+          }
         }
       } catch (err) {
         console.warn('Failed to parse cached tasks:', err);
@@ -40,25 +51,39 @@ export const useTasks = () => {
 
   // Fetch all tasks via Express API
   const fetchTasks = useCallback(async () => {
+    // Don't fetch if no user (not authenticated)
+    if (!user) {
+      console.log('⏸️ Skipping fetch - no user authenticated');
+      return;
+    }
+
+    // Prevent duplicate fetches
+    if (fetchInProgressRef.current) {
+      return;
+    }
+
     try {
-      // Only show loading state if we don't have cached data
-      if (!hasFetchedRef.current) {
+      fetchInProgressRef.current = true;
+      
+      // Show loading spinner ONLY on first load (not subsequent loads with cache)
+      if (!hasEverLoadedRef.current) {
         setLoading(true);
       }
       setError(null);
       
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await supabaseRef.current.auth.getSession();
       
       if (!session || !session.access_token) {
-        console.warn("No valid session found when fetching tasks");
-        setTasks([]);
+        console.log(`⚠️ No session available`);
+        fetchInProgressRef.current = false;
+        setLoading(false);
         return;
       }
       
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-      console.log("Fetching tasks from API:", apiUrl);
+      console.log("📡 Fetching tasks...");
       
       try {
         const controller = new AbortController();
@@ -91,7 +116,7 @@ export const useTasks = () => {
         }
         
         const body = await res.json();
-        console.log("Tasks API response:", body);
+        console.log("✓ Tasks API response received:", body.tasks?.length || 0, "tasks");
         
         // Sort tasks by priority descending, then by created_at
         const sortedTasks = (body.tasks || []).sort((a, b) => {
@@ -105,50 +130,54 @@ export const useTasks = () => {
           return new Date(b.created_at || 0) - new Date(a.created_at || 0);
         });
         
-        console.log("Sorted tasks:", sortedTasks);
+        // Always set state - React will handle unmounted components safely
+        console.log('✓ Setting tasks state with', sortedTasks.length, 'tasks');
+        setTasks(sortedTasks);
         
-        if (isMountedRef.current) {
-          setTasks(sortedTasks);
-          
-          // Cache the results
-          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-            tasks: sortedTasks,
-            timestamp: Date.now()
-          }));
-          
-          hasFetchedRef.current = true;
-        }
+        // Cache the results
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+          tasks: sortedTasks,
+          timestamp: Date.now()
+        }));
+        
+        // Mark that we've loaded data successfully
+        sessionStorage.setItem('tasks_ever_loaded', 'true');
+        hasFetchedRef.current = true;
+        hasEverLoadedRef.current = true;
+        console.log('✓ Tasks state updated, cache saved, flags set');
         
       } catch (fetchError) {
         if (fetchError.name === 'AbortError') {
-          throw new Error('Request timed out - server may be down');
-        } else {
-          throw fetchError;
+          // Graceful: keep current UI, retry on next interval
+          console.warn(`Tasks request timed out after ${REQUEST_TIMEOUT}ms; will retry on next interval`);
+          return;
         }
+        throw fetchError;
       }
     } catch (err) {
-      console.error("Error in fetchTasks:", err);
-      if (isMountedRef.current) {
-        setError(err.message || "Failed to fetch tasks");
-      }
+      console.error("❌ Error in fetchTasks:", err);
+      setError(err.message || "Failed to fetch tasks");
     } finally {
-      if (isMountedRef.current) {
-        setLoading(false);
-      }
+      fetchInProgressRef.current = false;
+      setLoading(false);
     }
-  }, [supabase]);
+  }, [user]);
 
-  // Set up auto-refresh
+  // Fetch when user becomes available
   useEffect(() => {
-    // Clear any existing timer
-    if (autoRefreshTimerRef.current) {
-      clearInterval(autoRefreshTimerRef.current);
+    if (!user) {
+      console.log('⏸️ useTasks: Waiting for user to authenticate...');
+      return;
     }
 
-    // Set up new auto-refresh timer
+    console.log('✓ useTasks: User authenticated, fetching tasks for user:', user.id);
+    
+    // Fetch immediately when user is available
+    fetchTasks();
+
+    // Set up auto-refresh timer
     autoRefreshTimerRef.current = setInterval(() => {
-      if (isMountedRef.current && hasFetchedRef.current) {
-        console.log('Auto-refreshing tasks...');
+      if (isMountedRef.current && user) {
         fetchTasks();
       }
     }, AUTO_REFRESH_INTERVAL);
@@ -159,42 +188,23 @@ export const useTasks = () => {
         clearInterval(autoRefreshTimerRef.current);
       }
     };
-  }, [fetchTasks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]); // Only depend on user, fetchTasks is stable
 
-  // Initial fetch only if no valid cache
-  useEffect(() => {
-    if (!hasFetchedRef.current) {
-      fetchTasks();
-    }
-  }, [fetchTasks]);
+  // Note: Cleanup for autoRefreshTimer is handled in the main useEffect above
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-      if (autoRefreshTimerRef.current) {
-        clearInterval(autoRefreshTimerRef.current);
-      }
-    };
-  }, []);
+  // Memoized computed values to prevent unnecessary re-renders
+  const activeTasks = useMemo(() => {
+    const active = tasks.filter((task) => task.status !== "completed");
+    console.log('📊 useTasks: Computed activeTasks:', active.length, 'from', tasks.length, 'total tasks');
+    return active;
+  }, [tasks]);
 
-  // Get active tasks (not completed)
-  const getActiveTasks = () => {
-    return tasks.filter((task) => task.status !== "completed");
-  };
-
-  // Get completed tasks
-  const getCompletedTasks = () => {
+  const completedTasks = useMemo(() => {
     return tasks.filter((task) => task.status === "completed");
-  };
+  }, [tasks]);
 
-  // Get tasks by priority
-  const getTasksByPriority = (priority) => {
-    return tasks.filter((task) => task.priority === priority);
-  };
-
-  // Get overdue tasks
-  const getOverdueTasks = () => {
+  const overdueTasks = useMemo(() => {
     const today = new Date();
     return tasks.filter(
       (task) =>
@@ -202,11 +212,16 @@ export const useTasks = () => {
         new Date(task.due_date) < today &&
         task.status !== "completed"
     );
+  }, [tasks]);
+
+  // Get tasks by priority (still a function since it takes a parameter)
+  const getTasksByPriority = (priority) => {
+    return tasks.filter((task) => task.priority === priority);
   };
   
   // Helper function to get auth token
   const getAuthToken = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseRef.current.auth.getSession();
     return session?.access_token;
   };
 
@@ -278,15 +293,33 @@ export const useTasks = () => {
       
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await supabaseRef.current.auth.getSession();
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
       
+      // Normalize updates
       const cleanUpdates = { ...updates };
+      // Allow camelCase -> snake_case for due date if needed
+      if (cleanUpdates.dueDate && !cleanUpdates.due_date) {
+        cleanUpdates.due_date = cleanUpdates.dueDate;
+        delete cleanUpdates.dueDate;
+      }
+      // Convert empty string to null for due_date so backend can clear it
+      if (cleanUpdates.due_date === "") {
+        cleanUpdates.due_date = null;
+      }
       
       let body;
       let headers = { Authorization: `Bearer ${session?.access_token || ""}` };
       
       if (updates instanceof FormData) {
+        // Ensure due_date normalization for FormData as well
+        if (updates.has('dueDate') && !updates.has('due_date')) {
+          const val = updates.get('dueDate');
+          updates.delete('dueDate');
+          if (val !== undefined && val !== null && val !== '') {
+            updates.append('due_date', val);
+          }
+        }
         body = updates;
       } else {
         body = JSON.stringify(cleanUpdates);
@@ -302,7 +335,7 @@ export const useTasks = () => {
       let responseData;
       try {
         responseData = await res.json();
-      } catch (err) {
+      } catch {
         responseData = {};
       }
       
@@ -401,9 +434,9 @@ export const useTasks = () => {
     tasks,
     loading,
     error,
-    activeTasks: getActiveTasks(),
-    completedTasks: getCompletedTasks(),
-    overdueTasks: getOverdueTasks(),
+    activeTasks,
+    completedTasks,
+    overdueTasks,
     fetchTasks,
     createTask,
     updateTask,

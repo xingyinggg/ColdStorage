@@ -28,7 +28,7 @@ export default function HrTasksPage() {
     fetchTasks,
     toggleTaskComplete,
     updateTask,
-  } = useTasks();
+  } = useTasks(user);
   
   // Force a refetch when the page loads
   const [hrTasks, setHrTasks] = useState([]);
@@ -89,11 +89,14 @@ export default function HrTasksPage() {
     router.push("/login");
   };
 
-  if (authLoading || tasksLoading) {
+  // Avoid full-screen loader on background refresh; show content and update inline
+  if (!user && authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
+      <SidebarLayout>
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </SidebarLayout>
     );
   }
 

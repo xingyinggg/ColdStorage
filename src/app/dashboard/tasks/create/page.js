@@ -12,14 +12,14 @@ import TaskForm from "@/components/tasks/TaskForm";
 
 export default function CreateTaskPage() {
   const router = useRouter();
-  const { createTask } = useTasks();
+  const { user, userProfile } = useAuth();
+  const { createTask } = useTasks(user);
   const { createNotification } = useNotification();
   const {
     projects,
     loading: loadingProjects,
     getProjectMembers,
-  } = useProjects();
-  const { userProfile } = useAuth();
+  } = useProjects(user);
   const { fetchUsers, getAssignableUsers, getUserByEmpId } = useUsers();
 
   // States

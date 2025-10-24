@@ -37,7 +37,7 @@ export default function ProjectsPage() {
     error: projectsError,
     createProject,
     getProjectNames,
-  } = useProjects();
+  } = useProjects(user);
 
   useEffect(() => {
     if (projects && projects.length > 0) {
@@ -374,11 +374,14 @@ export default function ProjectsPage() {
     router.push("/login");
   };
 
-  if (authLoading) {
+  // Block only on first-load when user is unknown
+  if (!user && authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
+      <SidebarLayout>
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </SidebarLayout>
     );
   }
 

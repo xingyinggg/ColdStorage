@@ -57,7 +57,7 @@ function StaffReports() {
   const [reportType, setReportType] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const { user, userProfile } = useAuth();
-  const { projects = [], loading: projectsLoading } = useProjects();
+  const { projects = [], loading: projectsLoading } = useProjects(user);
 
   const handleGenerateReport = (type, project = null) => {
     setReportType(type);
@@ -121,7 +121,7 @@ function ManagerReports() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [projectFilter, setProjectFilter] = useState('my'); // Start with 'my' instead of 'all'
   const { user, userProfile } = useAuth();
-  const { projects = [], loading: projectsLoading } = useProjects();
+  const { projects = [], loading: projectsLoading } = useProjects(user);
   const { departmentTeams = [], teamWorkload = {}, loading: workloadLoading, error: workloadError } = useDepartmentTeams();
 
   const handleGenerateReport = (type, project = null) => {

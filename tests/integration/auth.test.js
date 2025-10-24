@@ -4,21 +4,21 @@ import path from 'path';
 
 dotenv.config({ path: path.join(process.cwd(), 'tests', '.env.test') });
 
-// Validate that test environment variables are loaded
-if (!process.env.SUPABASE_TEST_URL || !process.env.SUPABASE_TEST_SERVICE_KEY) {
-  console.error('❌ Missing test environment variables');
-  console.error('SUPABASE_TEST_URL:', !!process.env.SUPABASE_TEST_URL);
-  console.error('SUPABASE_TEST_SERVICE_KEY:', !!process.env.SUPABASE_TEST_SERVICE_KEY);
-  throw new Error('Test environment variables not loaded');
+// Determine if we should skip due to missing env
+const hasTestEnv = !!process.env.SUPABASE_TEST_URL && !!process.env.SUPABASE_TEST_SERVICE_KEY;
+const skipIntegrationTests = !hasTestEnv;
+
+if (hasTestEnv) {
+  // Override environment variables to force test database usage
+  process.env.SUPABASE_URL = process.env.SUPABASE_TEST_URL;
+  process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_TEST_SERVICE_KEY;
+
+  // Add these additional environment variables that might be needed by auth routes
+  process.env.SUPABASE_ANON_KEY = process.env.SUPABASE_TEST_ANON_KEY || process.env.SUPABASE_TEST_SERVICE_KEY;
+  process.env.SUPABASE_SERVICE_KEY = process.env.SUPABASE_TEST_SERVICE_KEY;
+} else {
+  console.log('⚠️  Skipping auth integration tests - Supabase test env not configured');
 }
-
-// Override environment variables to force test database usage
-process.env.SUPABASE_URL = process.env.SUPABASE_TEST_URL;
-process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_TEST_SERVICE_KEY;
-
-// Add these additional environment variables that might be needed by auth routes
-process.env.SUPABASE_ANON_KEY = process.env.SUPABASE_TEST_ANON_KEY || process.env.SUPABASE_TEST_SERVICE_KEY;
-process.env.SUPABASE_SERVICE_KEY = process.env.SUPABASE_TEST_SERVICE_KEY;
 
 console.log("🔧 Environment variables set for testing:");
 console.log("  SUPABASE_URL:", !!process.env.SUPABASE_URL);
@@ -66,7 +66,7 @@ const app = express();
 app.use(express.json());
 app.use("/auth", authRoutes);
 
-describe("Authentication Integration Tests with Real Test Database", () => {
+describe.skipIf(skipIntegrationTests)("Authentication Integration Tests with Real Test Database", () => {
   let supabaseClient;
   let createdUserIds = []; // Track users we create for cleanup
 

@@ -114,7 +114,8 @@ export default function TaskCard({
     if (showSubtasks && task?.id && !hasFetchedSubtasks) {
       fetchSubtasks(task.id).finally(() => setHasFetchedSubtasks(true));
     }
-  }, [showSubtasks, task?.id, hasFetchedSubtasks, fetchSubtasks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSubtasks, task?.id]);
 
   const handleEditTask = async (taskId, formOrFormData) => {
     try {

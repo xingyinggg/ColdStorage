@@ -3,18 +3,20 @@
 import { useState } from "react";
 import TaskCard from "@/components/tasks/TaskCard";
 import { useTasks } from "@/utils/hooks/useTasks";
+import { useAuth } from "@/utils/hooks/useAuth";
 import { useDepartmentTeams } from "@/utils/hooks/useDepartmentTeams";
 import { formatDate, getPriorityColor, getStatusColor } from "./taskUtils";
 
 export default function ManagerTasksView({ currentUserEmpId, tasks: expressTasks }) {
   const [activeTab, setActiveTab] = useState("my-tasks");
+  const { user } = useAuth();
 
   // Personal tasks (same as staff)
   const {
     tasks: myTasks = [],
     loading: tasksLoading,
     updateTask,
-  } = useTasks();
+  } = useTasks(user);
 
   // Department workload data
   const {

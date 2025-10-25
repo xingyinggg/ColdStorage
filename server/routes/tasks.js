@@ -11,10 +11,10 @@ import recurrenceService from "../services/recurrenceService.js";
 // Function to normalize status to match test expectations
 function normalizeStatus(status) {
   if (!status) return "ongoing"; // Default status
-  
+
   // Convert to lowercase for easier matching
   const statusLower = status.toLowerCase();
-  
+
   // Map of status values
   const statusMap = {
     'ongoing': 'ongoing',
@@ -22,7 +22,7 @@ function normalizeStatus(status) {
     'completed': 'completed',
     'under review': 'Under Review'
   };
-  
+
   return statusMap[statusLower] || status;
 }
 
@@ -148,7 +148,7 @@ router.post("/", upload.single("file"), async (req, res) => {
 
     // Check if this is a recurring task
     const isRecurring = is_recurring === true || is_recurring === "true";
-    
+
     let newTask;
     let createdSubtasks = [];
 
@@ -183,7 +183,7 @@ router.post("/", upload.single("file"), async (req, res) => {
         recurrence_count: recurrence_count ? parseInt(recurrence_count) : null,
         recurrence_weekday: recurrence_weekday !== undefined ? parseInt(recurrence_weekday) : null, // Store weekday preference
       };
-      
+
       // Pass weekday separately for immediate use in calculations
       const weekdayPreference = recurrence_weekday !== undefined ? parseInt(recurrence_weekday) : null;
 
@@ -343,7 +343,7 @@ async function getUserRole(empId) {
       .select("role")
       .eq("emp_id", empId)
       .single();
-    
+
     if (error) throw error;
     return data?.role || "staff";
   } catch (error) {
@@ -583,7 +583,7 @@ router.put("/manager/:id", async (req, res) => {
 
     const { id } = req.params;
     const updates = req.body || {};
-    
+
     // Clean and validate updates - especially priority
     let cleanUpdates = { ...updates };
     if (cleanUpdates.priority !== undefined && cleanUpdates.priority !== null && cleanUpdates.priority !== "") {
@@ -595,12 +595,12 @@ router.put("/manager/:id", async (req, res) => {
         delete cleanUpdates.priority;
       }
     }
-    
+
     if (updates.status) {
       // Normalize status case (first letter uppercase, rest lowercase)
       cleanUpdates.status = updates.status.charAt(0).toUpperCase() + updates.status.slice(1).toLowerCase();
     }
-    
+
     const { data, error } = await supabase
       .from("tasks")
       .update(cleanUpdates)
@@ -612,7 +612,7 @@ router.put("/manager/:id", async (req, res) => {
     let editorEmpId = null;
     try {
       editorEmpId = await getEmpIdForUserId(user.id);
-    } catch {}
+    } catch { }
 
     // Record history (manager/director update)
     try {
@@ -656,7 +656,7 @@ router.get("/manager/staff-members", async (req, res) => {
     const userRole = (requester?.role || "").toLowerCase();
     if (userRole !== "manager" && userRole !== "director") {
       return res.status(403).json({ error: "Forbidden: managers and directors only" });
-    } 
+    }
 
     const { data, error } = await supabase
       .from("users")
@@ -723,12 +723,12 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     // NOW we can use currentTask for logging
     // Check if user owns the task or is collaborator (use loose comparison for string/number)
     const isOwner = currentTask.owner_id == empId;
-    
+
     // If not the owner, check if they're a collaborator
     if (!isOwner) {
       // Handle collaborators which might be array, JSON string, or null/undefined
       let collaborators = [];
-      
+
       if (typeof currentTask.collaborators === 'string') {
         try {
           // Try to parse if it's a JSON string
@@ -740,17 +740,17 @@ router.put("/:id", upload.single("file"), async (req, res) => {
       } else if (Array.isArray(currentTask.collaborators)) {
         collaborators = currentTask.collaborators;
       }
-      
+
       // Make sure collaborators is always an array
       if (!Array.isArray(collaborators)) {
         collaborators = [];
       }
-      
+
       // Ensure we're comparing strings to handle numeric vs string IDs
-      const isCollaborator = collaborators.some(collabId => 
+      const isCollaborator = collaborators.some(collabId =>
         collabId && String(collabId) === String(empId)
       );
-      
+
       console.log("Collaborator check:", {
         taskId: Number(id),
         empId,
@@ -758,17 +758,17 @@ router.put("/:id", upload.single("file"), async (req, res) => {
         collaborators,
         isCollaborator
       });
-  
+
       if (!isCollaborator) {
         return res.status(403).json({ error: "You can only edit tasks you own or collaborate on" });
       }
-      
+
       // If collaborator but not owner, restrict updates to only status field
       let allowedUpdates = {};
       if (cleanUpdates.status) {
         allowedUpdates.status = cleanUpdates.status;
       }
-      
+
       console.log("Collaborator updates restricted to:", allowedUpdates);
       cleanUpdates = allowedUpdates;
     }
@@ -828,9 +828,9 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     }
 
     cleanUpdates.file = newFileUrl;
-    
+
     console.log("Final updates to apply:", cleanUpdates);
-    
+
     // Update the task - don't restrict to owner_id since we've already verified access
     const { data, error } = await supabase
       .from("tasks")
@@ -855,10 +855,10 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     // If task status changed to "completed" and it's a recurring task, create next instance
     if (cleanUpdates.status === "completed" && updatedTask.is_recurring) {
       console.log("🔄 Recurring task completed - creating next instance...");
-      
+
       try {
         const recurrenceResult = await recurrenceService.handleTaskCompletion(supabase, Number(id));
-        
+
         if (recurrenceResult.success && recurrenceResult.nextTask) {
           console.log("✅ Next recurring task created:", recurrenceResult.nextTask.id);
         } else if (recurrenceResult.success) {
@@ -883,6 +883,93 @@ router.put("/:id", upload.single("file"), async (req, res) => {
         }]);
     } catch (hErr) {
       console.error('Failed to write task history (update):', hErr);
+    }
+
+    // Create notifications server-side for this update:
+    try {
+      const notificationsToInsert = [];
+
+      // Get editor name for nicer messages
+      let editorName = "Someone";
+      try {
+        const { data: editorUser } = await supabase
+          .from('users')
+          .select('name')
+          .eq('id', user.id)
+          .single();
+        if (editorUser && editorUser.name) editorName = editorUser.name;
+      } catch (nameErr) {
+        // ignore - optional
+      }
+
+      // Notify the editor (confirmation)
+      notificationsToInsert.push({
+        emp_id: empId,
+        title: `Task Updated (${updatedTask.title})`,
+        description: `You updated the task "${updatedTask.title}".`,
+        type: "Task Update Confirmation",
+        created_at: new Date().toISOString(),
+        read: false,
+      });
+
+      // Notify the owner if different from editor
+      if (updatedTask.owner_id && String(updatedTask.owner_id) !== String(empId)) {
+        notificationsToInsert.push({
+          emp_id: updatedTask.owner_id,
+          title: `Task Updated (${updatedTask.title})`,
+          description: `${editorName} updated the task "${updatedTask.title}".`,
+          type: "Task Update",
+          created_at: new Date().toISOString(),
+          read: false,
+        });
+      }
+
+      // Notify collaborators (if any) except the editor
+      try {
+        let collaborators = updatedTask.collaborators || [];
+        if (typeof collaborators === 'string') {
+          try {
+            collaborators = JSON.parse(collaborators);
+          } catch (e) {
+            collaborators = [];
+          }
+        }
+        if (Array.isArray(collaborators) && collaborators.length > 0) {
+          collaborators.forEach((collabId) => {
+            if (!collabId) return;
+            if (String(collabId) === String(empId)) return; // don't notify the editor twice
+            if (updatedTask.owner_id && String(collabId) === String(updatedTask.owner_id)) return; // owner already notified
+            notificationsToInsert.push({
+              emp_id: collabId,
+              title: `Task Updated (${updatedTask.title})`,
+              description: `${editorName} updated a task you're collaborating on: "${updatedTask.title}".`,
+              type: "Task Update",
+              created_at: new Date().toISOString(),
+              read: false,
+            });
+          });
+        }
+      } catch (collabErr) {
+        console.error('Error preparing collaborator notifications:', collabErr);
+      }
+
+      if (notificationsToInsert.length > 0) {
+        try {
+          const { data: notifData, error: notifErr } = await supabase
+            .from('notifications')
+            .insert(notificationsToInsert)
+            .select();
+          if (notifErr) {
+            console.error('Failed to insert notifications:', notifErr);
+          } else {
+            console.log(`Inserted ${notifData?.length || 0} notifications for task ${updatedTask.id}`);
+          }
+        } catch (e) {
+          console.error('Notification insert error:', e);
+        }
+      }
+    } catch (notifOuterErr) {
+      console.error('Error while creating notifications for task update:', notifOuterErr);
     }
 
     res.json(updatedTask);
@@ -1029,7 +1116,7 @@ router.get("/:id/recurrence-history", async (req, res) => {
     const supabase = getServiceClient();
     const authHeader = req.headers.authorization || "";
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    
+
     if (!token) return res.status(401).json({ error: "Missing access token" });
 
     const user = await getUserFromToken(token);
@@ -1083,7 +1170,7 @@ router.put("/:id/recurrence", async (req, res) => {
     const supabase = getServiceClient();
     const authHeader = req.headers.authorization || "";
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    
+
     if (!token) return res.status(401).json({ error: "Missing access token" });
 
     const user = await getUserFromToken(token);
@@ -1160,7 +1247,7 @@ router.delete("/:id/recurrence", async (req, res) => {
     const supabase = getServiceClient();
     const authHeader = req.headers.authorization || "";
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    
+
     if (!token) return res.status(401).json({ error: "Missing access token" });
 
     const user = await getUserFromToken(token);
@@ -1204,8 +1291,8 @@ router.delete("/:id/recurrence", async (req, res) => {
     res.json({
       success: true,
       deletedCount: result.deletedCount,
-      message: deleteAllInstances 
-        ? "Recurring task series and all instances deleted successfully" 
+      message: deleteAllInstances
+        ? "Recurring task series and all instances deleted successfully"
         : "Recurring task template and future instances deleted successfully",
     });
   } catch (e) {
@@ -1220,7 +1307,7 @@ router.get("/recurring/active", async (req, res) => {
     const supabase = getServiceClient();
     const authHeader = req.headers.authorization || "";
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    
+
     if (!token) return res.status(401).json({ error: "Missing access token" });
 
     const user = await getUserFromToken(token);

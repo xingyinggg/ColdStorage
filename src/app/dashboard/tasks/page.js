@@ -37,6 +37,7 @@ export default function DashboardPage() {
     toggleTaskComplete,
     updateTask,
   } = useTasks(user);
+  // Notification creation is now handled on the server after task updates
   useProjects(user); // keep hook initialised if needed elsewhere (no local use)
 
   useEffect(() => {
@@ -133,10 +134,10 @@ export default function DashboardPage() {
     return (
       <SidebarLayout>
         <div>
-          <StaffTasksView 
-            tasks={tasks} 
+          <StaffTasksView
+            tasks={tasks}
             onLogout={handleLogout}
-            onEditTask={updateTask} 
+            onEditTask={updateTask}
           />
           <AllTasksSection
             tasks={tasks}
@@ -243,10 +244,10 @@ function AllTasksSection({
                 // Calculate ownership and collaboration status
                 const isOwner = task.owner_id && currentUserEmpId && String(currentUserEmpId) === String(task.owner_id);
                 const isCollaborator = task.collaborators && Array.isArray(task.collaborators) && task.collaborators.includes(String(currentUserEmpId));
-                
+
                 const canEdit =
                   task.owner_id &&
-                  currentUserEmpId && 
+                  currentUserEmpId &&
                   (isOwner || isCollaborator);
 
                 return (
@@ -263,13 +264,23 @@ function AllTasksSection({
                     onTaskUpdate={async (id, updates) => {
                       try {
                         console.log("Updating task:", id, updates);
+
                         const result = await onEditTask(id, updates);
-                        setFeedback({
-                          type: "success",
-                          message: "Task updated successfully.",
-                        });
+
+                        if (result && result.success) {
+                          setFeedback({
+                            type: "success",
+                            message: "Task updated successfully.",
+                          });
+                        } else {
+                          setFeedback({
+                            type: "error",
+                            message: (result && result.error) || "Failed to update task.",
+                          });
+                        }
+
                         console.log("Task update result:", result);
-                        return { success: true, data: result }; // Ensure we return a success indicator
+                        return result;
                       } catch (error) {
                         console.error("Error updating task:", error);
                         setFeedback({
@@ -308,8 +319,8 @@ function AllTasksSection({
               feedback.type === "error"
                 ? "error"
                 : feedback.type
-                ? feedback.type
-                : "info"
+                  ? feedback.type
+                  : "info"
             }
             message={feedback.message}
             onClose={() => setFeedback({ type: "", message: "" })}

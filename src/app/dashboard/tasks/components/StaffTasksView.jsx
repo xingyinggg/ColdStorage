@@ -60,7 +60,7 @@ export default function StaffTasksView({ tasks = [], onLogout, onEditTask }) {
       </div>
 
       <div className="flex gap-6">
-        {statusOrder.map((status) => {          
+        {statusOrder.map((status) => {
           return (
             <div
               key={status}
@@ -87,40 +87,40 @@ export default function StaffTasksView({ tasks = [], onLogout, onEditTask }) {
               </div>
               <div className="space-y-3">
                 {grouped[status]?.map((task) => {
-                const isOwner = task.owner_id && userProfile?.emp_id && String(userProfile.emp_id) === String(task.owner_id);
-                
-                // More robust collaborator detection - handle both array and object formats
-                let isCollaborator = false;
-                if (task.collaborators && userProfile?.emp_id) {
-                  if (Array.isArray(task.collaborators)) {
-                    // Standard array format
-                    isCollaborator = task.collaborators.includes(String(userProfile.emp_id));
-                  } else if (typeof task.collaborators === 'object' && task.collaborators !== null) {
-                    // Object format - convert to array
-                    const collabArray = Object.values(task.collaborators);
-                    isCollaborator = collabArray.includes(String(userProfile.emp_id));
-                  }
-                }
-                
-                const canEdit = task.owner_id && userProfile?.emp_id && (isOwner || isCollaborator);
+                  const isOwner = task.owner_id && userProfile?.emp_id && String(userProfile.emp_id) === String(task.owner_id);
 
-                return (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    canEdit={canEdit && typeof onEditTask === 'function'}
-                    isOwner={isOwner}
-                    isCollaborator={isCollaborator}
-                    formatDate={formatDate}
-                    getPriorityColor={getPriorityColor}
-                    getStatusColor={getStatusColor}
-                    onTaskUpdate={onEditTask}
-                  />
-                );
-              })}
+                  // More robust collaborator detection - handle both array and object formats
+                  let isCollaborator = false;
+                  if (task.collaborators && userProfile?.emp_id) {
+                    if (Array.isArray(task.collaborators)) {
+                      // Standard array format
+                      isCollaborator = task.collaborators.includes(String(userProfile.emp_id));
+                    } else if (typeof task.collaborators === 'object' && task.collaborators !== null) {
+                      // Object format - convert to array
+                      const collabArray = Object.values(task.collaborators);
+                      isCollaborator = collabArray.includes(String(userProfile.emp_id));
+                    }
+                  }
+
+                  const canEdit = task.owner_id && userProfile?.emp_id && (isOwner || isCollaborator);
+
+                  return (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      canEdit={canEdit && typeof onEditTask === 'function'}
+                      isOwner={isOwner}
+                      isCollaborator={isCollaborator}
+                      formatDate={formatDate}
+                      getPriorityColor={getPriorityColor}
+                      getStatusColor={getStatusColor}
+                      onTaskUpdate={onEditTask}
+                    />
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        );
+          );
         })}
       </div>
     </div>

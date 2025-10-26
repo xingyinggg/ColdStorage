@@ -2,12 +2,72 @@
 import DepartmentTeamWorkload from "./DepartmentTeamWorkload"
 
 export default function ReportPreviewModal({ reportType, data, onClose, userRole }) {
-  const handleExportPDF = () => {
-    // Dummy export function - in real implementation, this would generate and download a PDF
-    const reportName = reportType === 'project-report' 
-      ? `${data?.title || 'Project'} Report` 
-      : 'Team Workload Report';
-    alert(`PDF export for "${reportName}" would be generated here!`);
+  const handleExportPDF = async () => {
+    const element = document.querySelector("#report-content");
+    if (!element) {
+      alert("Report content not found!");
+      return;
+    }
+
+    try {
+      // Show loading state
+      const originalText = document.querySelector('button[onclick*="handleExportPDF"]')?.textContent;
+      const exportButton = document.querySelector('button[onclick*="handleExportPDF"]');
+      if (exportButton) {
+        exportButton.disabled = true;
+        exportButton.textContent = 'Generating PDF...';
+      }
+
+      const html = element.innerHTML;
+      const filename = reportType === "project-report"
+        ? `${data?.title || "Project"}_Report.pdf`
+        : "Team_Workload_Report.pdf";
+      const title = reportType === "project-report"
+        ? `Project Report: ${data?.title || "Unknown Project"}`
+        : "Team Workload Report";
+      
+      // Call your Express backend
+      const response = await fetch('http://localhost:4000/report/generate-pdf', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ html, filename, title })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'PDF generation failed');
+      }
+      
+      // Download the PDF
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      // Reset button
+      if (exportButton) {
+        exportButton.disabled = false;
+        exportButton.textContent = originalText;
+      }
+      
+    } catch (err) {
+      console.error("PDF export failed:", err);
+      alert(`Error generating PDF: ${err.message}`);
+      
+      // Reset button on error
+      const exportButton = document.querySelector('button[onclick*="handleExportPDF"]');
+      if (exportButton) {
+        exportButton.disabled = false;
+        exportButton.textContent = 'Export PDF';
+      }
+    }
   };
 
   const renderPreviewContent = () => {
@@ -105,7 +165,7 @@ export default function ReportPreviewModal({ reportType, data, onClose, userRole
           </div>
         </div>
 
-        <div className="p-6 overflow-y-auto max-h-[68vh]">
+        <div id='report-content' className="p-6 overflow-y-auto max-h-[68vh]">
           {renderPreviewContent()}
         </div>
 

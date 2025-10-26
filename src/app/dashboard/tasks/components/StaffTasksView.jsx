@@ -17,7 +17,7 @@ const statusColors = {
   completed: "bg-green-50",
 };
 
-export default function StaffTasksView({ tasks = [], onLogout, onEditTask }) {
+export default function StaffTasksView({ tasks = [], onLogout, onEditTask, showHeader = true }) {
   const { user, userProfile } = useAuth();
 
   // Early return if userProfile is not loaded yet
@@ -41,23 +41,25 @@ export default function StaffTasksView({ tasks = [], onLogout, onEditTask }) {
 
   return (
     <div className="p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">My Tasks</h1>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
-          >
-            Back to Dashboard
-          </Link>
-          <button
-            onClick={onLogout}
-            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-          >
-            Logout
-          </button>
+      {showHeader && (
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="text-xl font-semibold">My Tasks</h1>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
+            >
+              Back to Dashboard
+            </Link>
+            <button
+              onClick={onLogout}
+              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+            >
+              Logout
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex gap-6">
         {statusOrder.map((status) => {

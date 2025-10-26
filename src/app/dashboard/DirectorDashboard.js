@@ -105,7 +105,7 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
-            {['overview', 'tasks', 'departments', 'collaboration'].map((tab) => (
+            {['overview', 'departments', 'collaboration'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveSection(tab)}
@@ -266,35 +266,6 @@ export default function DirectorDashboard({ user, userProfile, onLogout }) {
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Tasks Tab */}
-          {activeSection === 'tasks' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">Task Management</h2>
-              </div>
-              {/* Wrapped in error boundary to catch any rendering issues */}
-              <div className="bg-white shadow rounded-lg p-6">
-                {tasksError ? (
-                  <div className="text-center py-8">
-                    <p className="text-red-500 mb-2">Error loading tasks</p>
-                    <p className="text-gray-500">{tasksError}</p>
-                  </div>
-                ) : tasksLoading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-500">Loading tasks...</p>
-                  </div>
-                ) : (
-                  <ManagerTasksView 
-                    currentUserEmpId={userProfile?.emp_id}
-                    userRole="director"
-                    tasks={allTasks || []} // Pass tasks explicitly
-                  />
-                )}
               </div>
             </div>
           )}

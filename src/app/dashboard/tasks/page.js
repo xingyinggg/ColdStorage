@@ -87,7 +87,7 @@ export default function DashboardPage() {
   }
   if (!user) return null;
 
-  if (isManager || isDirector) {
+  if (isManager && !isDirector) {
     return (
       <SidebarLayout>
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -129,7 +129,51 @@ export default function DashboardPage() {
     );
   }
 
-  if (isStaff || isDirector) {
+  if (isDirector) {
+    // Directors get enhanced view with create task button and all tasks visibility
+    return (
+      <SidebarLayout>
+        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div className="px-4 py-6 sm:px-0">
+            <div className="mb-4 flex items-center justify-between">
+              <h1 className="text-xl font-semibold">Tasks - Director View</h1>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/dashboard"
+                  className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
+                >
+                  Back to Dashboard
+                </Link>
+                <Link
+                  href="/dashboard/tasks/create"
+                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                >
+                  Create Task
+                </Link>
+              </div>
+            </div>
+
+            <div>
+              <StaffTasksView
+                tasks={tasks}
+                onLogout={handleLogout}
+                onEditTask={updateTask}
+                showHeader={false}
+              />
+              <AllTasksSection
+                tasks={tasks}
+                onMarkComplete={toggleTaskComplete}
+                currentUserEmpId={userProfile?.emp_id}
+                onEditTask={updateTask}
+              />
+            </div>
+          </div>
+        </div>
+      </SidebarLayout>
+    );
+  }
+
+  if (isStaff) {
     // Pass all tasks to StaffTasksView so it can handle all statuses
     return (
       <SidebarLayout>

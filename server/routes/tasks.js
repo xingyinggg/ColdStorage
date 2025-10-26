@@ -365,24 +365,67 @@ router.get("/", async (req, res) => {
     const empId = await getEmpIdForUserId(user.id);
     if (!empId) return res.status(400).json({ error: "emp_id not found" });
 
-    // First, get tasks where user is in collaborators
-    // Prefer full query with filters; fall back to simple select if test mocks don't support .or/.order
+    // Get user profile to check role
+    const { data: profileData, error: profileError } = await supabase
+      .from("users")
+      .select("role")
+      .eq("emp_id", empId)
+      .single();
+
+    if (profileError) return res.status(400).json({ error: profileError.message });
+
+    const userRole = profileData?.role?.toLowerCase();
+    const isDirector = userRole === 'director';
+
+    // First, get tasks based on user role
+    // Directors can see all tasks, others only see tasks they own or collaborate on
     let tasksResp;
     const baseSelect = supabase.from("tasks").select("*");
     if (typeof baseSelect.or === "function") {
       // Use full-featured query when available
-      tasksResp = await baseSelect
-        .or(`owner_id.eq.${empId},collaborators.cs.{${empId}}`)
-        .order("priority", { ascending: false })
-        .order("created_at", { ascending: false });
+      if (isDirector) {
+        // Directors see ALL tasks
+        tasksResp = await baseSelect
+          .order("priority", { ascending: false })
+          .order("created_at", { ascending: false });
+      } else {
+        // Regular users see only tasks they own or collaborate on
+        tasksResp = await baseSelect
+          .or(`owner_id.eq.${empId},collaborators.cs.{${empId}}`)
+          .order("priority", { ascending: false })
+          .order("created_at", { ascending: false });
+      }
     } else {
       // Fallback for unit tests where .or/.order may not be implemented in mocks
       tasksResp = await baseSelect;
     }
 
-    const { data: tasksData, error: tasksError } = tasksResp || {};
+    let { data: tasksData, error: tasksError } = tasksResp || {};
 
     if (tasksError) return res.status(400).json({ error: tasksError.message });
+
+    // If using fallback (for tests), filter the tasks manually
+    if (typeof baseSelect.or !== "function" && !isDirector && tasksData) {
+      tasksData = tasksData.filter(task => {
+        const isOwner = task.owner_id && String(task.owner_id) === String(empId);
+        let isCollaborator = false;
+        
+        if (task.collaborators) {
+          if (Array.isArray(task.collaborators)) {
+            isCollaborator = task.collaborators.includes(String(empId));
+          } else if (typeof task.collaborators === 'string') {
+            try {
+              const parsed = JSON.parse(task.collaborators);
+              isCollaborator = Array.isArray(parsed) && parsed.includes(String(empId));
+            } catch (e) {
+              // Ignore parsing errors
+            }
+          }
+        }
+        
+        return isOwner || isCollaborator;
+      });
+    }
 
     // Parse collaborators field if it's a JSON string
     if (tasksData && tasksData.length > 0) {

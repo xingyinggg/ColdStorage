@@ -12,10 +12,11 @@ import { useProjects } from "@/utils/hooks/useProjects";
 import { useDirectorInsights } from "@/utils/hooks/useDirectorInsights";
 import ProjectCard from "@/components/report/ProjectCard";
 import ReportPreviewModal from "@/components/report/ReportPreviewModal";
+import { useHrInsights } from "@/utils/hooks/useHrInsights";
 
 export default function ReportPage() {
   const router = useRouter();
-  const { user, userProfile, isManager, isDirector, loading, signOut } = useAuth();
+  const { user, userProfile, isManager, isDirector, isHR, loading, signOut } = useAuth();
   console.log("test", isManager, "isDirector", isDirector);
 
   const handleLogout = async () => {
@@ -60,7 +61,7 @@ export default function ReportPage() {
                 </Link>
               </div>
               
-              {isDirector ? <DirectorReports /> : isManager ? <ManagerReports /> : <StaffReports />}
+              {isDirector ? <DirectorReports /> : isHR ? <HRReports /> : isManager ? <ManagerReports /> : <StaffReports />}
             </div>
           </div>
         </div>
@@ -585,6 +586,227 @@ function ManagerReports() {
           data={getReportData()}
           onClose={() => setShowPreview(false)}
           userRole="manager"
+        />
+      )}
+    </div>
+  );
+}
+
+
+
+function HRReports() {
+  const [showPreview, setShowPreview] = useState(false);
+  const [reportType, setReportType] = useState(null);
+  const [selectedData, setSelectedData] = useState(null);
+  const [timeRange, setTimeRange] = useState("3months");
+  const { user, userProfile } = useAuth();
+  const { projects = [], loading: projectsLoading } = useProjects(user);
+  // const { hrInsights, loading: hrLoading } = useHrInsights(); // Commented out until hook is implemented
+
+  const handleGenerateReport = (type, data = null) => {
+    setReportType(type);
+    setSelectedData(data);
+    setShowPreview(true);
+  };
+
+  // Filter projects for HR user (same logic as other roles)
+  const myProjects = projectsLoading
+    ? []
+    : projects.filter((project) => {
+        const isOwner =
+          project.owner_id &&
+          String(project.owner_id) === String(userProfile?.emp_id);
+        const isMember =
+          project.members &&
+          Array.isArray(project.members) &&
+          project.members.includes(String(userProfile?.emp_id));
+        return isOwner || isMember;
+      });
+
+  return (
+    <div className="space-y-6">
+      {/* Time Range Filter */}
+      <div className="bg-blue-50 p-4 rounded-lg">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium text-blue-900">
+            HR Analytics & Reports
+          </h3>
+          <div className="flex items-center space-x-2">
+            <label className="text-sm text-blue-700">Time Period:</label>
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value)}
+              className="border border-blue-300 rounded-md px-3 py-1 text-sm"
+            >
+              <option value="1month">Last Month</option>
+              <option value="3months">Last 3 Months</option>
+              <option value="6months">Last 6 Months</option>
+              <option value="1year">Last Year</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* HR Projects Section */}
+      <div className="border rounded-lg p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">
+          My Projects{" "}
+          {projectsLoading ? (
+            <span className="text-sm text-gray-500 font-normal">
+              (Loading...)
+            </span>
+          ) : (
+            `(${myProjects.length})`
+          )}
+        </h3>
+
+        {myProjects.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">
+            You are not assigned to any projects yet.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {myProjects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                userEmpId={userProfile?.emp_id}
+                onGenerateReport={handleGenerateReport}
+                showTeamBadge={false}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Employee Performance Analytics */}
+      <div className="border rounded-lg p-6 hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between">
+          <div className="flex-grow">
+            <h3 className="text-lg font-medium text-gray-900">
+              Employee Performance Analytics
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Comprehensive analysis of employee productivity, task completion rates,
+              and performance trends
+            </p>
+            <div className="mt-2 text-xs text-gray-500">
+              Includes: Individual performance metrics, productivity scores, workload
+              distribution, and improvement recommendations
+            </div>
+          </div>
+          <button
+            onClick={() =>
+              handleGenerateReport("employee-performance", {
+                timeRange,
+                type: "performance",
+              })
+            }
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Generate Report
+          </button>
+        </div>
+      </div>
+
+      {/* Team Collaboration & Dynamics */}
+      <div className="border rounded-lg p-6 hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between">
+          <div className="flex-grow">
+            <h3 className="text-lg font-medium text-gray-900">
+              Team Collaboration Analysis
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Cross-departmental collaboration patterns, team dynamics, and
+              communication effectiveness
+            </p>
+            <div className="mt-2 text-xs text-gray-500">
+              Includes: Inter-team project success, collaboration frequency,
+              communication patterns, and team synergy metrics
+            </div>
+          </div>
+          <button
+            onClick={() =>
+              handleGenerateReport("team-collaboration", {
+                timeRange,
+                type: "collaboration",
+              })
+            }
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          >
+            Generate Report
+          </button>
+        </div>
+      </div>
+
+      {/* Workload & Wellbeing Analysis */}
+      <div className="border rounded-lg p-6 hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between">
+          <div className="flex-grow">
+            <h3 className="text-lg font-medium text-gray-900">
+              Employee Workload & Well-being
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Workload distribution analysis, burnout risk assessment, and employee
+              well-being indicators
+            </p>
+            <div className="mt-2 text-xs text-gray-500">
+              Includes: Workload balance, overtime patterns, task equity, burnout risk
+              indicators, and wellness recommendations
+            </div>
+          </div>
+          <button
+            onClick={() =>
+              handleGenerateReport("workload-wellbeing", {
+                timeRange,
+                type: "wellbeing",
+              })
+            }
+            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+          >
+            Generate Report
+          </button>
+        </div>
+      </div>
+
+      {/* Organizational Performance Trends */}
+      <div className="border rounded-lg p-6 hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between">
+          <div className="flex-grow">
+            <h3 className="text-lg font-medium text-gray-900">
+              Organizational Performance Trends
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Long-term organizational performance trends, departmental growth, and
+              strategic insights
+            </p>
+            <div className="mt-2 text-xs text-gray-500">
+              Includes: Performance trends, departmental growth patterns, efficiency
+              improvements, and strategic recommendations
+            </div>
+          </div>
+          <button
+            onClick={() =>
+              handleGenerateReport("organizational-trends", {
+                timeRange,
+                type: "trends",
+              })
+            }
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+          >
+            Generate Report
+          </button>
+        </div>
+      </div>
+
+      {/* Report Preview Modal */}
+      {showPreview && (
+        <ReportPreviewModal
+          reportType={reportType}
+          data={selectedData}
+          onClose={() => setShowPreview(false)}
+          userRole="hr"
         />
       )}
     </div>

@@ -230,13 +230,36 @@ function OverviewTab({ headcount, orgActiveTasks, orgOverdueTasks, departments, 
                            trends.some(t => t.period && t.completed !== undefined && t.total !== undefined));
 
   // Use this for clarity in the component
-  const effectiveTrends = validTrendsData ? trends : [
-    { period: '2025-06', completed: 45, total: 60 },
-    { period: '2025-07', completed: 52, total: 68 },
-    { period: '2025-08', completed: 48, total: 70 },
-    { period: '2025-09', completed: 60, total: 75 },
-    { period: '2025-10', completed: 55, total: 80 }
-  ];
+  const effectiveTrends = validTrendsData ? trends : (() => {
+    // Generate sample data for past 3 months (including current month)
+    const now = new Date();
+    const currentMonth = now.getMonth(); // 0-indexed
+    const currentYear = now.getFullYear();
+    const sampleData = [];
+    
+    // Generate for current month and 2 months back (total of 3 months)
+    for (let i = 2; i >= 0; i--) {
+      const targetMonth = currentMonth - i;
+      const date = new Date(currentYear, targetMonth, 1);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1; // Convert back to 1-indexed
+      const periodKey = `${year}-${String(month).padStart(2, '0')}`;
+      
+      console.log(`HrDashboard generating sample data for: ${periodKey}`);
+      
+      // Generate realistic sample data
+      const baseTotal = 50 + Math.floor(Math.random() * 30);
+      const baseCompleted = Math.floor(baseTotal * (0.6 + Math.random() * 0.3));
+      
+      sampleData.push({
+        period: periodKey,
+        completed: baseCompleted,
+        total: baseTotal
+      });
+    }
+    
+    return sampleData;
+  })();
 
   console.log("Using mock data?", !validTrendsData);
   console.log("Effective trends data:", effectiveTrends);

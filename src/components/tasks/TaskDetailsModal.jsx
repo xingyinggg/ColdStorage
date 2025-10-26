@@ -11,14 +11,29 @@ export default function TaskDetailsModal({
   task, 
   onClose, 
   memberNames = {},
-  projectNames = {} // Add this prop
+  projectNames = {}, // Add this prop
+  subtasks = [], // Accept subtasks from props
+  loadingSubtasks = false, // Accept loading state from props
+  subtasksError = null // Accept error state from props
 }) {
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [showRecurrenceHistory, setShowRecurrenceHistory] = useState(false);
-  const { subtasks, loading: loadingSubtasks, error: subtasksError, fetchSubtasks } = useSubtasks();
+  
+  // Fallback to useSubtasks hook if props are not provided
+  const { 
+    subtasks: hookSubtasks, 
+    loading: hookLoadingSubtasks, 
+    error: hookSubtasksError, 
+    fetchSubtasks 
+  } = useSubtasks();
+  
+  // Use props if provided, otherwise fall back to hook
+  const finalSubtasks = subtasks.length > 0 ? subtasks : hookSubtasks;
+  const finalLoadingSubtasks = subtasks.length > 0 ? loadingSubtasks : hookLoadingSubtasks;
+  const finalSubtasksError = subtasks.length > 0 ? subtasksError : hookSubtasksError;
 
   // Memoize collaborator names to prevent unnecessary recalculations
   const collaboratorNames = useMemo(() => {
@@ -30,12 +45,12 @@ export default function TaskDetailsModal({
     return [];
   }, [task?.id, JSON.stringify(task?.collaborators), JSON.stringify(memberNames)]); // Use JSON.stringify for stable comparison
 
-  // Fetch subtasks when modal opens for a given task
+  // Fetch subtasks when modal opens for a given task (only if not provided as props)
   useEffect(() => {
-    if (open && task?.id) {
+    if (open && task?.id && subtasks.length === 0) {
       fetchSubtasks(task.id);
     }
-  }, [open, task?.id, fetchSubtasks]);
+  }, [open, task?.id, subtasks.length, fetchSubtasks]);
 
   if (!open || !task) return null;
 
@@ -350,18 +365,18 @@ export default function TaskDetailsModal({
           {/* Subtasks */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Subtasks {Array.isArray(subtasks) ? `(${subtasks.length})` : ''}
+              Subtasks {Array.isArray(finalSubtasks) ? `(${finalSubtasks.length})` : ''}
             </label>
             <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
-              {loadingSubtasks ? (
+              {finalLoadingSubtasks ? (
                 <p className="text-sm text-gray-500">Loading subtasks...</p>
-              ) : subtasksError ? (
-                <p className="text-sm text-red-600">{subtasksError}</p>
-              ) : !subtasks || subtasks.length === 0 ? (
+              ) : finalSubtasksError ? (
+                <p className="text-sm text-red-600">{finalSubtasksError}</p>
+              ) : !finalSubtasks || finalSubtasks.length === 0 ? (
                 <p className="text-sm text-gray-500">No subtasks</p>
               ) : (
                 <div className="space-y-3">
-                  {subtasks.map((st) => (
+                  {finalSubtasks.map((st) => (
                     <div key={st.id} className="bg-white border border-gray-200 rounded p-3">
                       <div className="flex items-start justify-between">
                         <div className="min-w-0 pr-3">
@@ -373,7 +388,7 @@ export default function TaskDetailsModal({
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {/* Priority */}
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getPriorityStyle(st.priority)}`}>
-                            {st.priority !== null && st.priority !== undefined ? `P${st.priority}` : 'No P'}
+                            {st.priority !== null && st.priority !== undefined ? `Priority: ${st.priority}` : 'No P'}
                           </span>
                           {/* Status */}
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusStyle(st.status)}`}>

@@ -13,26 +13,23 @@ export default function TeamWorkloadReportContent({ teamWorkload = {}, departmen
   const totalSoon    = entries.reduce((s, [, m]) => s + (m.due_soon_count || 0), 0);
 
   const level = (n) => (n >= 15 ? "high" : n >= 8 ? "medium" : "low");
+  
 
   return (
     <div className="space-y-6">
-      {/* Title */}
-      <h4 className="text-xl font-semibold text-gray-900">Team Workload Overview</h4>
-
-      {/* Team names (if any) */}
-      {departmentTeams.length > 0 && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <h5 className="text-lg font-medium text-gray-900 mb-2">Team Name:</h5>
-          <div className="text-base text-gray-700 space-y-1">
-            {departmentTeams.map((t) => (
-              <div key={t.id}>• {t.team_name}</div>
-            ))}
-          </div>
-        </div>
-      )}
+      <div className="flex items-baseline space-x-2">
+        <h4 className="text-xl font-semibold text-gray-900">
+          Team Workload Overview for
+        </h4>
+        {departmentTeams.map((t) => (
+          <span key={t.id} className="text-xl font-semibold text-blue-700">
+            {t.team_name}
+          </span>
+        ))}
+      </div>
 
       {/* Summary tiles */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-4 avoid-break-inside">
         <div className="bg-white shadow rounded-lg p-6">
           <p className="text-sm text-gray-500">Team Members</p>
           <p className="text-3xl font-bold text-gray-800">{totalMembers}</p>
@@ -52,7 +49,7 @@ export default function TeamWorkloadReportContent({ teamWorkload = {}, departmen
       </div>
 
       {/* Members list */}
-      <div className="bg-white shadow rounded-lg p-6">
+      <div className="page-break">
         <h5 className="text-lg font-medium text-gray-900 mb-4">Member Workload</h5>
         <div className="space-y-4">
           {entries.map(([empId, m]) => {
@@ -60,7 +57,7 @@ export default function TeamWorkloadReportContent({ teamWorkload = {}, departmen
             const lvl  = level(m.total_tasks || 0);
 
             return (
-              <div key={empId} className="border border-gray-100 rounded-lg p-4 hover:bg-gray-50 transition">
+              <div key={empId} className="border border-gray-100 rounded-lg p-4 hover:bg-gray-50 transition avoid-break-inside">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center">
                     <div className="w-11 h-11 bg-blue-100 rounded-full flex items-center justify-center">

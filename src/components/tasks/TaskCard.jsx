@@ -51,6 +51,61 @@ const getPriorityColor = (priority) => {
   };
 };
 
+const getStatusColor = (status) => {
+  if (!status) {
+    return {
+      bg: "bg-gray-50",
+      text: "text-gray-700",
+      border: "border-gray-200",
+    };
+  }
+
+  const statusLower = String(status).toLowerCase();
+  
+  // Unassigned - Gray
+  if (statusLower === 'unassigned') {
+    return {
+      bg: "bg-gray-50",
+      text: "text-gray-700",
+      border: "border-gray-200",
+    };
+  }
+  
+  // Ongoing/In Progress - Yellow
+  if (statusLower === 'ongoing' || statusLower === 'in progress' || statusLower === 'in_progress') {
+    return {
+      bg: "bg-yellow-50",
+      text: "text-yellow-700",
+      border: "border-yellow-200",
+    };
+  }
+  
+  // Under Review - Blue
+  if (statusLower === 'under review' || statusLower === 'under_review' || statusLower === 'pending') {
+    return {
+      bg: "bg-blue-50",
+      text: "text-blue-700",
+      border: "border-blue-200",
+    };
+  }
+  
+  // Completed/Done - Green
+  if (statusLower === 'completed' || statusLower === 'done') {
+    return {
+      bg: "bg-green-50",
+      text: "text-green-700",
+      border: "border-green-200",
+    };
+  }
+
+  // Default - Gray
+  return {
+    bg: "bg-gray-50",
+    text: "text-gray-700",
+    border: "border-gray-200",
+  };
+};
+
 export default function TaskCard({
   task,
   onTaskUpdate, // new prop name used in some places
@@ -74,6 +129,7 @@ export default function TaskCard({
       console.warn("TaskCard has canEdit=true but no update handlers - disabling edit functionality");
     }
   }, [onTaskUpdate, onEdit, canEdit, actualCanEdit]);
+  
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
@@ -85,6 +141,10 @@ export default function TaskCard({
   const [subtaskBeingEdited, setSubtaskBeingEdited] = useState(null);
   const [subtaskSaving, setSubtaskSaving] = useState(false);
   const [toast, setToast] = useState({ type: "", message: "" });
+  
+  // NEW: State for managing subtask count and loading
+  const [subtaskCount, setSubtaskCount] = useState(null);
+  const [loadingSubtaskCount, setLoadingSubtaskCount] = useState(false);
   const [hasFetchedSubtasks, setHasFetchedSubtasks] = useState(false);
 
   const openEditModal = (e) => {
@@ -103,19 +163,54 @@ export default function TaskCard({
   // Add details modal functions
   const openDetailsModal = () => {
     setDetailsModalOpen(true);
+    // Fetch subtasks if not already fetched
+    if (task?.id && !hasFetchedSubtasks) {
+      setLoadingSubtaskCount(true);
+      fetchSubtasks(task.id)
+        .then(() => {
+          setSubtaskCount(subtasks.length);
+          setHasFetchedSubtasks(true);
+        })
+        .finally(() => setLoadingSubtaskCount(false));
+    }
   };
 
   const closeDetailsModal = () => {
     setDetailsModalOpen(false);
   };
 
-  // Fetch subtasks the first time user expands the section
+  // NEW: Fetch subtask count on component mount
   useEffect(() => {
-    if (showSubtasks && task?.id && !hasFetchedSubtasks) {
-      fetchSubtasks(task.id).finally(() => setHasFetchedSubtasks(true));
+    if (task?.id && !hasFetchedSubtasks && !loadingSubtaskCount) {
+      setLoadingSubtaskCount(true);
+      fetchSubtasks(task.id)
+        .then(() => {
+          setSubtaskCount(subtasks.length);
+          setHasFetchedSubtasks(true);
+        })
+        .catch((error) => {
+          console.error("Error fetching subtasks:", error);
+          setSubtaskCount(0); // Assume no subtasks on error
+        })
+        .finally(() => {
+          setLoadingSubtaskCount(false);
+        });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showSubtasks, task?.id]);
+  }, [task?.id, hasFetchedSubtasks, loadingSubtaskCount, fetchSubtasks]);
+
+  // NEW: Update subtask count when subtasks change
+  useEffect(() => {
+    if (hasFetchedSubtasks && Array.isArray(subtasks)) {
+      setSubtaskCount(subtasks.length);
+    }
+  }, [subtasks, hasFetchedSubtasks]);
+
+  // REMOVED: Old useEffect that only fetched on showSubtasks change
+  // useEffect(() => {
+  //   if (showSubtasks && task?.id && !hasFetchedSubtasks) {
+  //     fetchSubtasks(task.id).finally(() => setHasFetchedSubtasks(true));
+  //   }
+  // }, [showSubtasks, task?.id]);
 
   const handleEditTask = async (taskId, formOrFormData) => {
     try {
@@ -236,12 +331,6 @@ export default function TaskCard({
               <RecurrenceStatus task={task} variant="compact" />
             )}
             
-            {/* Subtasks count badge (visible after first load) */}
-            {hasFetchedSubtasks && Array.isArray(subtasks) && (
-              <div className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200" title="Subtasks count">
-                {subtasks.length}
-              </div>
-            )}
             {/* Priority Badge - Show numeric value */}
             {task.priority !== null && task.priority !== undefined && (
               <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${priorityConfig.bg} ${priorityConfig.text} ${priorityConfig.border}`}>
@@ -296,16 +385,19 @@ export default function TaskCard({
           {/* Due Date */}
           {task.due_date && (
             <div className="flex items-center text-xs">
-              <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3 h-3 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span className={`font-medium ${isOverdue
+              <span className="font-medium text-gray-600">
+                Due: 
+              </span>
+              <span className={`font-medium ml-1 ${isOverdue
                   ? "text-red-600"
                   : isApproaching
                     ? "text-amber-600"
                     : "text-gray-600"
                 }`}>
-                Due: {new Date(task.due_date).toLocaleDateString()}
+                {new Date(task.due_date).toLocaleDateString()}
                 {isOverdue && (
                   <span className="ml-1 text-red-500 font-semibold">
                     (Overdue)
@@ -320,88 +412,103 @@ export default function TaskCard({
             </div>
           )}
         </div>
-        {/* Subtasks toggle */}
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation(); // stop click event from bubbling up to parent
-              setShowSubtasks((v) => !v)}}
-            className="flex items-center text-xs text-blue-600 hover:text-blue-800"
-            title="Toggle subtasks"
-          >
-            <svg className={`w-3.5 h-3.5 mr-1 transition-transform ${showSubtasks ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            {showSubtasks ? "Hide subtasks" : "View subtasks"}
-          </button>
-
-          {showSubtasks && (
-          <div className="mt-2 border border-gray-200 rounded-md p-3 bg-gray-50">
-              {loadingSubtasks ? (
-                <p className="text-xs text-gray-500">Loading subtasks...</p>
-              ) : subtasksError ? (
-                <p className="text-xs text-red-600">{subtasksError}</p>
-              ) : !subtasks || subtasks.length === 0 ? (
-                <p className="text-xs text-gray-500">No subtasks</p>
+        
+        {(subtaskCount > 0 || loadingSubtaskCount) && (
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation(); 
+                setShowSubtasks((v) => !v);
+              }}
+              className="flex items-center text-xs text-blue-600 hover:text-blue-800"
+              title="Toggle subtasks"
+            >
+              <svg className={`w-3.5 h-3.5 mr-1 transition-transform ${showSubtasks ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              {loadingSubtaskCount ? (
+                "Loading subtasks..."
+              ) : showSubtasks ? (
+                "Hide subtasks"
               ) : (
-                <ul className="space-y-2">
-                  {subtasks.map((st) => (
-                    <li key={st.id} className="bg-white border border-gray-200 rounded p-2">
-                      <div className="flex items-start justify-between">
-                        <div className="min-w-0 pr-3">
-                          <p className="text-xs font-medium text-gray-900 truncate">{st.title}</p>
-                          {st.description && (
-                            <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">{st.description}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {st.priority !== null && st.priority !== undefined && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 border border-gray-200">P{st.priority}</span>
-                          )}
-                          {st.status && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 border border-gray-200">{String(st.status).replace('_',' ')}</span>
-                          )}
-                          {userCanEdit && (
-                            <button
-                              type="button"
-                              onClick={() => { setSubtaskBeingEdited(st); setSubtaskEditOpen(true); }}
-                              className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
-                              title="Edit subtask"
-                            >
-                              Edit
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-1 flex items-center text-[11px] text-gray-600 gap-3 flex-wrap">
-                        {st.due_date && (
-                          <div className="flex items-center">
-                            <svg className="w-3 h-3 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            {new Date(st.due_date).toLocaleDateString()}
-                          </div>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                `View subtasks (${subtaskCount})`
               )}
-              <div className="mt-2">
-                <button
-                  type="button"
-                  onClick={openDetailsModal}
-                  className="text-[11px] text-blue-600 hover:text-blue-800"
-                >
-                  Open full details
-                </button>
+            </button>
+
+            {showSubtasks && (
+              <div className="mt-2 border border-gray-200 rounded-md p-3 bg-gray-50">
+                {loadingSubtasks ? (
+                  <p className="text-xs text-gray-500">Loading subtasks...</p>
+                ) : subtasksError ? (
+                  <p className="text-xs text-red-600">{subtasksError}</p>
+                ) : subtasks.length === 0 ? (
+                  <p className="text-xs text-gray-500">No subtasks found</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {subtasks.map((st) => (
+                      <li key={st.id} className="bg-white border border-gray-200 rounded p-2">
+                        <div className="flex items-start justify-between">
+                          <div className="min-w-0 pr-3">
+                            <p className="text-xs font-medium text-gray-900 truncate">{st.title}</p>
+                            {st.description && (
+                              <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">{st.description}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {st.priority !== null && st.priority !== undefined && (
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(st.priority).bg} ${getPriorityColor(st.priority).text} ${getPriorityColor(st.priority).border}`}>
+                                Priority: {st.priority}
+                              </span>
+                            )}
+                            {st.status && (
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(st.status).bg} ${getStatusColor(st.status).text} ${getStatusColor(st.status).border}`}>
+                                {String(st.status).replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                              </span>
+                            )}
+                            {userCanEdit && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Prevent modal from opening
+                                  setSubtaskBeingEdited(st); 
+                                  setSubtaskEditOpen(true);
+                                }}
+                                className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-gray-700 bg-gray-100 hover:bg-gray-200 flex-shrink-0"
+                                title="Edit subtask"
+                              >
+                                Edit
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-1 flex items-center text-[11px] text-gray-600 gap-3 flex-wrap">
+                          {st.due_date && (
+                            <div className="flex items-center">
+                              <svg className="w-3 h-3 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              {new Date(st.due_date).toLocaleDateString()}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={openDetailsModal}
+                    className="text-[11px] text-blue-600 hover:text-blue-800"
+                  >
+                    Open full details
+                  </button>
+                </div>
               </div>
-              {/* Inline recent history display (from TaskDetails modal fetch) */}
-              {/* Minimal stub: encourage users to open full details for full log */}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Task Details Modal - Add this */}
@@ -411,6 +518,9 @@ export default function TaskCard({
         onClose={closeDetailsModal}
         memberNames={memberNames}
         projectNames={projectNames}
+        subtasks={subtasks} 
+        loadingSubtasks={loadingSubtasks}
+        subtasksError={subtasksError}
       />
 
       {userCanEdit && (

@@ -9,6 +9,7 @@ import { useProjects } from "@/utils/hooks/useProjects";
 import { useUsers } from "@/utils/hooks/useUsers";
 import TaskDetailsModal from "@/components/tasks/TaskDetailsModal";
 import { useAuth } from "@/utils/hooks/useAuth";
+import { useManagerTasks } from "@/utils/hooks/useManagerTasks";
 
 // Utilities for calendar calculations
 const startOfDay = (date) => {
@@ -49,14 +50,12 @@ export default function SchedulePage() {
     user,
     isStaff,
     userProfile,
-    loading: authLoading,
     signOut,
   } = useAuth();
   const {
     tasks,
     loading: tasksLoading,
     error: tasksError,
-    fetchTasks,
   } = useTasks(user);
   const { projects, loading: projectsLoading } = useProjects(user);
   const { users, fetchUsers } = useUsers();
@@ -64,12 +63,23 @@ export default function SchedulePage() {
   const [selectedTask, setSelectedTask] = useState(null);
   const router = useRouter();
 
-  // Load users for assignee filter only if not staff
+  // Manager/Director datasets
+  const roleLower = (userProfile?.role || "").toLowerCase();
+  const isManagerView = roleLower === "manager" || roleLower === "director";
+  const {
+    allTasks: managerAllTasks,
+    allProjects: managerAllProjects,
+    staffMembers,
+    loading: managerLoading,
+    error: managerError,
+  } = useManagerTasks();
+
+  // Load users for assignee filter only if not staff or manager/director
   useEffect(() => {
-    if (!isStaff) {
+    if (!isStaff && !isManagerView) {
       fetchUsers({});
     }
-  }, [fetchUsers, isStaff]);
+  }, [fetchUsers, isStaff, isManagerView]);
 
   // For staff, auto-filter to self and hide the assignee filter
   useEffect(() => {
@@ -80,26 +90,35 @@ export default function SchedulePage() {
   }, [isStaff, userProfile?.emp_id]);
 
   // Build maps for quick lookups
+  const projectList = useMemo(() => (
+    isManagerView ? (managerAllProjects || []) : (projects || [])
+  ), [isManagerView, managerAllProjects, projects]);
   const projectIdToTitle = useMemo(() => {
     const map = {};
-    (projects || []).forEach((p) => {
+    (projectList || []).forEach((p) => {
       map[p.id] = p.title;
     });
     return map;
-  }, [projects]);
+  }, [projectList]);
 
   const memberIdToName = useMemo(() => {
     const map = {};
-    (users || []).forEach((u) => {
+    const sourceUsers = isManagerView ? (staffMembers || []) : (users || []);
+    (sourceUsers || []).forEach((u) => {
       const id = u.emp_id || u.id;
       if (id) map[id] = u.name || u.email || String(id);
     });
     return map;
-  }, [users]);
+  }, [users, staffMembers, isManagerView]);
+
+  // Choose tasks by role
+  const roleTasks = useMemo(() => (
+    isManagerView ? (managerAllTasks || []) : (tasks || [])
+  ), [isManagerView, managerAllTasks, tasks]);
 
   // Normalize and filter tasks: must have due_date
   const schedulableTasks = useMemo(() => {
-    return (tasks || [])
+    return (roleTasks || [])
       .filter((t) => !!t.due_date)
       .filter((t) =>
         projectFilter
@@ -130,7 +149,7 @@ export default function SchedulePage() {
         ...t,
         due: startOfDay(new Date(t.due_date)),
       }));
-  }, [tasks, projectFilter, statusFilter, assigneeFilter]);
+  }, [roleTasks, projectFilter, statusFilter, assigneeFilter]);
 
   const daysGrid = useMemo(() => {
     if (view === "day") return [cursorDate];
@@ -311,7 +330,7 @@ export default function SchedulePage() {
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
               >
                 <option value="">All projects</option>
-                {(projects || []).map((p) => (
+                {(projectList || []).map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.title}
                   </option>
@@ -336,7 +355,7 @@ export default function SchedulePage() {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 >
                   <option value="">All assignees</option>
-                  {(users || []).map((u) => (
+                  {((isManagerView ? (staffMembers || []) : (users || []))).map((u) => (
                     <option key={u.emp_id || u.id} value={u.emp_id || u.id}>
                       {u.name || u.email}
                     </option>
@@ -350,12 +369,12 @@ export default function SchedulePage() {
               <div className="text-sm font-medium text-gray-700">
                 {headerLabel}
               </div>
-              {(tasksLoading || projectsLoading) && (
+              {(((isManagerView ? managerLoading : tasksLoading) || projectsLoading) ? (
                 <div className="text-xs text-gray-500">Loading…</div>
-              )}
-              {tasksError && (
-                <div className="text-xs text-red-600">{tasksError}</div>
-              )}
+              ) : null)}
+              {((isManagerView ? managerError : tasksError) ? (
+                <div className="text-xs text-red-600">{isManagerView ? managerError : tasksError}</div>
+              ) : null)}
             </div>
 
             {/* Calendar grid */}

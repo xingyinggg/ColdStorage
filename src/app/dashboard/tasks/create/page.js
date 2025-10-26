@@ -9,10 +9,12 @@ import { useProjects } from "@/utils/hooks/useProjects";
 import { useAuth } from "@/utils/hooks/useAuth";
 import { useUsers } from "@/utils/hooks/useUsers";
 import TaskForm from "@/components/tasks/TaskForm";
+import SidebarLayout from "@/components/layout/SidebarLayout";
+import HeaderBar from "@/components/layout/HeaderBar";
 
 export default function CreateTaskPage() {
   const router = useRouter();
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, signOut } = useAuth();
   const { createTask } = useTasks(user);
   const { createNotification } = useNotification();
   const {
@@ -49,7 +51,9 @@ export default function CreateTaskPage() {
         if (allUsersResult.success) {
           // If user is HR, filter to only show HR staff
           if (isHR) {
-            setAllStaff(allUsersResult.users.filter(user => user.role === "hr"));
+            setAllStaff(
+              allUsersResult.users.filter((user) => user.role === "hr")
+            );
           } else {
             setAllStaff(allUsersResult.users);
           }
@@ -89,7 +93,9 @@ export default function CreateTaskPage() {
 
         // If user is HR, filter project members to only show HR staff
         if (isHR) {
-          filteredMembers = filteredMembers.filter(member => member.role === "hr");
+          filteredMembers = filteredMembers.filter(
+            (member) => member.role === "hr"
+          );
         }
 
         setProjectMembers(filteredMembers);
@@ -169,7 +175,7 @@ export default function CreateTaskPage() {
         const task = result.task;
         const isAssigning =
           task.owner_id && task.owner_id !== userProfile.emp_id;
-        console.log(`This is the result of isassigning ${isAssigning}`)
+        console.log(`This is the result of isassigning ${isAssigning}`);
         if (!isAssigning) {
           const creatorNotification = {
             emp_id: userProfile.emp_id,
@@ -191,7 +197,9 @@ export default function CreateTaskPage() {
             const assigneeNotification = {
               emp_id: task.owner_id,
               title: `New Task Assigned (${task.title})`,
-              description: `${assigner?.name || "Someone"} has assigned you a new task: "${task.title}".`,
+              description: `${
+                assigner?.name || "Someone"
+              } has assigned you a new task: "${task.title}".`,
               type: "Task Assignment",
               created_at: new Date().toISOString(),
             };
@@ -201,7 +209,9 @@ export default function CreateTaskPage() {
             const assignerNotification = {
               emp_id: userProfile.emp_id,
               title: `Task Assigned Successfully`,
-              description: `You assigned "${task.title}" to ${assignee?.name || "an employee"}.`,
+              description: `You assigned "${task.title}" to ${
+                assignee?.name || "an employee"
+              }.`,
               type: "Task Assignment Confirmation",
               created_at: new Date().toISOString(),
             };
@@ -210,7 +220,10 @@ export default function CreateTaskPage() {
             console.error("Error creating task assignment notifications:", err);
           }
         }
-        if (Array.isArray(taskData.collaborators) && taskData.collaborators.length > 0) {
+        if (
+          Array.isArray(taskData.collaborators) &&
+          taskData.collaborators.length > 0
+        ) {
           try {
             for (const collaboratorEmpId of taskData.collaborators) {
               // Skip notifying yourself
@@ -222,13 +235,19 @@ export default function CreateTaskPage() {
               const collaboratorNotification = {
                 emp_id: collaboratorEmpId,
                 title: `Added as collaborator for (${task.title})`,
-                description: `${assigner?.name || "Someone"} has added you as a collaborator for the shared task: "${task.title}".`,
+                description: `${
+                  assigner?.name || "Someone"
+                } has added you as a collaborator for the shared task: "${
+                  task.title
+                }".`,
                 type: "Shared Task",
                 created_at: new Date().toISOString(),
               };
 
               await createNotification(collaboratorNotification);
-              console.log(`📩 Sent collaborator notification to ${collaborator?.name}`);
+              console.log(
+                `📩 Sent collaborator notification to ${collaborator?.name}`
+              );
             }
           } catch (err) {
             console.error("Error notifying collaborators:", err);
@@ -246,53 +265,67 @@ export default function CreateTaskPage() {
     }
   };
 
+  const handleLogout = async () => {
+    await signOut();
+    router.push("/login");
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Create Task</h1>
-          <Link
-            href="/dashboard/tasks"
-            className="text-blue-600 hover:text-blue-800 text-sm"
-          >
-            Back to tasks
-          </Link>
-        </div>
-      </nav>
+    <SidebarLayout>
+      <div className="min-h-screen bg-gray-50">
+        <HeaderBar
+          title={
+            <div className="flex items-center space-x-3">
+              <Link
+                href="/dashboard/tasks"
+                className="text-blue-600 hover:text-blue-800 font-medium text-sm sm:text-base"
+              >
+                ← Tasks
+              </Link>
+              <span>Create Task</span>
+            </div>
+          }
+          user={user}
+          userProfile={userProfile}
+          roleLabel={userProfile?.role || "User"}
+          roleColor="gray"
+          onLogout={handleLogout}
+        />
 
-      <main className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="bg-white shadow rounded-lg p-6">
-          {/* Role indicator */}
-          <div className="bg-blue-50 p-3 rounded-md mb-6">
-            <p className="text-sm text-blue-700">
-              Creating as:{" "}
-              <span className="font-medium capitalize">
-                {userProfile?.role}
-              </span>
-              {canAssignTasks && " (Can assign tasks to others)"}
-            </p>
+        <main className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+          <div className="bg-white shadow rounded-lg p-6">
+            {/* Role indicator */}
+            <div className="bg-blue-50 p-3 rounded-md mb-6">
+              <p className="text-sm text-blue-700">
+                Creating as:{" "}
+                <span className="font-medium capitalize">
+                  {userProfile?.role}
+                </span>
+                {canAssignTasks && " (Can assign tasks to others)"}
+              </p>
+            </div>
+
+            {/* Task Form with integrated Subtask Manager */}
+            <TaskForm
+              onSubmit={handleTaskSubmit}
+              onCancel={() => router.push("/dashboard/tasks")}
+              canAssignTasks={canAssignTasks}
+              availableStaff={availableStaff}
+              availableCollaborators={getCollaboratorOptions()}
+              loading={submitting}
+              error={error}
+              selectedProject={selectedProject}
+              projects={projects}
+              loadingProjects={loadingProjects}
+              loadingMembers={loadingMembers}
+              onProjectChange={setSelectedProject}
+              file={file}
+              onFileChange={setFile}
+              isHR={isHR}
+            />
           </div>
-
-          {/* Task Form with integrated Subtask Manager */}
-          <TaskForm
-            onSubmit={handleTaskSubmit}
-            onCancel={() => router.push("/dashboard/tasks")}
-            canAssignTasks={canAssignTasks}
-            availableStaff={availableStaff}
-            availableCollaborators={getCollaboratorOptions()}
-            loading={submitting}
-            error={error}
-            selectedProject={selectedProject}
-            projects={projects}
-            loadingProjects={loadingProjects}
-            loadingMembers={loadingMembers}
-            onProjectChange={setSelectedProject}
-            file={file}
-            onFileChange={setFile}
-            isHR={isHR}
-          />
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </SidebarLayout>
   );
 }

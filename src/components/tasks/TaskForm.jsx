@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import SubtaskManager from "./SubtaskManager";
+import { useRouter } from "next/navigation";
 
 export default function TaskForm({ 
   initialData = {}, 
@@ -32,6 +33,8 @@ export default function TaskForm({
     ...initialData
   });
 
+  const router = useRouter();
+  
   // Subtasks state - only for main tasks
   const [subtasks, setSubtasks] = useState([]);
 
@@ -564,7 +567,7 @@ export default function TaskForm({
       <div className="flex items-center justify-end gap-3 pt-4">
         <button
           type="button"
-          onClick={onCancel}
+          onClick={() => router.back()}
           className="inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
         >
           Cancel

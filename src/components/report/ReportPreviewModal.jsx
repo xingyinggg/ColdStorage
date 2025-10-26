@@ -74,6 +74,134 @@ export default function ReportPreviewModal({ reportType, data, onClose, userRole
         </div>
       );
     }
+
+    if (reportType === 'organizational-report' && data) {
+      return (
+        <div className="space-y-6">
+          <h4 className="font-medium text-gray-900">
+            {data.filter === 'all' ? 'Organization-wide Report' : `${data.filter} Department Report`}
+          </h4>
+          
+          {/* Summary Section */}
+          <div className="bg-purple-50 p-4 rounded-lg">
+            <h5 className="text-lg font-medium text-purple-900 mb-3">Executive Summary</h5>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="text-purple-700">Total Departments:</span>
+                <div className="font-bold text-purple-900">{data.summary.totalDepartments}</div>
+              </div>
+              <div>
+                <span className="text-purple-700">Total Employees:</span>
+                <div className="font-bold text-purple-900">{data.summary.totalEmployees}</div>
+              </div>
+              <div>
+                <span className="text-purple-700">Total Tasks:</span>
+                <div className="font-bold text-purple-900">{data.summary.totalTasks}</div>
+              </div>
+              <div>
+                <span className="text-purple-700">Total Projects:</span>
+                <div className="font-bold text-purple-900">{data.summary.totalProjects}</div>
+              </div>
+              <div>
+                <span className="text-purple-700">Avg Task Completion:</span>
+                <div className="font-bold text-purple-900">{data.summary.avgTaskCompletion}%</div>
+              </div>
+              <div>
+                <span className="text-purple-700">Avg Project Completion:</span>
+                <div className="font-bold text-purple-900">{data.summary.avgProjectCompletion}%</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Department Breakdown */}
+          <div>
+            <h5 className="text-lg font-medium text-gray-900 mb-3">Department Performance</h5>
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {data.departments.map((dept) => (
+                <div key={dept.name} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h6 className="font-medium text-gray-900">{dept.name}</h6>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      dept.productivityScore >= 80 ? 'bg-green-100 text-green-800' :
+                      dept.productivityScore >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      Score: {dept.productivityScore}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 text-sm text-gray-600">
+                    <div>
+                      <span className="block">Employees: </span>
+                      <span className="font-medium text-gray-900">{dept.employeeCount}</span>
+                    </div>
+                    <div>
+                      <span className="block">Task Completion: </span>
+                      <span className="font-medium text-gray-900">{dept.taskCompletionRate}%</span>
+                    </div>
+                    <div>
+                      <span className="block">Tasks/Employee: </span>
+                      <span className="font-medium text-gray-900">{dept.tasksPerEmployee}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Collaboration Metrics */}
+          {data.collaborationMetrics && (
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h5 className="text-lg font-medium text-blue-900 mb-3">Collaboration Analysis</h5>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-blue-700">Cross-Dept Projects:</span>
+                  <div className="font-bold text-blue-900">{data.collaborationMetrics.crossDeptProjects}</div>
+                </div>
+                <div>
+                  <span className="text-blue-700">Collaboration Rate:</span>
+                  <div className="font-bold text-blue-900">{data.collaborationMetrics.collaborationRate}%</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="text-xs text-gray-500 mt-4">
+            This report provides comprehensive organizational insights including department performance, 
+            resource allocation, collaboration metrics, and strategic recommendations.
+          </div>
+        </div>
+      );
+    }
+
+    if (reportType === 'task-analysis' && data) {
+      return (
+        <div className="space-y-6">
+          <h4 className="font-medium text-gray-900">Task Analysis Report</h4>
+          
+          <div className="bg-green-50 p-4 rounded-lg">
+            <h5 className="text-lg font-medium text-green-900 mb-3">Task Distribution Analysis</h5>
+            <div className="space-y-3">
+              {data.departments.map((dept) => (
+                <div key={dept.name} className="flex items-center justify-between p-3 bg-white rounded border">
+                  <div>
+                    <div className="font-medium text-gray-900">{dept.name}</div>
+                    <div className="text-sm text-gray-600">{dept.employeeCount} employees</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-green-900">{dept.totalTasks} tasks</div>
+                    <div className="text-sm text-gray-600">{dept.tasksPerEmployee} per employee</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="text-xs text-gray-500 mt-4">
+            This report analyzes task distribution patterns, completion rates, and workload balance across departments.
+          </div>
+        </div>
+      );
+    }
   };
 
   const getReportTitle = () => {
@@ -82,6 +210,12 @@ export default function ReportPreviewModal({ reportType, data, onClose, userRole
     }
     if (reportType === 'team-workload') {
       return 'Team Workload Report';
+    }
+    if (reportType === 'organizational-report') {
+      return data?.filter === 'all' ? 'Organization-wide Report' : `${data?.filter} Department Report`;
+    }
+    if (reportType === 'task-analysis') {
+      return 'Task Analysis Report';
     }
     return 'Report Preview';
   };

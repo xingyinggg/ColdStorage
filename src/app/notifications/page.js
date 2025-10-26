@@ -153,7 +153,7 @@ export default function NotificationPage() {
         />
 
         {/* Main Content with padding */}
-        <div className="px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           {/* Stats Overview */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
             <div className="bg-white rounded-lg shadow p-4 sm:p-6">

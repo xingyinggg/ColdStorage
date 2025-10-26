@@ -35,7 +35,7 @@ export default function SidebarLayout({ children }) {
       <NotificationInitializer />
       <aside
         suppressHydrationWarning
-        className={`${collapsed ? "w-16" : "w-64"} bg-white border-r border-gray-200 transition-all duration-200 flex flex-col fixed left-0 top-0 h-screen z-10`}
+        className={`${collapsed ? "w-16" : "w-64"} bg-white shadow-sm border-b border-gray-200 transition-all duration-200 flex flex-col fixed left-0 top-0 h-screen z-10`}
       >
         <div className="h-14 border-b border-gray-200 flex items-center justify-between px-3">
           {!collapsed && (

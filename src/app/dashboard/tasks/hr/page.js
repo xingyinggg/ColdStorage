@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useTasks } from "@/utils/hooks/useTasks";
 import { useAuth } from "@/utils/hooks/useAuth";
 import SidebarLayout from "@/components/layout/SidebarLayout";
+import HeaderBar from "@/components/layout/HeaderBar";
 import HrTasksView from "../components/HrTasksView";
 import Toast from "@/components/ui/Toast";
 import { formatDate, getPriorityColor, getStatusColor } from "../components/taskUtils";
@@ -191,8 +192,33 @@ function AllTasksSection({
     return () => clearTimeout(id);
   }, [feedback]);
   
+  const handleLogout = async () => {
+    await signOut();
+    router.push("/login");
+  };
+  
   return (
-    <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <SidebarLayout>
+      <div className="min-h-screen bg-gray-50">
+        <HeaderBar
+          title={
+            <div className="flex items-center space-x-3">
+              <Link
+                href="/dashboard"
+                className="text-blue-600 hover:text-blue-800 font-medium text-sm sm:text-base"
+              >
+                ← Dashboard
+              </Link>
+              <span>HR Tasks</span>
+            </div>
+          }
+          user={user}
+          userProfile={userProfile}
+          roleLabel="HR"
+          roleColor="purple"
+          onLogout={handleLogout}
+        />
+        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div className="px-4 py-6 sm:px-0">
         <div className="bg-white shadow rounded-lg p-6 mt-6">
           <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
@@ -267,6 +293,6 @@ function AllTasksSection({
           />
         </div>
       </div>
-    </div>
+    </SidebarLayout>
   );
 }

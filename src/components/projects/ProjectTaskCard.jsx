@@ -34,6 +34,10 @@ export default function ProjectTaskCard({
 
   const openDetailsModal = () => {
     setDetailsModalOpen(true);
+    // Fetch subtasks if not already fetched
+    if (task?.id && !hasFetchedSubtasks) {
+      fetchSubtasks(task.id).finally(() => setHasFetchedSubtasks(true));
+    }
   };
 
   const closeDetailsModal = () => {
@@ -217,6 +221,9 @@ export default function ProjectTaskCard({
         onClose={closeDetailsModal}
         memberNames={memberNames}
         projectNames={projectNames}
+        subtasks={subtasks} 
+        loadingSubtasks={loadingSubtasks}
+        subtasksError={subtasksError}
       />
 
       {canEdit && (

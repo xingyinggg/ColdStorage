@@ -13,6 +13,7 @@ import ManagerDashboard from "./ManagerDashboard";
 import HrDashboard from "./HrDashboard";
 import DirectorDashboard from "./DirectorDashboard";
 import SidebarLayout from "@/components/layout/SidebarLayout";
+import HeaderBar from "@/components/layout/HeaderBar";
 import StaffDashboardComponent from "./StaffDashboard";
 
 const MEMBER_NAMES_CACHE_KEY = "member_names_cache";
@@ -61,18 +62,18 @@ export default function DashboardPage() {
 
   useEffect(() => {
     isMountedRef.current = true;
-    
+
     // Redirect to login if not authenticated
     if (!authLoading && !user) {
       router.push("/login");
     }
-    
+
     // Reset fetch refs when user changes (e.g., new login)
     if (user) {
       hasFetchedMemberNamesRef.current = false;
       hasFetchedProjectNamesRef.current = false;
     }
-    
+
     return () => {
       isMountedRef.current = false;
     };
@@ -104,7 +105,7 @@ export default function DashboardPage() {
         try {
           const { names, timestamp } = JSON.parse(cachedData);
           const now = Date.now();
-          
+
           if (now - timestamp < CACHE_DURATION) {
             setMemberNames(names);
             hasFetchedMemberNamesRef.current = true;
@@ -150,16 +151,19 @@ export default function DashboardPage() {
         usersData.forEach((user) => {
           namesMap[user.emp_id] = user.name;
         });
-        
+
         if (isMountedRef.current) {
           setMemberNames(namesMap);
           hasFetchedMemberNamesRef.current = true;
-          
+
           // Cache the results
-          sessionStorage.setItem(MEMBER_NAMES_CACHE_KEY, JSON.stringify({
-            names: namesMap,
-            timestamp: Date.now()
-          }));
+          sessionStorage.setItem(
+            MEMBER_NAMES_CACHE_KEY,
+            JSON.stringify({
+              names: namesMap,
+              timestamp: Date.now(),
+            })
+          );
         }
       } catch (error) {
         console.error("Error fetching member names:", error);
@@ -169,7 +173,7 @@ export default function DashboardPage() {
 
     fetchMemberNames();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTasks, overdueTasks]);  // Fetch project names using hook - with caching
+  }, [activeTasks, overdueTasks]); // Fetch project names using hook - with caching
   useEffect(() => {
     // Skip if already fetched
     if (hasFetchedProjectNamesRef.current) return;
@@ -181,7 +185,7 @@ export default function DashboardPage() {
         try {
           const { names, timestamp } = JSON.parse(cachedData);
           const now = Date.now();
-          
+
           if (now - timestamp < CACHE_DURATION) {
             setProjectNames(names);
             hasFetchedProjectNamesRef.current = true;
@@ -197,12 +201,15 @@ export default function DashboardPage() {
         if (isMountedRef.current) {
           setProjectNames(projectNamesMap);
           hasFetchedProjectNamesRef.current = true;
-          
+
           // Cache the results
-          sessionStorage.setItem(PROJECT_NAMES_CACHE_KEY, JSON.stringify({
-            names: projectNamesMap,
-            timestamp: Date.now()
-          }));
+          sessionStorage.setItem(
+            PROJECT_NAMES_CACHE_KEY,
+            JSON.stringify({
+              names: projectNamesMap,
+              timestamp: Date.now(),
+            })
+          );
         }
       } catch (error) {
         console.error("Error fetching project names:", error);

@@ -8,6 +8,7 @@ import { useAuth } from "@/utils/hooks/useAuth";
 import Link from "next/link";
 import HrDashboard from "../HrDashboard";
 import SidebarLayout from "@/components/layout/SidebarLayout";
+import HeaderBar from "@/components/layout/HeaderBar";
 import TaskCard from "@/components/tasks/TaskCard";
 import Toast from "@/components/ui/Toast";
 import { useManagerTasks } from "@/utils/hooks/useManagerTasks";
@@ -58,6 +59,14 @@ export default function DashboardPage() {
   if (!hasHydrated) {
     return (
       <SidebarLayout>
+        <HeaderBar
+          title="Tasks"
+          user={user}
+          userProfile={userProfile}
+          roleLabel={userProfile?.role || "User"}
+          roleColor="blue"
+          onLogout={handleLogout}
+        />
         <div className="min-h-[50vh] flex items-center justify-center">
           <div className="text-lg">Loading...</div>
         </div>
@@ -69,6 +78,14 @@ export default function DashboardPage() {
   if (!user && authLoading) {
     return (
       <SidebarLayout>
+        <HeaderBar
+          title="Tasks"
+          user={user}
+          userProfile={userProfile}
+          roleLabel="User"
+          roleColor="gray"
+          onLogout={handleLogout}
+        />
         <div className="min-h-[50vh] flex items-center justify-center">
           <div className="text-lg">Loading...</div>
         </div>
@@ -79,6 +96,14 @@ export default function DashboardPage() {
   if (user && authLoading && !userProfile) {
     return (
       <SidebarLayout>
+        <HeaderBar
+          title="Tasks"
+          user={user}
+          userProfile={userProfile}
+          roleLabel="User"
+          roleColor="gray"
+          onLogout={handleLogout}
+        />
         <div className="min-h-[50vh] flex items-center justify-center">
           <div className="text-lg">Loading...</div>
         </div>
@@ -90,8 +115,20 @@ export default function DashboardPage() {
   if (isManager || isDirector) {
     return (
       <SidebarLayout>
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
+        <HeaderBar
+          title={
+            <div className="flex items-center space-x-2">
+              <span>Tasks</span>
+            </div>
+          }
+          user={user}
+          userProfile={userProfile}
+          roleLabel={userProfile?.role || "User"}
+          roleColor="gray"
+          onLogout={handleLogout}
+        />
+        <main className="max-w-7xl mx-auto py-2 sm:py-6 px-2 sm:px-6 lg:px-8">
+          <div className="px-2 py-3 sm:px-4 sm:py-6">
             <div className="mb-4 flex items-center justify-between">
               <h1 className="text-xl font-semibold">Tasks</h1>
               <div className="flex items-center gap-3">
@@ -112,7 +149,7 @@ export default function DashboardPage() {
 
             <ManagerTasksView currentUserEmpId={userProfile?.emp_id} />
           </div>
-        </div>
+        </main>
       </SidebarLayout>
     );
   }
@@ -133,6 +170,18 @@ export default function DashboardPage() {
     // Pass all tasks to StaffTasksView so it can handle all statuses
     return (
       <SidebarLayout>
+        <HeaderBar
+          title={
+            <div className="flex items-center space-x-2">
+              <span>My Tasks</span>
+            </div>
+          }
+          user={user}
+          userProfile={userProfile}
+          roleLabel={userProfile?.role || "User"}
+          roleColor="gray"
+          onLogout={handleLogout}
+        />
         <div>
           <StaffTasksView
             tasks={tasks}
@@ -154,6 +203,14 @@ export default function DashboardPage() {
   if (userProfile?.role) {
     return (
       <SidebarLayout>
+        <HeaderBar
+          title="Access Denied"
+          user={user}
+          userProfile={userProfile}
+          roleLabel={userProfile?.role || "Unknown"}
+          roleColor="red"
+          onLogout={handleLogout}
+        />
         <div className="min-h-[50vh] flex items-center justify-center">
           <div className="text-center">
             <h2 className="text-xl font-bold mb-4">Access Denied</h2>
@@ -173,6 +230,14 @@ export default function DashboardPage() {
   // Profile not ready yet, show lightweight loader
   return (
     <SidebarLayout>
+      <HeaderBar
+        title="Tasks"
+        user={user}
+        userProfile={userProfile}
+        roleLabel="User"
+        roleColor="gray"
+        onLogout={handleLogout}
+      />
       <div className="min-h-[50vh] flex items-center justify-center">
         <div className="text-lg">Loading...</div>
       </div>
@@ -242,8 +307,14 @@ function AllTasksSection({
             <div className="space-y-3">
               {tasks.map((task) => {
                 // Calculate ownership and collaboration status
-                const isOwner = task.owner_id && currentUserEmpId && String(currentUserEmpId) === String(task.owner_id);
-                const isCollaborator = task.collaborators && Array.isArray(task.collaborators) && task.collaborators.includes(String(currentUserEmpId));
+                const isOwner =
+                  task.owner_id &&
+                  currentUserEmpId &&
+                  String(currentUserEmpId) === String(task.owner_id);
+                const isCollaborator =
+                  task.collaborators &&
+                  Array.isArray(task.collaborators) &&
+                  task.collaborators.includes(String(currentUserEmpId));
 
                 const canEdit =
                   task.owner_id &&
@@ -275,7 +346,9 @@ function AllTasksSection({
                         } else {
                           setFeedback({
                             type: "error",
-                            message: (result && result.error) || "Failed to update task.",
+                            message:
+                              (result && result.error) ||
+                              "Failed to update task.",
                           });
                         }
 
@@ -287,7 +360,10 @@ function AllTasksSection({
                           type: "error",
                           message: error?.message || "Failed to update task.",
                         });
-                        return { success: false, error: error?.message || "Failed to update task" };
+                        return {
+                          success: false,
+                          error: error?.message || "Failed to update task",
+                        };
                       }
                     }}
                     // Also provide onEdit for backward compatibility
@@ -306,7 +382,10 @@ function AllTasksSection({
                           type: "error",
                           message: error?.message || "Failed to update task.",
                         });
-                        return { success: false, error: error?.message || "Failed to update task" };
+                        return {
+                          success: false,
+                          error: error?.message || "Failed to update task",
+                        };
                       }
                     }}
                   />
@@ -319,8 +398,8 @@ function AllTasksSection({
               feedback.type === "error"
                 ? "error"
                 : feedback.type
-                  ? feedback.type
-                  : "info"
+                ? feedback.type
+                : "info"
             }
             message={feedback.message}
             onClose={() => setFeedback({ type: "", message: "" })}
@@ -330,5 +409,3 @@ function AllTasksSection({
     </div>
   );
 }
-
-// manager/staff subviews moved to ./components

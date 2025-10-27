@@ -269,7 +269,7 @@ export default function ProjectStatusReport({ project }) {
           </div>
           <div className="text-sm text-gray-600 mt-1">Under Review</div>
         </div>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center" suppressHydrationWarning>
           <div className="text-3xl font-bold text-red-700">
             {stats.overdue}
           </div>
@@ -543,18 +543,18 @@ export default function ProjectStatusReport({ project }) {
                     const isPast = date < new Date() && !isToday;
 
                     return (
-                      <div key={dateKey} className="border-l-4 border-blue-500 pl-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <h4 className={`font-semibold ${isPast ? 'text-red-700' : isToday ? 'text-blue-700' : 'text-gray-900'}`}>
+                      <div key={dateKey} className="border-l-4 border-blue-500 pl-4" suppressHydrationWarning>
+                        <div className="flex items-center gap-2 mb-3" suppressHydrationWarning>
+                          <h4 className={`font-semibold ${isPast ? 'text-red-700' : isToday ? 'text-blue-700' : 'text-gray-900'}`} suppressHydrationWarning>
                             {formatDate(dateKey)}
                           </h4>
                           {isToday && (
-                            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full" suppressHydrationWarning>
                               Today
                             </span>
                           )}
                           {isPast && (
-                            <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
+                            <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full" suppressHydrationWarning>
                               Past Due
                             </span>
                           )}

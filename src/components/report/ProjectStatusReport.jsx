@@ -330,7 +330,8 @@ export default function ProjectStatusReport({ project }) {
         )}
       </div>
 
-      {/* Task Timeline */}
+      {/* ========== COMMENTED OUT: ORIGINAL TIMELINE (CREATED FROM SCRATCH) ========== */}
+      {/* 
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
           <svg
@@ -354,17 +355,14 @@ export default function ProjectStatusReport({ project }) {
           </p>
         ) : (
           <div className="space-y-4">
-            {/* Timeline visualization */}
             <div className="relative">
               {sortedTasks.map((task, index) => (
                 <div key={task.id} className="relative pb-8 last:pb-0">
-                  {/* Timeline line */}
                   {index < sortedTasks.length - 1 && (
                     <div className="absolute left-4 top-8 bottom-0 w-0.5 bg-gray-300"></div>
                   )}
 
                   <div className="relative flex items-start group">
-                    {/* Timeline dot */}
                     <div
                       className={`absolute left-0 flex items-center justify-center w-8 h-8 rounded-full border-4 border-white ${
                         task.status?.toLowerCase() === "completed"
@@ -391,7 +389,6 @@ export default function ProjectStatusReport({ project }) {
                       )}
                     </div>
 
-                    {/* Task card */}
                     <div className="ml-12 flex-1 bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -484,6 +481,206 @@ export default function ProjectStatusReport({ project }) {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+      </div>
+      */}
+      {/* ========== END COMMENTED TIMELINE ========== */}
+
+      {/* NEW: Task Schedule/Calendar View (Grouped by Date) */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <svg
+            className="w-5 h-5 mr-2"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+          Task Timeline
+        </h3>
+        {tasks.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">
+            No tasks found for this project
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {/* Group tasks by date */}
+            {(() => {
+              // Group tasks by due date
+              const tasksByDate = new Map();
+              const noDateTasks = [];
+
+              tasks.forEach(task => {
+                if (task.due_date) {
+                  const dateKey = new Date(task.due_date).toDateString();
+                  if (!tasksByDate.has(dateKey)) {
+                    tasksByDate.set(dateKey, []);
+                  }
+                  tasksByDate.get(dateKey).push(task);
+                } else {
+                  noDateTasks.push(task);
+                }
+              });
+
+              // Sort dates
+              const sortedDates = Array.from(tasksByDate.keys()).sort(
+                (a, b) => new Date(a) - new Date(b)
+              );
+
+              return (
+                <>
+                  {sortedDates.map((dateKey) => {
+                    const tasksForDate = tasksByDate.get(dateKey);
+                    const date = new Date(dateKey);
+                    const isToday = date.toDateString() === new Date().toDateString();
+                    const isPast = date < new Date() && !isToday;
+
+                    return (
+                      <div key={dateKey} className="border-l-4 border-blue-500 pl-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <h4 className={`font-semibold ${isPast ? 'text-red-700' : isToday ? 'text-blue-700' : 'text-gray-900'}`}>
+                            {formatDate(dateKey)}
+                          </h4>
+                          {isToday && (
+                            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                              Today
+                            </span>
+                          )}
+                          {isPast && (
+                            <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
+                              Past Due
+                            </span>
+                          )}
+                          <span className="text-sm text-gray-500">
+                            ({tasksForDate.length} {tasksForDate.length === 1 ? 'task' : 'tasks'})
+                          </span>
+                        </div>
+
+                        <div className="space-y-2">
+                          {tasksForDate.map((task) => (
+                            <div
+                              key={task.id}
+                              className="bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-gray-100 transition-colors"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h5 className="font-medium text-gray-900">
+                                      {task.title}
+                                    </h5>
+                                    <span
+                                      className={`px-2 py-0.5 text-xs rounded-full ${getStatusColor(
+                                        task.status
+                                      )}`}
+                                    >
+                                      {task.status}
+                                    </span>
+                                  </div>
+                                  {task.description && (
+                                    <p className="text-sm text-gray-600 mb-2">
+                                      {task.description}
+                                    </p>
+                                  )}
+                                  <div className="flex items-center gap-4 text-xs text-gray-600">
+                                    <div className="flex items-center">
+                                      <svg
+                                        className="w-3 h-3 mr-1"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                        />
+                                      </svg>
+                                      {task.owner_name}
+                                    </div>
+                                    <div className={getPriorityColor(task.priority)}>
+                                      Priority: {task.priority || "N/A"}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Tasks without due dates */}
+                  {noDateTasks.length > 0 && (
+                    <div className="border-l-4 border-gray-400 pl-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <h4 className="font-semibold text-gray-700">
+                          No Due Date
+                        </h4>
+                        <span className="text-sm text-gray-500">
+                          ({noDateTasks.length} {noDateTasks.length === 1 ? 'task' : 'tasks'})
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {noDateTasks.map((task) => (
+                          <div
+                            key={task.id}
+                            className="bg-gray-50 border border-gray-200 rounded-lg p-3"
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <h5 className="font-medium text-gray-900">
+                                {task.title}
+                              </h5>
+                              <span
+                                className={`px-2 py-0.5 text-xs rounded-full ${getStatusColor(
+                                  task.status
+                                )}`}
+                              >
+                                {task.status}
+                              </span>
+                            </div>
+                            {task.description && (
+                              <p className="text-sm text-gray-600 mb-2">
+                                {task.description}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-4 text-xs text-gray-600">
+                              <div className="flex items-center">
+                                <svg
+                                  className="w-3 h-3 mr-1"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                  />
+                                </svg>
+                                {task.owner_name}
+                              </div>
+                              <div className={getPriorityColor(task.priority)}>
+                                Priority: {task.priority || "N/A"}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
       </div>

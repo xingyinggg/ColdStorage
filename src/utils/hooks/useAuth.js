@@ -13,6 +13,22 @@ export const useAuth = () => {
   let initialFetched = false;
 
   if (typeof window !== 'undefined') {
+    // E2E: if flagged, provide a fake authenticated user/profile
+    try {
+      const e2eFlag = window.localStorage?.getItem('e2e_auth');
+      if (e2eFlag === '1') {
+        initialUser = { id: 'mock-user-123', email: 'mock@example.com' };
+        initialProfile = {
+          emp_id: 'E2E001',
+          role: 'staff',
+          department: 'QA',
+          name: 'E2E Tester'
+        };
+        initialLoading = false;
+        initialFetched = true;
+      }
+    } catch {}
+
     try {
       const cachedData = sessionStorage.getItem(CACHE_KEY);
       if (cachedData) {

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 // tests/e2e/auth-fixture.js
 import { test as base, expect } from "@playwright/test";
 
@@ -5,9 +6,16 @@ import { test as base, expect } from "@playwright/test";
 const fakeUser = { id: "mock-user-123", email: "mock@example.com" };
 
 export const test = base.extend({
-  page: async ({ page }, use) => {
-    // before scripts run, replace window.supabase with a fake one
+  page: async ({ page }, usePage) => {
+    // Mark requests as E2E to let middleware bypass auth
+    await page.setExtraHTTPHeaders({ 'x-e2e-test': '1' });
+
+    // before scripts run, flag E2E auth and optionally stub a minimal supabase
     await page.addInitScript((user) => {
+      try {
+        window.localStorage.setItem('e2e_auth', '1');
+      } catch {}
+
       // completely stub supabase.createClient
       window.supabase = {
         auth: {
@@ -28,7 +36,7 @@ export const test = base.extend({
       };
     }, fakeUser);
 
-    await use(page);
+    await usePage(page);
   },
 });
 

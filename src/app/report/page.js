@@ -12,6 +12,9 @@ import { useProjects } from "@/utils/hooks/useProjects";
 import { useDirectorInsights } from "@/utils/hooks/useDirectorInsights";
 import ProjectCard from "@/components/report/ProjectCard";
 import ReportPreviewModal from "@/components/report/ReportPreviewModal";
+import ReportCard from "@/components/report/ReportCard";
+import ProjectsSection from "@/components/report/ProjectsSection";
+import FilterSection from "@/components/report/FilterSection";
 import { useHrInsights } from "@/utils/hooks/useHrInsights";
 
 export default function ReportPage() {
@@ -49,7 +52,7 @@ export default function ReportPage() {
           <div className="px-4 py-6 sm:px-0">
             <div className="bg-white shadow rounded-lg p-6">
               {/* Header with back button */}
-              <div className="mb-6 flex items-center justify-between">
+              {/* <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h1 className="text-2xl font-semibold text-gray-900 mb-2">Reports</h1>
                 </div>
@@ -59,7 +62,7 @@ export default function ReportPage() {
                 >
                   Back to Dashboard
                 </Link>
-              </div>
+              </div> */}
               
               {isDirector ? <DirectorReports /> : isHR ? <HRReports /> : isManager ? <ManagerReports /> : <StaffReports />}
             </div>
@@ -163,8 +166,7 @@ function DirectorReports() {
 
   // Get unique departments for filter
   const departments = departmentPerformance?.map(dept => dept.name) || [];
-  const uniqueDepartments = ['all', ...new Set(departments)];
-
+  
   // Filter projects based on department selection
   const filteredProjects = departmentFilter === 'all' 
     ? projects 
@@ -200,130 +202,72 @@ function DirectorReports() {
 
   const loading = projectsLoading || insightsLoading;
 
+  // Filter options for department selector
+  const departmentOptions = [
+    { value: 'all', label: 'All Departments' },
+    ...departments.map(dept => ({ value: dept, label: dept }))
+  ];
+
   return (
     <div className="space-y-6">
       {/* Department Filter */}
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium text-gray-900">Organization Reports</h3>
-          <div className="flex items-center space-x-2">
-            <label htmlFor="department-filter" className="text-sm text-gray-600">
-              Filter by Department:
-            </label>
-            <select
-              id="department-filter"
-              value={departmentFilter}
-              onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-              disabled={loading}
-            >
-              <option value="all">All Departments</option>
-              {departments.map((dept) => (
-                <option key={dept} value={dept}>
-                  {dept}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
+      <FilterSection
+        title="Organization Reports"
+        filterLabel="Filter by Department"
+        filterValue={departmentFilter}
+        onFilterChange={setDepartmentFilter}
+        options={departmentOptions}
+        disabled={loading}
+      />
 
-      {/* Organizational Report Card */}
-      <div className="border rounded-lg p-6 hover:shadow-md transition-shadow">
-        <div className="flex items-center justify-between">
-          <div className="flex-grow">
-            <h3 className="text-lg font-medium text-gray-900">
-              {departmentFilter === 'all' ? 'Organization-wide Report' : `${departmentFilter} Department Report`}
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              {departmentFilter === 'all' 
-                ? 'Generate comprehensive report for entire organization and all departments'
-                : `Generate detailed report for ${departmentFilter} department performance and metrics`
-              }
-            </p>
-            <div className="mt-2 text-xs text-gray-500">
-              Includes: Department performance, task distribution, project status, collaboration metrics, and productivity analysis
-            </div>
-          </div>
-          
-          <button
-            onClick={() => handleGenerateReport('organizational-report', getOrganizationalReportData())}
-            className={`px-4 py-2 rounded-lg transition-colors ml-4 ${
-              !loading
-                ? 'bg-purple-600 text-white hover:bg-purple-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-            disabled={loading}
-          >
-            {loading ? 'Loading...' : 'Generate Report'}
-          </button>
-        </div>
-      </div>
-
-      {/* Task-based Reports */}
-      <div className="border rounded-lg p-6 hover:shadow-md transition-shadow">
-        <div className="flex items-center justify-between">
-          <div className="flex-grow">
-            <h3 className="text-lg font-medium text-gray-900">Task-based Analysis Report</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Generate reports based on task status, priorities, and completion rates across the organization
-            </p>
-            <div className="mt-2 text-xs text-gray-500">
-              Includes: Task status breakdown, priority analysis, overdue tracking, and completion trends
-            </div>
-          </div>
-          
-          <button
-            onClick={() => handleGenerateReport('task-analysis', { 
-              departments: departmentPerformance,
-              filter: departmentFilter,
-              type: 'task-analysis'
-            })}
-            className={`px-4 py-2 rounded-lg transition-colors ml-4 ${
-              !loading
-                ? 'bg-green-600 text-white hover:bg-green-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-            disabled={loading}
-          >
-            {loading ? 'Loading...' : 'Generate Report'}
-          </button>
-        </div>
-      </div>
-
-      {/* Projects Overview (if showing all departments) */}
+      {/* Director's Projects Overview (if showing all departments) */}
       {departmentFilter === 'all' && (
-        <div className="border rounded-lg p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
-            All Projects Overview {loading ? (
-              <span className="text-sm text-gray-500 font-normal">(Loading...)</span>
-            ) : (
-              `(${projects.length})`
-            )}
-          </h3>
-          
-          {projects.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No projects found in the organization.</p>
-          ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {projects.slice(0, 10).map((project) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  userEmpId={userProfile?.emp_id}
-                  onGenerateReport={(type, projectData) => handleGenerateReport('project-report', projectData)}
-                  showTeamBadge={false}
-                />
-              ))}
-              {projects.length > 10 && (
-                <div className="text-center py-2 text-sm text-gray-500">
-                  Showing 10 of {projects.length} projects. Use organizational report for complete view.
-                </div>
-              )}
+        <ProjectsSection
+          title="My Projects"
+          projects={projects.slice(0, 10)}
+          loading={loading}
+          userProfile={userProfile}
+          onGenerateReport={(type, projectData) => handleGenerateReport('project-report', projectData)}
+          showTeamBadge={false}
+          emptyMessage="No projects found in the organization."
+          maxHeight="max-h-96"
+        >
+          {projects.length > 10 && (
+            <div className="text-center py-2 text-sm text-gray-500">
+              Showing 10 of {projects.length} projects. Use organizational report for complete view.
             </div>
           )}
-        </div>
+        </ProjectsSection>
       )}
+
+      {/* Organizational Report Card */}
+      <ReportCard
+        title={departmentFilter === 'all' ? 'Organization-wide Report' : `${departmentFilter} Department Report`}
+        description={departmentFilter === 'all' 
+          ? 'Generate comprehensive report for entire organization and all departments'
+          : `Generate detailed report for ${departmentFilter} department performance and metrics`
+        }
+        details="Includes: Department performance, task distribution, project status, collaboration metrics, and productivity analysis"
+        buttonText="Generate Report"
+        buttonColor="bg-purple-600 hover:bg-purple-700"
+        onClick={() => handleGenerateReport('organizational-report', getOrganizationalReportData())}
+        loading={loading}
+      />
+
+      {/* Task-based Reports */}
+      <ReportCard
+        title="Task-based Analysis Report"
+        description="Generate reports based on task status, priorities, and completion rates across the organization"
+        details="Includes: Task status breakdown, priority analysis, overdue tracking, and completion trends"
+        buttonText="Generate Report"
+        buttonColor="bg-green-600 hover:bg-green-700"
+        onClick={() => handleGenerateReport('task-analysis', { 
+          departments: departmentPerformance,
+          filter: departmentFilter,
+          type: 'task-analysis'
+        })}
+        loading={loading}
+      />
 
       {/* Report Preview Modal */}
       {showPreview && (
@@ -462,7 +406,7 @@ function ManagerReports() {
       <div className="border rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-gray-900">
-            Projects{" "}
+            My Projects{" "}
             {projectsLoading ? (
               <span className="text-sm text-gray-500 font-normal">
                 (Loading...)
@@ -625,182 +569,79 @@ function HRReports() {
         return isOwner || isMember;
       });
 
+  // Time range options for filter
+  const timeRangeOptions = [
+    { value: "1month", label: "Last Month" },
+    { value: "3months", label: "Last 3 Months" },
+    { value: "6months", label: "Last 6 Months" },
+    { value: "1year", label: "Last Year" },
+    { value: "custom", label: "Custom Range" }
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Time Range Filter */}
-      <div className="bg-blue-50 p-4 rounded-lg">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium text-blue-900">
-            HR Analytics & Reports
-          </h3>
-          <div className="flex items-center space-x-2">
-            <label className="text-sm text-blue-700">Time Period:</label>
-            <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value)}
-              className="border border-blue-300 rounded-md px-3 py-1 text-sm"
-            >
-              <option value="1month">Last Month</option>
-              <option value="3months">Last 3 Months</option>
-              <option value="6months">Last 6 Months</option>
-              <option value="1year">Last Year</option>
-              <option value="custom">Custom Range</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
       {/* HR Projects Section */}
-      <div className="border rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
-          My Projects{" "}
-          {projectsLoading ? (
-            <span className="text-sm text-gray-500 font-normal">
-              (Loading...)
-            </span>
-          ) : (
-            `(${myProjects.length})`
-          )}
-        </h3>
-
-        {myProjects.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">
-            You are not assigned to any projects yet.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {myProjects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                userEmpId={userProfile?.emp_id}
-                onGenerateReport={handleGenerateReport}
-                showTeamBadge={false}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      <ProjectsSection
+        title="My Projects"
+        projects={myProjects}
+        loading={projectsLoading}
+        userProfile={userProfile}
+        onGenerateReport={handleGenerateReport}
+        showTeamBadge={false}
+        emptyMessage="You are not assigned to any projects yet."
+      />
+      
+      {/* Time Range Filter */}
+      <FilterSection
+        title="HR Analytics & Reports"
+        filterLabel="Time Period"
+        filterValue={timeRange}
+        onFilterChange={setTimeRange}
+        options={timeRangeOptions}
+        bgColor="bg-blue-50"
+        titleColor="text-blue-900"
+        labelColor="text-blue-700"
+      />
 
       {/* Employee Performance Analytics */}
-      <div className="border rounded-lg p-6 hover:shadow-md transition-shadow">
-        <div className="flex items-center justify-between">
-          <div className="flex-grow">
-            <h3 className="text-lg font-medium text-gray-900">
-              Employee Performance Analytics
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Comprehensive analysis of employee productivity, task completion rates,
-              and performance trends
-            </p>
-            <div className="mt-2 text-xs text-gray-500">
-              Includes: Individual performance metrics, productivity scores, workload
-              distribution, and improvement recommendations
-            </div>
-          </div>
-          <button
-            onClick={() =>
-              handleGenerateReport("employee-performance", {
-                timeRange,
-                type: "performance",
-              })
-            }
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Generate Report
-          </button>
-        </div>
-      </div>
+      <ReportCard
+        title="Employee Performance Analytics"
+        description="Comprehensive analysis of employee productivity, task completion rates, and performance trends"
+        details="Includes: Individual performance metrics, productivity scores, workload distribution, and improvement recommendations"
+        buttonText="Generate Report"
+        buttonColor="bg-blue-600 hover:bg-blue-700"
+        onClick={() => handleGenerateReport("employee-performance", { timeRange, type: "performance" })}
+      />
 
       {/* Team Collaboration & Dynamics */}
-      <div className="border rounded-lg p-6 hover:shadow-md transition-shadow">
-        <div className="flex items-center justify-between">
-          <div className="flex-grow">
-            <h3 className="text-lg font-medium text-gray-900">
-              Team Collaboration Analysis
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Cross-departmental collaboration patterns, team dynamics, and
-              communication effectiveness
-            </p>
-            <div className="mt-2 text-xs text-gray-500">
-              Includes: Inter-team project success, collaboration frequency,
-              communication patterns, and team synergy metrics
-            </div>
-          </div>
-          <button
-            onClick={() =>
-              handleGenerateReport("team-collaboration", {
-                timeRange,
-                type: "collaboration",
-              })
-            }
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            Generate Report
-          </button>
-        </div>
-      </div>
+      <ReportCard
+        title="Team Collaboration Analysis"
+        description="Cross-departmental collaboration patterns, team dynamics, and communication effectiveness"
+        details="Includes: Inter-team project success, collaboration frequency, communication patterns, and team synergy metrics"
+        buttonText="Generate Report"
+        buttonColor="bg-green-600 hover:bg-green-700"
+        onClick={() => handleGenerateReport("team-collaboration", { timeRange, type: "collaboration" })}
+      />
 
       {/* Workload & Wellbeing Analysis */}
-      <div className="border rounded-lg p-6 hover:shadow-md transition-shadow">
-        <div className="flex items-center justify-between">
-          <div className="flex-grow">
-            <h3 className="text-lg font-medium text-gray-900">
-              Employee Workload & Well-being
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Workload distribution analysis, burnout risk assessment, and employee
-              well-being indicators
-            </p>
-            <div className="mt-2 text-xs text-gray-500">
-              Includes: Workload balance, overtime patterns, task equity, burnout risk
-              indicators, and wellness recommendations
-            </div>
-          </div>
-          <button
-            onClick={() =>
-              handleGenerateReport("workload-wellbeing", {
-                timeRange,
-                type: "wellbeing",
-              })
-            }
-            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
-          >
-            Generate Report
-          </button>
-        </div>
-      </div>
+      <ReportCard
+        title="Employee Workload & Well-being"
+        description="Workload distribution analysis, burnout risk assessment, and employee well-being indicators"
+        details="Includes: Workload balance, overtime patterns, task equity, burnout risk indicators, and wellness recommendations"
+        buttonText="Generate Report"
+        buttonColor="bg-yellow-600 hover:bg-yellow-700"
+        onClick={() => handleGenerateReport("workload-wellbeing", { timeRange, type: "wellbeing" })}
+      />
 
       {/* Organizational Performance Trends */}
-      <div className="border rounded-lg p-6 hover:shadow-md transition-shadow">
-        <div className="flex items-center justify-between">
-          <div className="flex-grow">
-            <h3 className="text-lg font-medium text-gray-900">
-              Organizational Performance Trends
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Long-term organizational performance trends, departmental growth, and
-              strategic insights
-            </p>
-            <div className="mt-2 text-xs text-gray-500">
-              Includes: Performance trends, departmental growth patterns, efficiency
-              improvements, and strategic recommendations
-            </div>
-          </div>
-          <button
-            onClick={() =>
-              handleGenerateReport("organizational-trends", {
-                timeRange,
-                type: "trends",
-              })
-            }
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-          >
-            Generate Report
-          </button>
-        </div>
-      </div>
+      <ReportCard
+        title="Organizational Performance Trends"
+        description="Long-term organizational performance trends, departmental growth, and strategic insights"
+        details="Includes: Performance trends, departmental growth patterns, efficiency improvements, and strategic recommendations"
+        buttonText="Generate Report"
+        buttonColor="bg-purple-600 hover:bg-purple-700"
+        onClick={() => handleGenerateReport("organizational-trends", { timeRange, type: "trends" })}
+      />
 
       {/* Report Preview Modal */}
       {showPreview && (

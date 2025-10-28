@@ -50,7 +50,7 @@ export default function StaffTasksView({ tasks = [], onLogout, onEditTask, showH
 
   return (
     <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      {showHeader && (
+      {/* {showHeader && (
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-xl font-semibold">My Tasks</h1>
           <div className="flex items-center gap-3">
@@ -68,7 +68,7 @@ export default function StaffTasksView({ tasks = [], onLogout, onEditTask, showH
             </button>
           </div>
         </div>
-      )}
+      )} */}
 
       <div className="flex gap-6">
         {statusOrder.map((status) => {

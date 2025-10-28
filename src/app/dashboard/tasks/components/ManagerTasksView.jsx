@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import TaskCard from "@/components/tasks/TaskCard";
 import { useTasks } from "@/utils/hooks/useTasks";
 import { useAuth } from "@/utils/hooks/useAuth";
 import { useDepartmentTeams } from "@/utils/hooks/useDepartmentTeams";
 import { formatDate, getPriorityColor, getStatusColor } from "./taskUtils";
 
-export default function ManagerTasksView({ currentUserEmpId, tasks: expressTasks }) {
+export default function ManagerTasksView({ currentUserEmpId, onLogout, showHeader = true }) {
   const [activeTab, setActiveTab] = useState("my-tasks");
   const { user } = useAuth();
 
@@ -41,44 +42,66 @@ export default function ManagerTasksView({ currentUserEmpId, tasks: expressTasks
   });
 
   return (
-    <div>
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="-mb-px flex space-x-8">
-          {["my-tasks", "team-workload"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                activeTab === tab
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              {tab === "my-tasks" ? "My Tasks" : "Team Workload"}
-            </button>
-          ))}
-        </nav>
+    <div className="max-w-7xl mx-auto py-2 sm:py-6 px-2 sm:px-6 lg:px-8">
+      <div className="px-2 py-3 sm:px-4 sm:py-6">
+        {/* {showHeader && (
+          <div className="mb-4 flex items-center justify-between">
+            <h1 className="text-xl font-semibold">Tasks</h1>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/dashboard"
+                className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
+              >
+                Back to Dashboard
+              </Link>
+              <Link
+                href="/dashboard/tasks/create"
+                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+              >
+                Create Task
+              </Link>
+            </div>
+          </div>
+        )} */}
+
+        {/* Tab Navigation */}
+        <div className="border-b border-gray-200 mb-6">
+          <nav className="-mb-px flex space-x-8">
+            {["my-tasks", "team-workload"].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === tab
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                {tab === "my-tasks" ? "My Tasks" : "Team Workload"}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === "my-tasks" && (
+          <MyTasksTab
+            tasks={myPersonalTasks}
+            currentUserEmpId={currentUserEmpId}
+            loading={tasksLoading}
+            onEditTask={updateTask}
+          />
+        )}
+
+        {activeTab === "team-workload" && (
+          <TeamWorkloadTab
+            departmentTeams={departmentTeams}
+            teamWorkload={teamWorkload}
+            loading={workloadLoading}
+            error={workloadError}
+          />
+        )}
       </div>
-
-      {/* Tab Content */}
-      {activeTab === "my-tasks" && (
-        <MyTasksTab
-          tasks={myPersonalTasks}
-          currentUserEmpId={currentUserEmpId}
-          loading={tasksLoading}
-          onEditTask={updateTask}
-        />
-      )}
-
-      {activeTab === "team-workload" && (
-        <TeamWorkloadTab
-          departmentTeams={departmentTeams}
-          teamWorkload={teamWorkload}
-          loading={workloadLoading}
-          error={workloadError}
-        />
-      )}
     </div>
   );
 }

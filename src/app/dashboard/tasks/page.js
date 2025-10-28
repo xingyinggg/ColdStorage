@@ -6,7 +6,6 @@ import { useTasks } from "@/utils/hooks/useTasks";
 import { useProjects } from "@/utils/hooks/useProjects";
 import { useAuth } from "@/utils/hooks/useAuth";
 import Link from "next/link";
-import HrDashboard from "../HrDashboard";
 import SidebarLayout from "@/components/layout/SidebarLayout";
 import HeaderBar from "@/components/layout/HeaderBar";
 import TaskCard from "@/components/tasks/TaskCard";
@@ -14,6 +13,8 @@ import Toast from "@/components/ui/Toast";
 import { useManagerTasks } from "@/utils/hooks/useManagerTasks";
 import StaffTasksView from "./components/StaffTasksView";
 import ManagerTasksView from "./components/ManagerTasksView";
+import DirectorTasksView from "./components/DirectorTasksView";
+import HrTasksView from "./components/HrTasksView";
 
 // moved status constants into StaffTasksView component
 
@@ -113,12 +114,13 @@ export default function DashboardPage() {
   if (!user) return null;
 
   if (isManager && !isDirector) {
+    // Pass manager data to ManagerTasksView so it can handle all functionality
     return (
       <SidebarLayout>
         <HeaderBar
           title={
             <div className="flex items-center space-x-2">
-              <span>Tasks</span>
+              <span>My Tasks</span>
             </div>
           }
           user={user}
@@ -127,84 +129,57 @@ export default function DashboardPage() {
           roleColor="gray"
           onLogout={handleLogout}
         />
-        <main className="max-w-7xl mx-auto py-2 sm:py-6 px-2 sm:px-6 lg:px-8">
-          <div className="px-2 py-3 sm:px-4 sm:py-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h1 className="text-xl font-semibold">Tasks</h1>
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/dashboard"
-                  className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
-                >
-                  Back to Dashboard
-                </Link>
-                <Link
-                  href="/dashboard/tasks/create"
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                >
-                  Create Task
-                </Link>
-              </div>
-            </div>
-
-            <ManagerTasksView currentUserEmpId={userProfile?.emp_id} />
-          </div>
-        </main>
+        <div>
+          <ManagerTasksView 
+            currentUserEmpId={userProfile?.emp_id}
+            onLogout={handleLogout}
+          />
+        </div>
       </SidebarLayout>
     );
   }
 
   if (isHR) {
+    // Pass HR data to HrTasksView so it can handle all functionality
     return (
       <SidebarLayout>
-        <HrDashboard
+        <HeaderBar
+          title={
+            <div className="flex items-center space-x-2">
+              <span>My Tasks</span>
+            </div>
+          }
           user={user}
           userProfile={userProfile}
+          roleLabel={userProfile?.role || "User"}
+          roleColor="gray"
           onLogout={handleLogout}
         />
+        <div>
+          <HrTasksView onLogout={handleLogout} />
+        </div>
       </SidebarLayout>
     );
   }
 
   if (isDirector) {
-    // Directors get enhanced view with create task button and all tasks visibility
+    // Pass director data to DirectorTasksView so it can handle all functionality
     return (
       <SidebarLayout>
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
-            <div className="mb-4 flex items-center justify-between">
-              <h1 className="text-xl font-semibold">Tasks - Director View</h1>
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/dashboard"
-                  className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
-                >
-                  Back to Dashboard
-                </Link>
-                <Link
-                  href="/dashboard/tasks/create"
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                >
-                  Create Task
-                </Link>
-              </div>
+        <HeaderBar
+          title={
+            <div className="flex items-center space-x-2">
+              <span>My Tasks</span>
             </div>
-
-            <div>
-              <StaffTasksView
-                tasks={tasks}
-                onLogout={handleLogout}
-                onEditTask={updateTask}
-                showHeader={false}
-              />
-              <AllTasksSection
-                tasks={tasks}
-                onMarkComplete={toggleTaskComplete}
-                currentUserEmpId={userProfile?.emp_id}
-                onEditTask={updateTask}
-              />
-            </div>
-          </div>
+          }
+          user={user}
+          userProfile={userProfile}
+          roleLabel={userProfile?.role || "User"}
+          roleColor="gray"
+          onLogout={handleLogout}
+        />
+        <div>
+          <DirectorTasksView onLogout={handleLogout} />
         </div>
       </SidebarLayout>
     );

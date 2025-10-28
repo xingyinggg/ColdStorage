@@ -106,7 +106,7 @@ router.get("/unread-count", async (req, res) => {
 // POST /notification - Create a new notification
 router.post("/", async (req, res) => {
   try {
-    const { recipient_id, title, type, description, emp_id } = req.body;
+    const { recipient_id, title, type, description, emp_id, task_id } = req.body;
 
     // Validate required fields
     if (!title || !type || !emp_id) {
@@ -125,7 +125,7 @@ router.post("/", async (req, res) => {
       return res.status(401).json({ error: "Employee ID not found for user" });
     }
 
-    // Create notification
+    // Build notification payload; include task_id when provided so notifications can be linked to tasks
     const notificationData = {
       recipient_id,
       title,
@@ -135,6 +135,11 @@ router.post("/", async (req, res) => {
       created_at: new Date().toISOString(),
       read: false,
     };
+
+    if (typeof task_id !== "undefined" && task_id !== null) {
+      // Attach the task id field so it is persisted if the notifications table has this column
+      notificationData.task_id = task_id;
+    }
 
     const supabase = getServiceClient();
     const { data, error } = await supabase

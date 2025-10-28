@@ -172,6 +172,18 @@ export default function CreateTaskPage() {
 
       // Notification
       if (result.success) {
+        // Persist the newly created task id so other parts of the app or tests
+        // can pick it up. This makes it easy to reference the task immediately
+        // after creation (e.g. open details, create related records, etc.).
+        try {
+          if (result.task && result.task.id) {
+            sessionStorage.setItem("last_created_task_id", String(result.task.id));
+            console.log("Saved last_created_task_id ->", result.task.id);
+          }
+        } catch (e) {
+          console.warn("Could not persist last_created_task_id:", e);
+        }
+
         const task = result.task;
         const isAssigning =
           task.owner_id && task.owner_id !== userProfile.emp_id;
@@ -179,6 +191,8 @@ export default function CreateTaskPage() {
         if (!isAssigning) {
           const creatorNotification = {
             emp_id: userProfile.emp_id,
+            // Use the actual created task id directly
+            task_id: task?.id || null,
             title: `New Task Created (${task.title})`,
             description: task.description || "No description provided",
             type: "Task Creation",
@@ -196,10 +210,10 @@ export default function CreateTaskPage() {
             // 2️⃣ Notify the assignee (show who assigned it)
             const assigneeNotification = {
               emp_id: task.owner_id,
+              task_id: task?.id || null,
               title: `New Task Assigned (${task.title})`,
-              description: `${
-                assigner?.name || "Someone"
-              } has assigned you a new task: "${task.title}".`,
+              description: `${assigner?.name || "Someone"
+                } has assigned you a new task: "${task.title}".`,
               type: "Task Assignment",
               created_at: new Date().toISOString(),
             };
@@ -208,10 +222,10 @@ export default function CreateTaskPage() {
             // 3️⃣ Notify the assigner (show who they assigned to)
             const assignerNotification = {
               emp_id: userProfile.emp_id,
+              task_id: task?.id || null,
               title: `Task Assigned Successfully`,
-              description: `You assigned "${task.title}" to ${
-                assignee?.name || "an employee"
-              }.`,
+              description: `You assigned "${task.title}" to ${assignee?.name || "an employee"
+                }.`,
               type: "Task Assignment Confirmation",
               created_at: new Date().toISOString(),
             };
@@ -234,12 +248,11 @@ export default function CreateTaskPage() {
 
               const collaboratorNotification = {
                 emp_id: collaboratorEmpId,
+                task_id: task?.id || null,
                 title: `Added as collaborator for (${task.title})`,
-                description: `${
-                  assigner?.name || "Someone"
-                } has added you as a collaborator for the shared task: "${
-                  task.title
-                }".`,
+                description: `${assigner?.name || "Someone"
+                  } has added you as a collaborator for the shared task: "${task.title
+                  }".`,
                 type: "Shared Task",
                 created_at: new Date().toISOString(),
               };

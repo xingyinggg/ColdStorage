@@ -296,16 +296,35 @@ router.get('/analytics/trends', async (req, res) => {
     
     console.log(`Found ${tasks?.length || 0} tasks for trends`);
     
-    // If no tasks are found, return sample data
+    // If no tasks are found, return sample data for past 3 months
     if (!tasks || tasks.length === 0) {
-      console.log('No tasks found, returning sample trends data');
-      const sampleTrends = [
-        { period: '2025-06', completed: 45, total: 60 },
-        { period: '2025-07', completed: 52, total: 68 },
-        { period: '2025-08', completed: 48, total: 70 },
-        { period: '2025-09', completed: 60, total: 75 },
-        { period: '2025-10', completed: 55, total: 80 }
-      ];
+      console.log('No tasks found, returning sample trends data for past 3 months');
+      const now = new Date();
+      const currentMonth = now.getMonth(); // 0-indexed
+      const currentYear = now.getFullYear();
+      const sampleTrends = [];
+      
+      // Generate for current month and 2 months back (total of 3 months)
+      for (let i = 2; i >= 0; i--) {
+        const targetMonth = currentMonth - i;
+        const date = new Date(currentYear, targetMonth, 1);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1; // Convert back to 1-indexed
+        const periodKey = `${year}-${String(month).padStart(2, '0')}`;
+        
+        console.log(`Server generating sample data for: ${periodKey}`);
+        
+        // Generate realistic sample data
+        const baseTotal = 50 + Math.floor(Math.random() * 30);
+        const baseCompleted = Math.floor(baseTotal * (0.6 + Math.random() * 0.3));
+        
+        sampleTrends.push({
+          period: periodKey,
+          completed: baseCompleted,
+          total: baseTotal
+        });
+      }
+      
       return res.json(sampleTrends);
     }
 
@@ -315,28 +334,62 @@ router.get('/analytics/trends', async (req, res) => {
     
     // Ensure we're sending valid data
     if (!trends || trends.length === 0) {
-      console.log('No trends generated, returning sample data');
-      const sampleTrends = [
-        { period: '2025-06', completed: 45, total: 60 },
-        { period: '2025-07', completed: 52, total: 68 },
-        { period: '2025-08', completed: 48, total: 70 },
-        { period: '2025-09', completed: 60, total: 75 },
-        { period: '2025-10', completed: 55, total: 80 }
-      ];
+      console.log('No trends generated, returning sample data for past 3 months');
+      const now = new Date();
+      const currentMonth = now.getMonth(); // 0-indexed
+      const currentYear = now.getFullYear();
+      const sampleTrends = [];
+      
+      // Generate for current month and 2 months back (total of 3 months)
+      for (let i = 2; i >= 0; i--) {
+        const targetMonth = currentMonth - i;
+        const date = new Date(currentYear, targetMonth, 1);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1; // Convert back to 1-indexed
+        const periodKey = `${year}-${String(month).padStart(2, '0')}`;
+        
+        // Generate realistic sample data
+        const baseTotal = 50 + Math.floor(Math.random() * 30);
+        const baseCompleted = Math.floor(baseTotal * (0.6 + Math.random() * 0.3));
+        
+        sampleTrends.push({
+          period: periodKey,
+          completed: baseCompleted,
+          total: baseTotal
+        });
+      }
+      
       return res.json(sampleTrends);
     }
     
     res.json(trends);
   } catch (error) {
     console.error('Error in trends endpoint:', error);
-    // Return sample data on error
-    const sampleTrends = [
-      { period: '2025-06', completed: 45, total: 60 },
-      { period: '2025-07', completed: 52, total: 68 },
-      { period: '2025-08', completed: 48, total: 70 },
-      { period: '2025-09', completed: 60, total: 75 },
-      { period: '2025-10', completed: 55, total: 80 }
-    ];
+    // Return sample data for past 3 months on error
+    const now = new Date();
+    const currentMonth = now.getMonth(); // 0-indexed
+    const currentYear = now.getFullYear();
+    const sampleTrends = [];
+    
+    // Generate for current month and 2 months back (total of 3 months)
+    for (let i = 2; i >= 0; i--) {
+      const targetMonth = currentMonth - i;
+      const date = new Date(currentYear, targetMonth, 1);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1; // Convert back to 1-indexed
+      const periodKey = `${year}-${String(month).padStart(2, '0')}`;
+      
+      // Generate realistic sample data
+      const baseTotal = 50 + Math.floor(Math.random() * 30);
+      const baseCompleted = Math.floor(baseTotal * (0.6 + Math.random() * 0.3));
+      
+      sampleTrends.push({
+        period: periodKey,
+        completed: baseCompleted,
+        total: baseTotal
+      });
+    }
+    
     res.json(sampleTrends);
   }
 });
@@ -400,9 +453,28 @@ function groupTasksByPeriod(tasks, period) {
     }
   });
   
-  // Sort periods chronologically
-  const result = Object.values(grouped).sort((a, b) => a.period.localeCompare(b.period));
-  console.log('Final grouped trends data:', result);
+  // Sort periods chronologically and filter to past 3 months only
+  const now = new Date();
+  const currentMonth = now.getMonth(); // 0-indexed (October = 9)
+  const currentYear = now.getFullYear();
+  
+  // Calculate 3 months back from current month
+  const threeMonthsAgo = new Date(currentYear, currentMonth - 2, 1);
+  const currentMonthDate = new Date(currentYear, currentMonth, 1);
+  
+  const threeMonthsAgoKey = `${threeMonthsAgo.getFullYear()}-${String(threeMonthsAgo.getMonth() + 1).padStart(2, '0')}`;
+  const currentMonthKey = `${currentMonthDate.getFullYear()}-${String(currentMonthDate.getMonth() + 1).padStart(2, '0')}`;
+  
+  console.log(`Filtering trends: ${threeMonthsAgoKey} to ${currentMonthKey}`);
+  
+  const allResults = Object.values(grouped).sort((a, b) => a.period.localeCompare(b.period));
+  
+  // Filter to only include past 3 months (inclusive of current month)
+  const result = allResults.filter(item => 
+    item.period >= threeMonthsAgoKey && item.period <= currentMonthKey
+  );
+  
+  console.log('Final grouped trends data (past 3 months):', result);
   
   return result;
 }

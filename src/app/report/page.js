@@ -590,7 +590,7 @@ function HRReports() {
         showTeamBadge={false}
         emptyMessage="You are not assigned to any projects yet."
       />
-      
+
       {/* Time Range Filter */}
       <FilterSection
         title="HR Analytics & Reports"
@@ -611,16 +611,6 @@ function HRReports() {
         buttonText="Generate Report"
         buttonColor="bg-blue-600 hover:bg-blue-700"
         onClick={() => handleGenerateReport("employee-performance", { timeRange, type: "performance" })}
-      />
-
-      {/* Team Collaboration & Dynamics */}
-      <ReportCard
-        title="Team Collaboration Analysis"
-        description="Cross-departmental collaboration patterns, team dynamics, and communication effectiveness"
-        details="Includes: Inter-team project success, collaboration frequency, communication patterns, and team synergy metrics"
-        buttonText="Generate Report"
-        buttonColor="bg-green-600 hover:bg-green-700"
-        onClick={() => handleGenerateReport("team-collaboration", { timeRange, type: "collaboration" })}
       />
 
       {/* Workload & Wellbeing Analysis */}

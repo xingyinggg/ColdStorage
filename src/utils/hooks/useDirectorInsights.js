@@ -55,9 +55,18 @@ export function useDirectorInsights() {
         deptResponse,
         collabResponse
       ] = await Promise.all([
-        fetch('http://localhost:4000/director/kpis', { headers }),
-        fetch('http://localhost:4000/director/departments', { headers }),
-        fetch('http://localhost:4000/director/collaboration', { headers })
+        fetch('http://localhost:4000/director/kpis', { 
+          headers,
+          credentials: 'include' // Include cookies for authentication
+        }),
+        fetch('http://localhost:4000/director/departments', { 
+          headers,
+          credentials: 'include' // Include cookies for authentication
+        }),
+        fetch('http://localhost:4000/director/collaboration', { 
+          headers,
+          credentials: 'include' // Include cookies for authentication
+        })
       ]);
 
       if (!kpiResponse.ok) {
@@ -105,7 +114,14 @@ export function useDirectorInsights() {
         completionRate: 0
       });
 
-      setDepartmentPerformance(deptData.departments || []);
+      setDepartmentPerformance(deptData.departments?.map(dept => ({
+        department: dept.name,
+        memberCount: dept.employeeCount,
+        activeTasks: dept.totalTasks,
+        productivity: dept.productivityScore,
+        completionRate: dept.taskCompletionRate,
+        totalProjects: dept.totalProjects
+      })) || []);
       
       setCollaborationMetrics({
         totalProjects: collabData.collaborationMetrics?.totalProjects || 0,

@@ -1,7 +1,10 @@
 "use client"
 import DepartmentTeamWorkload from "./DepartmentTeamWorkload"
+import ProjectStatusReport from "./ProjectStatusReport"
+import { useAuth } from "@/utils/hooks/useAuth"
 
 export default function ReportPreviewModal({ reportType, data, onClose, userRole }) {
+  const { user } = useAuth();
   const handleExportPDF = async () => {
     const element = document.querySelector("#report-content");
     if (!element) {
@@ -72,53 +75,10 @@ export default function ReportPreviewModal({ reportType, data, onClose, userRole
 
   const renderPreviewContent = () => {
     if (reportType === 'project-report' && data) {
+      // Use enhanced report for both staff and managers
       return (
         <div className="space-y-4">
-          <h4 className="font-medium text-gray-900">Project Report: {data.title}</h4>
-          
-          <div className="bg-gray-50 p-4 rounded">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">Project Status:</span>
-                <div className="font-medium capitalize">{data.status}</div>
-              </div>
-              <div>
-                <span className="text-gray-600">Team Members:</span>
-                <div className="font-medium">{data.members?.length || 0}</div>
-              </div>
-              <div>
-                <span className="text-gray-600">Created:</span>
-                <div className="font-medium">{new Date(data.created_at).toLocaleDateString()}</div>
-              </div>
-              <div>
-                <span className="text-gray-600">Last Updated:</span>
-                <div className="font-medium">{new Date(data.updated_at).toLocaleDateString()}</div>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h5 className="text-sm font-medium text-gray-700 mb-2">Description:</h5>
-            <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
-              {data.description || "No description provided"}
-            </p>
-          </div>
-          
-          {data.members && data.members.length > 0 && (
-            <div className="max-h-40 overflow-y-auto">
-              <h5 className="text-sm font-medium text-gray-700 mb-2">Team Members:</h5>
-              {data.members.map((member, index) => (
-                <div key={index} className="border-b pb-2 mb-2 text-sm">
-                  <div className="font-medium">{member.name}</div>
-                  <div className="text-gray-600">{member.role} • {member.department}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="text-xs text-gray-500 mt-4">
-            This report will include detailed project timeline, task breakdown, member contributions, and progress analytics.
-          </div>
+          <ProjectStatusReport project={data} />
         </div>
       );
     }

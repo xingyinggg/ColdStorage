@@ -18,6 +18,37 @@ export default function ProjectTaskCard({
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [editSuccess, setEditSuccess] = useState("");
+  
+  // Subtask state management
+  const [subtasks, setSubtasks] = useState([]);
+  const [loadingSubtasks, setLoadingSubtasks] = useState(false);
+  const [subtasksError, setSubtasksError] = useState(null);
+  const [hasFetchedSubtasks, setHasFetchedSubtasks] = useState(false);
+
+  // Fetch subtasks function
+  const fetchSubtasks = async (taskId) => {
+    if (!taskId) return;
+    
+    setLoadingSubtasks(true);
+    setSubtasksError(null);
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/subtasks/task/${taskId}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch subtasks: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      setSubtasks(data || []);
+    } catch (error) {
+      console.error("Error fetching subtasks:", error);
+      setSubtasksError(error.message);
+      setSubtasks([]);
+    } finally {
+      setLoadingSubtasks(false);
+    }
+  };
 
   const openEditModal = (e) => {
     e.stopPropagation();

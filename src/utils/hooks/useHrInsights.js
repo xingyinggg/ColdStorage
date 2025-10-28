@@ -45,15 +45,34 @@ export function useHrInsights() {
             
             // Check if we have any data
             if (!trendsData || !Array.isArray(trendsData) || trendsData.length === 0) {
-              console.log('No trends data available, creating sample data');
-              // Create sample data for testing
-              trendsData = [
-                { period: '2025-06', completed: 45, total: 60 },
-                { period: '2025-07', completed: 52, total: 68 },
-                { period: '2025-08', completed: 48, total: 70 },
-                { period: '2025-09', completed: 60, total: 75 },
-                { period: '2025-10', completed: 55, total: 80 }
-              ];
+              console.log('No trends data available, creating sample data for past 3 months');
+              
+              // Create sample data for past 3 months (including current month)
+              const now = new Date();
+              const currentMonth = now.getMonth(); // 0-indexed
+              const currentYear = now.getFullYear();
+              trendsData = [];
+              
+              // Generate for current month and 2 months back (total of 3 months)
+              for (let i = 2; i >= 0; i--) {
+                const targetMonth = currentMonth - i;
+                const date = new Date(currentYear, targetMonth, 1);
+                const year = date.getFullYear();
+                const month = date.getMonth() + 1; // Convert back to 1-indexed
+                const periodKey = `${year}-${String(month).padStart(2, '0')}`;
+                
+                console.log(`Generating sample data for: ${periodKey}`);
+                
+                // Generate realistic sample data
+                const baseTotal = 50 + Math.floor(Math.random() * 30);
+                const baseCompleted = Math.floor(baseTotal * (0.6 + Math.random() * 0.3));
+                
+                trendsData.push({
+                  period: periodKey,
+                  completed: baseCompleted,
+                  total: baseTotal
+                });
+              }
             } else {
               console.log('Filtering received trends data');
               // Filter out any invalid trend entries
@@ -74,25 +93,57 @@ export function useHrInsights() {
             console.log('Final trends data after filtering:', JSON.stringify(trendsData));
           } else {
             console.warn('Error fetching trends data:', trendsResponse.status);
-            // Create sample data
-            trendsData = [
-              { period: '2025-06', completed: 45, total: 60 },
-              { period: '2025-07', completed: 52, total: 68 },
-              { period: '2025-08', completed: 48, total: 70 },
-              { period: '2025-09', completed: 60, total: 75 },
-              { period: '2025-10', completed: 55, total: 80 }
-            ];
+            // Create sample data for past 3 months
+            const now = new Date();
+            const currentMonth = now.getMonth(); // 0-indexed
+            const currentYear = now.getFullYear();
+            trendsData = [];
+            
+            // Generate for current month and 2 months back (total of 3 months)
+            for (let i = 2; i >= 0; i--) {
+              const targetMonth = currentMonth - i;
+              const date = new Date(currentYear, targetMonth, 1);
+              const year = date.getFullYear();
+              const month = date.getMonth() + 1; // Convert back to 1-indexed
+              const periodKey = `${year}-${String(month).padStart(2, '0')}`;
+              
+              // Generate realistic sample data
+              const baseTotal = 50 + Math.floor(Math.random() * 30);
+              const baseCompleted = Math.floor(baseTotal * (0.6 + Math.random() * 0.3));
+              
+              trendsData.push({
+                period: periodKey,
+                completed: baseCompleted,
+                total: baseTotal
+              });
+            }
           }
         } catch (e) { 
           console.warn('Trends data not available:', e);
-          // Create sample data
-          trendsData = [
-            { period: '2025-06', completed: 45, total: 60 },
-            { period: '2025-07', completed: 52, total: 68 },
-            { period: '2025-08', completed: 48, total: 70 },
-            { period: '2025-09', completed: 60, total: 75 },
-            { period: '2025-10', completed: 55, total: 80 }
-          ];
+          // Create sample data for past 3 months
+          const now = new Date();
+          const currentMonth = now.getMonth(); // 0-indexed
+          const currentYear = now.getFullYear();
+          trendsData = [];
+          
+          // Generate for current month and 2 months back (total of 3 months)
+          for (let i = 2; i >= 0; i--) {
+            const targetMonth = currentMonth - i;
+            const date = new Date(currentYear, targetMonth, 1);
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1; // Convert back to 1-indexed
+            const periodKey = `${year}-${String(month).padStart(2, '0')}`;
+            
+            // Generate realistic sample data
+            const baseTotal = 50 + Math.floor(Math.random() * 30);
+            const baseCompleted = Math.floor(baseTotal * (0.6 + Math.random() * 0.3));
+            
+            trendsData.push({
+              period: periodKey,
+              completed: baseCompleted,
+              total: baseTotal
+            });
+          }
         }
         
         // Set data

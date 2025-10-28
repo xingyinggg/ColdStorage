@@ -26,7 +26,7 @@ const dotColors = {
   completed: "bg-green-400",      // Stays the same
 };
 
-export default function StaffTasksView({ tasks = [], onLogout, onEditTask }) {
+export default function StaffTasksView({ tasks = [], onLogout, onEditTask, showHeader = true }) {
   const { user, userProfile } = useAuth();
 
   // Early return if userProfile is not loaded yet
@@ -50,6 +50,25 @@ export default function StaffTasksView({ tasks = [], onLogout, onEditTask }) {
 
   return (
     <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      {/* {showHeader && (
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="text-xl font-semibold">My Tasks</h1>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
+            >
+              Back to Dashboard
+            </Link>
+            <button
+              onClick={onLogout}
+              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      )} */}
 
       <div className="flex gap-6">
         {statusOrder.map((status) => {

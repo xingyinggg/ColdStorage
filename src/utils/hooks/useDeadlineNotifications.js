@@ -37,7 +37,7 @@ export const useDeadlineNotifications = () => {
         }
 
         const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+          process.env.NEXT_PUBLIC_API_URL;
         const response = await fetch(`${apiUrl}/notification/check-deadlines`, {
           method: "POST",
           headers: {
@@ -82,7 +82,7 @@ export const useDeadlineNotifications = () => {
         throw new Error("No authentication token");
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       const response = await fetch(`${apiUrl}/notification/deadline-status`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`,

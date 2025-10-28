@@ -120,7 +120,7 @@ export function useNotification() {
         try {
           const body = JSON.parse(text);
           message = body?.error || body?.message || message;
-        } catch {}
+        } catch { }
         throw new Error(message);
       }
 
@@ -172,7 +172,7 @@ export function useNotification() {
         try {
           const body = JSON.parse(text);
           message = body?.error || body?.message || message;
-        } catch {}
+        } catch { }
         throw new Error(message);
       }
 
@@ -222,7 +222,7 @@ export function useNotification() {
         try {
           const body = JSON.parse(text);
           message = body?.error || body?.message || message;
-        } catch {}
+        } catch { }
         throw new Error(message);
       }
 
@@ -263,7 +263,7 @@ export function useNotification() {
         return;
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       const res = await fetch(`${apiUrl}/notification/unread-count`, {
         headers: {
           Authorization: `Bearer ${session?.access_token || ""}`,
@@ -309,7 +309,7 @@ export function useNotification() {
         return;
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       const res = await fetch(`${apiUrl}/notification`, {
         headers: {
           Authorization: `Bearer ${session?.access_token || ""}`,

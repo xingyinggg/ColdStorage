@@ -6,10 +6,10 @@ import { useSubtasks } from "@/utils/hooks/useSubtasks";
 import RecurrenceHistoryModal from "./RecurrenceHistoryModal";
 import RecurrenceStatus from "./RecurrenceStatus";
 
-export default function TaskDetailsModal({ 
-  open, 
-  task, 
-  onClose, 
+export default function TaskDetailsModal({
+  open,
+  task,
+  onClose,
   memberNames = {},
   projectNames = {}, // Add this prop
   subtasks = [], // Accept subtasks from props
@@ -21,15 +21,15 @@ export default function TaskDetailsModal({
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [showRecurrenceHistory, setShowRecurrenceHistory] = useState(false);
-  
+
   // Fallback to useSubtasks hook if props are not provided
-  const { 
-    subtasks: hookSubtasks, 
-    loading: hookLoadingSubtasks, 
-    error: hookSubtasksError, 
-    fetchSubtasks 
+  const {
+    subtasks: hookSubtasks,
+    loading: hookLoadingSubtasks,
+    error: hookSubtasksError,
+    fetchSubtasks
   } = useSubtasks();
-  
+
   // Use props if provided, otherwise fall back to hook
   const finalSubtasks = subtasks.length > 0 ? subtasks : hookSubtasks;
   const finalLoadingSubtasks = subtasks.length > 0 ? loadingSubtasks : hookLoadingSubtasks;
@@ -38,7 +38,7 @@ export default function TaskDetailsModal({
   // Memoize collaborator names to prevent unnecessary recalculations
   const collaboratorNames = useMemo(() => {
     if (task?.collaborators && Array.isArray(task.collaborators)) {
-      return task.collaborators.map(empId => 
+      return task.collaborators.map(empId =>
         memberNames?.[empId] || `User ${empId}`
       );
     }
@@ -78,7 +78,7 @@ export default function TaskDetailsModal({
   // Format date for display - Updated to show format: 29 September 2025
   const formatDate = (dateString) => {
     if (!dateString) return 'Not set';
-    
+
     // Check if it's just time format (HH:MM:SS.milliseconds)
     const timeOnlyRegex = /^\d{2}:\d{2}:\d{2}(\.\d+)?$/;
     if (timeOnlyRegex.test(dateString)) {
@@ -89,12 +89,12 @@ export default function TaskDetailsModal({
         year: 'numeric'
       });
     }
-    
+
     // Handle normal date format - show only date in DD Month YYYY format
     try {
       return new Date(dateString).toLocaleDateString('en-GB', {
         day: 'numeric',
-        month: 'long', 
+        month: 'long',
         year: 'numeric'
       });
     } catch (error) {
@@ -113,9 +113,9 @@ export default function TaskDetailsModal({
     if (priority === null || priority === undefined) {
       return 'bg-gray-100 text-gray-800 border-gray-200';
     }
-    
+
     const numPriority = Number(priority);
-    
+
     // 1-3: Low (green)
     if (numPriority >= 1 && numPriority <= 3) {
       return 'bg-green-100 text-green-800 border-green-200';
@@ -128,7 +128,7 @@ export default function TaskDetailsModal({
     if (numPriority >= 7 && numPriority <= 10) {
       return 'bg-red-100 text-red-800 border-red-200';
     }
-    
+
     return 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
@@ -175,7 +175,7 @@ export default function TaskDetailsModal({
                 🔄 Recurrence
               </button>
             )}
-            
+
             {/* Edit History Button */}
             <button
               title="View edit log"
@@ -185,7 +185,7 @@ export default function TaskDetailsModal({
                   setShowHistory(true);
                   setLoadingHistory(true);
                   setHistoryError("");
-                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+                  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
                   const supabase = createClient();
                   const { data: { session } } = await supabase.auth.getSession();
                   const token = session?.access_token || "";
@@ -238,6 +238,13 @@ export default function TaskDetailsModal({
             <p className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-900">
               {task.title}
             </p>
+            {/* Prominent Due Date (duplicate of status row but placed near title for visibility) */}
+            <div className="mt-2">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Due Date</label>
+              <div className="px-3 py-2 bg-white border border-gray-100 rounded-md text-sm text-gray-700">
+                {task.due_date ? formatDate(task.due_date) : 'Not set'}
+              </div>
+            </div>
           </div>
 
           {/* Description */}
@@ -474,8 +481,8 @@ export default function TaskDetailsModal({
         )}
 
         <div className="mt-6 flex justify-end gap-2">
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 text-sm"
           >
             Close

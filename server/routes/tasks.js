@@ -518,6 +518,76 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Get single task by id with owner and collaborator names and subtasks
+router.get("/:id", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: "Missing access token" });
+
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: "Invalid token" });
+
+    const empId = await getEmpIdForUserId(user.id);
+    if (!empId) return res.status(400).json({ error: "emp_id not found" });
+
+    const { id } = req.params;
+
+    const { data: taskData, error: taskErr } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("id", Number(id))
+      .single();
+
+    if (taskErr || !taskData) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    // Parse collaborators JSON if needed
+    let collaborators = taskData.collaborators || [];
+    if (typeof collaborators === "string") {
+      try {
+        collaborators = JSON.parse(collaborators);
+      } catch (e) {
+        collaborators = [];
+      }
+    }
+
+    // Fetch member names for owner + collaborators
+    const memberIds = new Set();
+    if (taskData.owner_id) memberIds.add(taskData.owner_id);
+    if (Array.isArray(collaborators)) collaborators.forEach((c) => memberIds.add(c));
+
+    const memberNames = {};
+    if (memberIds.size > 0) {
+      const { data: users, error: usersErr } = await supabase
+        .from("users")
+        .select("emp_id, name")
+        .in("emp_id", Array.from(memberIds));
+      if (!usersErr && users) {
+        users.forEach((u) => {
+          memberNames[u.emp_id] = u.name;
+        });
+      }
+    }
+
+    // Fetch subtasks
+    const { data: subtasks, error: subtasksErr } = await supabase
+      .from("sub_task")
+      .select("*")
+      .eq("parent_task_id", Number(id));
+
+    // Return minimal project names map (frontend can expand later)
+    const projectNames = {};
+
+    res.json({ task: taskData, memberNames, projectNames, subtasks: subtasks || [] });
+  } catch (e) {
+    console.error("Error fetching task by id:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Manager: Get all tasks (with owner info)
 router.get("/manager/all", async (req, res) => {
   try {

@@ -7,6 +7,7 @@ import { useNotification } from "@/utils/hooks/useNotification";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { useState } from "react";
+import TaskDetailsModal from "@/components/tasks/TaskDetailsModal";
 
 export default function NotificationPage() {
   const router = useRouter();
@@ -23,6 +24,9 @@ export default function NotificationPage() {
 
   const [filter, setFilter] = useState("all"); // all, unread, read
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [loadingTask, setLoadingTask] = useState(false);
 
   const handleLogout = async () => {
     await signOut();
@@ -62,6 +66,53 @@ export default function NotificationPage() {
     setIsRefreshing(true);
     await refresh();
     setTimeout(() => setIsRefreshing(false), 500);
+  };
+
+  const handleNotificationClick = async (n) => {
+    if (!n?.task_id) {
+      console.log("Notification has no task_id to open");
+      return;
+    }
+
+    // Mark as read immediately (optimistic) so UX reflects the click right away
+    try {
+      // fire-and-forget; errors are handled inside the hook
+      markAsRead(n.id).catch((err) => console.warn('markAsRead failed (optimistic):', err));
+    } catch (e) {
+      // ignore
+    }
+
+    try {
+      setLoadingTask(true);
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Not authenticated");
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      const res = await fetch(`${apiUrl}/tasks/${n.task_id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed: ${res.status}`);
+      }
+
+      const body = await res.json();
+      // Compose selectedTask including helper maps
+      const composedTask = { ...(body.task || {}) };
+      composedTask.memberNames = body.memberNames || {};
+      composedTask.projectNames = body.projectNames || {};
+      composedTask.subtasks = body.subtasks || [];
+
+      setSelectedTask(composedTask);
+      setTaskModalOpen(true);
+    } catch (err) {
+      console.error("Failed to load task for notification:", err);
+    } finally {
+      setLoadingTask(false);
+    }
   };
 
   // Filter notifications based on selected filter
@@ -236,15 +287,13 @@ export default function NotificationPage() {
                         <button
                           key={tab.key}
                           onClick={() => setFilter(tab.key)}
-                          className={`px-3 py-2 text-xs sm:text-sm font-medium flex-1 sm:flex-none ${
-                            filter === tab.key
-                              ? "bg-indigo-600 text-white"
-                              : "bg-white text-gray-700 hover:bg-gray-50"
-                          } ${
-                            index !== array.length - 1
+                          className={`px-3 py-2 text-xs sm:text-sm font-medium flex-1 sm:flex-none ${filter === tab.key
+                            ? "bg-indigo-600 text-white"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                            } ${index !== array.length - 1
                               ? "border-r border-gray-300"
                               : ""
-                          }`}
+                            }`}
                         >
                           <span className="hidden sm:inline">
                             {tab.label} ({tab.count})
@@ -271,9 +320,8 @@ export default function NotificationPage() {
                       <button
                         onClick={handleRefresh}
                         disabled={isRefreshing}
-                        className={`bg-indigo-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-indigo-700 text-xs sm:text-sm font-medium flex-1 sm:flex-none ${
-                          isRefreshing ? "opacity-50 cursor-not-allowed" : ""
-                        }`}
+                        className={`bg-indigo-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-indigo-700 text-xs sm:text-sm font-medium flex-1 sm:flex-none ${isRefreshing ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
                       >
                         {isRefreshing ? "Refreshing..." : "Refresh"}
                       </button>
@@ -324,23 +372,23 @@ export default function NotificationPage() {
                       {filter === "unread"
                         ? "🎉"
                         : filter === "read"
-                        ? "📭"
-                        : "📬"}
+                          ? "📭"
+                          : "📬"}
                     </span>
                   </div>
                   <h3 className="mt-2 text-sm font-medium text-gray-900">
                     {filter === "unread"
                       ? "All caught up!"
                       : filter === "read"
-                      ? "No read notifications"
-                      : "No notifications yet"}
+                        ? "No read notifications"
+                        : "No notifications yet"}
                   </h3>
                   <p className="mt-1 text-sm text-gray-500">
                     {filter === "unread"
                       ? "You have no unread notifications."
                       : filter === "read"
-                      ? "No notifications have been read yet."
-                      : "New notifications will appear here."}
+                        ? "No notifications have been read yet."
+                        : "New notifications will appear here."}
                   </p>
                 </div>
               )}
@@ -351,19 +399,21 @@ export default function NotificationPage() {
                   {filteredNotifications.map((n) => (
                     <div
                       key={n.id}
-                      className={`border rounded-lg p-3 sm:p-4 transition-all duration-200 ${
-                        n.read
-                          ? "border-gray-200 bg-white hover:bg-gray-50"
-                          : "border-l-4 border-l-indigo-500 border-gray-200 bg-indigo-50/50 hover:bg-indigo-50"
-                      }`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleNotificationClick(n)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleNotificationClick(n); }}
+                      className={`cursor-pointer border rounded-lg p-3 sm:p-4 transition-all duration-200 ${n.read
+                        ? "border-gray-200 bg-white hover:bg-gray-50"
+                        : "border-l-4 border-l-indigo-500 border-gray-200 bg-indigo-50/50 hover:bg-indigo-50"
+                        }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start space-x-3 flex-1 min-w-0">
                           {/* Icon */}
                           <div
-                            className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center ${
-                              n.read ? "bg-gray-100" : "bg-indigo-100"
-                            }`}
+                            className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center ${n.read ? "bg-gray-100" : "bg-indigo-100"
+                              }`}
                           >
                             <span className="text-sm sm:text-lg">
                               {getNotificationIcon(n.type)}
@@ -374,9 +424,8 @@ export default function NotificationPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <h3
-                                className={`font-medium text-sm sm:text-base truncate ${
-                                  n.read ? "text-gray-700" : "text-gray-900"
-                                }`}
+                                className={`font-medium text-sm sm:text-base truncate ${n.read ? "text-gray-700" : "text-gray-900"
+                                  }`}
                               >
                                 {n.title}
                               </h3>
@@ -386,9 +435,8 @@ export default function NotificationPage() {
                             </div>
 
                             <p
-                              className={`text-xs sm:text-sm mb-2 ${
-                                n.read ? "text-gray-500" : "text-gray-700"
-                              }`}
+                              className={`text-xs sm:text-sm mb-2 ${n.read ? "text-gray-500" : "text-gray-700"
+                                }`}
                             >
                               {n.description}
                             </p>
@@ -439,6 +487,20 @@ export default function NotificationPage() {
           </div>
         </div>
       </div>
+
+      {/* Task details modal - opens when user clicks a notification with a task_id */}
+      {selectedTask && (
+        <TaskDetailsModal
+          open={taskModalOpen}
+          task={selectedTask}
+          memberNames={selectedTask.memberNames || {}}
+          projectNames={selectedTask.projectNames || {}}
+          subtasks={selectedTask.subtasks || []}
+          loadingSubtasks={loadingTask}
+          onClose={() => { setTaskModalOpen(false); setSelectedTask(null); }}
+        />
+      )}
+
     </SidebarLayout>
   );
 }

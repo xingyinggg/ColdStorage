@@ -125,6 +125,8 @@ function StaffReports() {
                 userEmpId={userProfile?.emp_id}
                 onGenerateReport={handleGenerateReport}
                 showTeamBadge={false}
+                myProjects={myProjects}
+                teamProjects={[]}
               />
             ))}
           </div>

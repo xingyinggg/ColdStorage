@@ -9,6 +9,8 @@
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:server\"",
     "build": "next build",
     "start": "next start",
+    "start:server": "node server/index.js",
+    "start:all": "concurrently \"npm run start\" \"npm run start:server\"",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",

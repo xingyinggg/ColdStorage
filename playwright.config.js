@@ -1,6 +1,8 @@
 // playwright.config.js
 import { defineConfig } from "@playwright/test";
 
+const isCI = !!process.env.CI;
+
 export default defineConfig({
   testDir: "tests/e2e",
   reporter: [["html", { open: "never" }], ["list"]],
@@ -13,9 +15,9 @@ export default defineConfig({
   },
   // start your Next.js dev or prod server
   webServer: {
-    command: "npm run dev:all", // or 'npm run start' if you build first
+    command: isCI ? "npm run start:all" : "npm run dev:all",
     url: "http://localhost:3000",
-    timeout: 120000,
-    reuseExistingServer: true,
+    timeout: isCI ? 240000 : 120000,
+    reuseExistingServer: !isCI,
   },
 });

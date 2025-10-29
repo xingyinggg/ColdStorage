@@ -44,6 +44,62 @@ jobs:
       - name: Integration tests
         run: npm run test:integration
 
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run E2E tests
+        run: npx playwright test --reporter=github
+
+      - name: Upload E2E test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-results
+          path: test-results/
+          retention-days: 30
+
+      - name: Generate coverage report
+        run: npm run test:coverage
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
+
+      - name: Build for production
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: .next/
+          retention-days: 30
+
+      - name: Notify Telegram (failure)
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "Telegram secrets not set; skipping notification."
+            exit 0
+          fi
+          SHORT_SHA=${GITHUB_SHA::7}
+          MESSAGE="❌ ${GITHUB_WORKFLOW} failed for ${GITHUB_REPOSITORY}@${GITHUB_REF_NAME} (commit ${SHORT_SHA}) by ${GITHUB_ACTOR}"
+          curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage \
+            -d chat_id=${TELEGRAM_CHAT_ID} \
+            -d text="${MESSAGE}" \
+            -d parse_mode="Markdown"
+
       - name: Notify Telegram (success)
         if: ${{ success() }}
         env:
@@ -60,9 +116,26 @@ jobs:
             exit 0
           fi
           SHORT_SHA=${GITHUB_SHA::7}
-          MESSAGE="✅ ${GITHUB_WORKFLOW} passed for ${GITHUB_REPOSITORY}@${GITHUB_REF_NAME} (commit ${SHORT_SHA}) by ${GITHUB_ACTOR}"
+
+          # Get coverage summary if available
+          if [ -f "coverage/coverage-summary.json" ]; then
+            COVERAGE=$(node -p "
+              const cov = require('./coverage/coverage-summary.json');
+              const { lines, functions, branches, statements } = cov.total;
+              \`Coverage: Lines ${lines.pct}%, Functions ${functions.pct}%, Branches ${branches.pct}%, Statements ${statements.pct}%\`
+            " 2>/dev/null || echo "Coverage: Generated")
+          else
+            COVERAGE="Coverage: Generated"
+          fi
+
+          MESSAGE="✅ ${GITHUB_WORKFLOW} passed for ${GITHUB_REPOSITORY}@${GITHUB_REF_NAME} (commit ${SHORT_SHA}) by ${GITHUB_ACTOR}
+
+          📊 ${COVERAGE}
+          🔗 [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
           curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage \
             -d chat_id=${TELEGRAM_CHAT_ID} \
-            -d text="${MESSAGE}"
+            -d text="${MESSAGE}" \
+            -d parse_mode="Markdown"
 
 

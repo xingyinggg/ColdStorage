@@ -120,14 +120,21 @@ jobs:
             echo "Supabase publishable key missing; using service key fallback" >&2
             PUBLISHABLE="$SUPABASE_TEST_SERVICE_KEY"
           fi
+          ANON_KEY="$SUPABASE_TEST_ANON_KEY"
+          if [ -z "$ANON_KEY" ]; then
+            echo "Supabase anon key missing; using publishable key fallback" >&2
+            ANON_KEY="$PUBLISHABLE"
+          fi
+          if [ -z "$ANON_KEY" ]; then
+            echo "Supabase anon key still missing; using service key fallback" >&2
+            ANON_KEY="$SUPABASE_TEST_SERVICE_KEY"
+          fi
           echo "NEXT_PUBLIC_SUPABASE_URL=$URL" >> "$GITHUB_ENV"
           echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$PUBLISHABLE" >> "$GITHUB_ENV"
           echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL" >> "$GITHUB_ENV"
           echo "SUPABASE_URL=$SUPABASE_TEST_URL" >> "$GITHUB_ENV"
           echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_TEST_SERVICE_KEY" >> "$GITHUB_ENV"
-          if [ -n "$SUPABASE_TEST_ANON_KEY" ]; then
-            echo "SUPABASE_ANON_KEY=$SUPABASE_TEST_ANON_KEY" >> "$GITHUB_ENV"
-          fi
+          echo "SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
 
       - name: Lint
         run: npm run lint
@@ -219,14 +226,21 @@ jobs:
             echo "Supabase publishable key missing; using service key fallback" >&2
             PUBLISHABLE="$SUPABASE_TEST_SERVICE_KEY"
           fi
+          ANON_KEY="$SUPABASE_TEST_ANON_KEY"
+          if [ -z "$ANON_KEY" ]; then
+            echo "Supabase anon key missing; using publishable key fallback" >&2
+            ANON_KEY="$PUBLISHABLE"
+          fi
+          if [ -z "$ANON_KEY" ]; then
+            echo "Supabase anon key still missing; using service key fallback" >&2
+            ANON_KEY="$SUPABASE_TEST_SERVICE_KEY"
+          fi
           echo "NEXT_PUBLIC_SUPABASE_URL=$URL" >> "$GITHUB_ENV"
           echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$PUBLISHABLE" >> "$GITHUB_ENV"
           echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL" >> "$GITHUB_ENV"
           echo "SUPABASE_URL=$SUPABASE_TEST_URL" >> "$GITHUB_ENV"
           echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_TEST_SERVICE_KEY" >> "$GITHUB_ENV"
-          if [ -n "$SUPABASE_TEST_ANON_KEY" ]; then
-            echo "SUPABASE_ANON_KEY=$SUPABASE_TEST_ANON_KEY" >> "$GITHUB_ENV"
-          fi
+          echo "SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
 
       - name: Lint
         run: npm run lint

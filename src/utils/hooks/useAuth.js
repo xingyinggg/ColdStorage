@@ -17,8 +17,12 @@ export const useAuth = () => {
     try {
       const e2eFlag = window.localStorage?.getItem('e2e_auth');
       if (e2eFlag === '1') {
+        // Try to get custom profile from localStorage if set
+        const e2eProfileData = window.localStorage?.getItem('e2e_user_profile');
+        const customProfile = e2eProfileData ? JSON.parse(e2eProfileData) : null;
+        
         initialUser = { id: 'mock-user-123', email: 'mock@example.com' };
-        initialProfile = {
+        initialProfile = customProfile || {
           emp_id: 'E2E001',
           role: 'staff',
           department: 'QA',
@@ -29,20 +33,23 @@ export const useAuth = () => {
       }
     } catch {}
 
-    try {
-      const cachedData = sessionStorage.getItem(CACHE_KEY);
-      if (cachedData) {
-        const { user: cachedUser, profile: cachedProfile, timestamp } = JSON.parse(cachedData);
-        const now = Date.now();
-        if (now - timestamp < CACHE_DURATION && cachedUser && cachedProfile) {
-          initialUser = cachedUser;
-          initialProfile = cachedProfile;
-          initialLoading = false;
-          initialFetched = true;
+    // Only try cache if not in E2E mode
+    if (!initialFetched) {
+      try {
+        const cachedData = sessionStorage.getItem(CACHE_KEY);
+        if (cachedData) {
+          const { user: cachedUser, profile: cachedProfile, timestamp } = JSON.parse(cachedData);
+          const now = Date.now();
+          if (now - timestamp < CACHE_DURATION && cachedUser && cachedProfile) {
+            initialUser = cachedUser;
+            initialProfile = cachedProfile;
+            initialLoading = false;
+            initialFetched = true;
+          }
         }
+      } catch {
+        // Ignore cache parse errors and fall back to defaults
       }
-    } catch {
-      // Ignore cache parse errors and fall back to defaults
     }
   }
 
@@ -50,13 +57,27 @@ export const useAuth = () => {
   const [userProfile, setUserProfile] = useState(initialProfile);
   const [loading, setLoading] = useState(initialLoading);
   const [error, setError] = useState(null);
-  const supabaseRef = useRef(createClient());
+  
+  // Create supabase client (or mock in E2E mode)
+  const supabaseRef = useRef(
+    typeof window !== 'undefined' && window.localStorage?.getItem('e2e_auth') === '1'
+      ? null // Will be handled by E2E mock
+      : createClient()
+  );
+  
   const isMountedRef = useRef(true);
   const hasFetchedRef = useRef(initialFetched);
 
   // Fetch user and their profile data including role
   const fetchUserProfile = useCallback(async (skipLoadingState = false) => {
     console.log('🔄 useAuth: fetchUserProfile called');
+    
+    // Skip fetch in E2E mode - we already have the data
+    if (typeof window !== 'undefined' && window.localStorage?.getItem('e2e_auth') === '1') {
+      console.log('✓ useAuth: E2E mode detected, skipping fetchUserProfile');
+      return;
+    }
+    
     try {
       // Only set loading state if we don't have cached data
       if (!skipLoadingState && !hasFetchedRef.current) {
@@ -120,6 +141,18 @@ export const useAuth = () => {
 
   // Sign out
   const signOut = useCallback(async () => {
+    // In E2E mode, just clear state
+    if (typeof window !== 'undefined' && window.localStorage?.getItem('e2e_auth') === '1') {
+      if (isMountedRef.current) {
+        setUser(null);
+        setUserProfile(null);
+        sessionStorage.removeItem(CACHE_KEY);
+        sessionStorage.removeItem('tasks_ever_loaded');
+        sessionStorage.removeItem('projects_ever_loaded');
+      }
+      return;
+    }
+    
     try {
       const { error } = await supabaseRef.current.auth.signOut();
       if (error) throw error;
@@ -140,6 +173,14 @@ export const useAuth = () => {
 
   useEffect(() => {
     isMountedRef.current = true;
+    
+    // Skip setup in E2E mode
+    if (typeof window !== 'undefined' && window.localStorage?.getItem('e2e_auth') === '1') {
+      console.log('✓ useAuth: E2E mode, skipping auth subscription');
+      return () => {
+        isMountedRef.current = false;
+      };
+    }
     
     // Only fetch if we don't have valid cached data
     if (!hasFetchedRef.current) {

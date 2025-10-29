@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/rules-of-hooks */
 // tests/e2e/auth-fixture.js
 import { test as base, expect } from "@playwright/test";
 

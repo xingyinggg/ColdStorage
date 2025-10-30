@@ -19,7 +19,7 @@ export default function TaskDetailsModal({
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState("");
-  
+
   // Fallback to useSubtasks hook if props are not provided
   const {
     subtasks: hookSubtasks,
@@ -36,7 +36,6 @@ export default function TaskDetailsModal({
   // Memoize collaborator names to prevent unnecessary recalculations
   const collaboratorNames = useMemo(() => {
     if (task?.collaborators && Array.isArray(task.collaborators)) {
-      console.log('dfdfff', task);
       return task.collaborators.map(empId =>
         memberNames?.[empId] || `User ${empId}`
       );
@@ -237,13 +236,6 @@ export default function TaskDetailsModal({
             <p className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-900">
               {task.title}
             </p>
-            {/* Prominent Due Date (duplicate of status row but placed near title for visibility) */}
-            <div className="mt-2">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Due Date</label>
-              <div className="px-3 py-2 bg-white border border-gray-100 rounded-md text-sm text-gray-700">
-                {task.due_date ? formatDate(task.due_date) : 'Not set'}
-              </div>
-            </div>
           </div>
 
           {/* Description */}

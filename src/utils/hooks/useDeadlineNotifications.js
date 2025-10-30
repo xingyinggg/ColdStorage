@@ -12,6 +12,8 @@ export const useDeadlineNotifications = () => {
   const supabase = createClient();
   const lastCheckRef = useRef(0);
   const cooldownMs = 2 * 60 * 1000; // 2 minute cooldown between manual checks
+  const instanceIdRef = useRef(Math.random().toString(36).slice(2));
+  const lockKey = "deadline_check_lock";
 
   /**
    * Manually trigger deadline checks
@@ -27,8 +29,40 @@ export const useDeadlineNotifications = () => {
         return { skipped: true, reason: "cooldown" };
       }
 
+      // Cross-tab lock: prevent other tabs from triggering the same check within the cooldown window
+      try {
+        if (!force && typeof window !== "undefined") {
+          const raw = localStorage.getItem(lockKey);
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed && parsed.ts && now - parsed.ts < cooldownMs) {
+                console.log("⏳ Deadline check skipped (another tab recently triggered it)");
+                return { skipped: true, reason: "cross-tab-cooldown" };
+              }
+            } catch (e) {
+              // ignore parse errors and continue
+            }
+          }
+        }
+      } catch (e) {
+        // If localStorage access fails, continue and rely on server-side checks
+      }
+
       setLoading(true);
       try {
+        // Acquire cross-tab lock (timestamp + instance id)
+        try {
+          if (typeof window !== "undefined") {
+            localStorage.setItem(
+              lockKey,
+              JSON.stringify({ ts: now, id: instanceIdRef.current })
+            );
+          }
+        } catch (e) {
+          // ignore localStorage failures
+        }
+
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -63,6 +97,24 @@ export const useDeadlineNotifications = () => {
         setLastResult({ error: error.message });
         throw error;
       } finally {
+        // Release cross-tab lock only if this instance set it
+        try {
+          if (typeof window !== "undefined") {
+            const raw = localStorage.getItem(lockKey);
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw);
+                if (parsed && parsed.id === instanceIdRef.current) {
+                  localStorage.removeItem(lockKey);
+                }
+              } catch (e) {
+                // ignore parse errors
+              }
+            }
+          }
+        } catch (e) {
+          // ignore localStorage failures
+        }
         setLoading(false);
       }
     },

@@ -26,6 +26,13 @@ vi.mock("../../server/lib/supabase.js", () => ({
   getUserFromToken: vi.fn(),
   getEmpIdForUserId: vi.fn(),
   getUserRole: vi.fn(),
+  getNumericIdFromEmpId: vi.fn((empId) => {
+    // Extract numeric portion from emp_id (e.g., "TEST001" -> 1)
+    if (!empId) return null;
+    if (typeof empId === 'number') return empId;
+    const match = String(empId).match(/(\d+)$/);
+    return match ? parseInt(match[1], 10) : null;
+  }),
 }));
 
 import {
@@ -45,7 +52,8 @@ import {
   getServiceClient, 
   getUserFromToken, 
   getEmpIdForUserId, 
-  getUserRole 
+  getUserRole,
+  getNumericIdFromEmpId
 } from "../../server/lib/supabase.js";
 
 // Create direct test database client for verification
@@ -393,7 +401,9 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
             const formatSubtask = dbSubtasks.find(st => st.title === "Format documentation");
             expect(formatSubtask).toBeTruthy();
             expect(formatSubtask.description).toBe("Check for alignment and format");
-            expect(formatSubtask.owner_id).toBe("TEST001"); // Inherits from parent
+            // owner_id is stored as numeric ID in sub_task table
+            // We expect it to be 1 (extracted from "TEST001")
+            expect(formatSubtask.owner_id).toBe(1); // Inherits from parent (numeric format)
             
             console.log("✅ Task with subtasks created and verified in database");
           } else {

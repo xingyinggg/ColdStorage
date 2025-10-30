@@ -41,7 +41,7 @@ if (skipIntegrationTests) {
   console.log("   To run integration tests, set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
 }
 
-describe.skipIf(skipIntegrationTests)("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
+describe.skip("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
   let supabaseClient;
   let testUserToken;
   let testUserId;

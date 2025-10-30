@@ -395,8 +395,10 @@ describe.skipIf(skipIntegrationTests)("Projects Integration Tests with Test Data
 
   describe("Test Database Validation Tests", () => {
     it("should enforce unique title constraint in test database", async () => {
+      // Use unique title for each test run to avoid conflicts from previous failed runs
+      const uniqueTitle = `Integration Test Unique Title ${Date.now()}`;
       const projectData = {
-        title: "Integration Test Unique Title",
+        title: uniqueTitle,
         description: "Testing uniqueness",
         members: ["TEST001"],
       };

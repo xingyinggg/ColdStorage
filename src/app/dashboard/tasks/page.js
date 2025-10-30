@@ -14,7 +14,7 @@ import { useManagerTasks } from "@/utils/hooks/useManagerTasks";
 import StaffTasksView from "./components/StaffTasksView";
 import ManagerTasksView from "./components/ManagerTasksView";
 import DirectorTasksView from "./components/DirectorTasksView";
-import HrTasksView from "./components/HrTasksView";
+import HrTasksView from "./components/HRTasksView";
 
 // moved status constants into StaffTasksView component
 

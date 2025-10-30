@@ -7,7 +7,7 @@ import { useTasks } from "@/utils/hooks/useTasks";
 import { useAuth } from "@/utils/hooks/useAuth";
 import SidebarLayout from "@/components/layout/SidebarLayout";
 import HeaderBar from "@/components/layout/HeaderBar";
-import HrTasksView from "../components/HrTasksView";
+import HrTasksView from "../components/HRTasksView";
 import Toast from "@/components/ui/Toast";
 import {
   formatDate,

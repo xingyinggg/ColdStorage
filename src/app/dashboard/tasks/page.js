@@ -202,18 +202,22 @@ export default function DashboardPage() {
           onLogout={handleLogout}
         />
         <div>
-          <StaffTasksView
-            tasks={tasks}
-            onLogout={handleLogout}
-            onEditTask={updateTask}
-          />
-          <AllTasksSection
+          <div className="max-w-7xl mx-auto py-2 sm:py-6 px-2 sm:px-6 lg:px-8">
+            <div className="px-2 py-3 sm:px-4 sm:py-6"></div>
+            <StaffTasksView
+              tasks={tasks}
+              onLogout={handleLogout}
+              onEditTask={updateTask}
+              currentUserEmpId={userProfile?.emp_id}
+            />
+          </div>
+        </div>
+        {/* <AllTasksSection
             tasks={tasks}
             onMarkComplete={toggleTaskComplete}
             currentUserEmpId={userProfile?.emp_id}
             onEditTask={updateTask}
-          />
-        </div>
+          /> */}
       </SidebarLayout>
     );
   }

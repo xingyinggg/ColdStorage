@@ -7,7 +7,6 @@ import TaskCard from "@/components/tasks/TaskCard";
 import HeaderBar from "@/components/layout/HeaderBar";
 
 export default function ManagerDashboard({ user, userProfile, onLogout }) {
-  
   const {
     allTasks,
     allProjects,
@@ -15,8 +14,13 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
     loading,
     updateTaskAssignment,
     getTasksByStatus,
-    getOverdueTasks
+    getOverdueTasks,
   } = useManagerTasks();
+
+  const handleLogout = async () => {
+    await signOut();
+    router.push("/login");
+  };
 
   // Keep useManagerProjects for potential future use
   const {} = useManagerProjects();
@@ -67,9 +71,9 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
     updateTaskAssignment(id, task.collaborators || [], updates);
 
   const buildCompleteHandler = (task) => (id) =>
-    updateTaskAssignment(id, task.collaborators || [], { status: 'completed' });
+    updateTaskAssignment(id, task.collaborators || [], { status: "completed" });
 
-  const activeTasks = getTasksByStatus('ongoing') || [];
+  const activeTasks = getTasksByStatus("ongoing") || [];
   const overdueTasks = getOverdueTasks() || [];
 
   if (loading) {
@@ -86,7 +90,7 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
         title="Manager Dashboard"
         user={user}
         userProfile={userProfile}
-        roleLabel={userProfile?.role || 'Manager'}
+        roleLabel={userProfile?.role || "Manager"}
         roleColor="blue"
         onLogout={onLogout}
       />
@@ -203,7 +207,9 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
                   Recent Tasks Overview
                 </h3>
                 {allTasks.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">No tasks found</div>
+                  <div className="text-center py-8 text-gray-500">
+                    No tasks found
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {allTasks.slice(0, 5).map((task) => (
@@ -214,9 +220,16 @@ export default function ManagerDashboard({ user, userProfile, onLogout }) {
                         getPriorityColor={getPriorityColor}
                         getStatusColor={getStatusColor}
                         getProjectName={getProjectName}
-                        canEdit={userProfile?.emp_id === task.owner_id || (task.collaborators && task.collaborators.includes(userProfile?.emp_id))}
+                        canEdit={
+                          userProfile?.emp_id === task.owner_id ||
+                          (task.collaborators &&
+                            task.collaborators.includes(userProfile?.emp_id))
+                        }
                         isOwner={userProfile?.emp_id === task.owner_id}
-                        isCollaborator={task.collaborators && task.collaborators.includes(userProfile?.emp_id)}
+                        isCollaborator={
+                          task.collaborators &&
+                          task.collaborators.includes(userProfile?.emp_id)
+                        }
                         onEdit={buildEditHandler(task)}
                         onMarkComplete={buildCompleteHandler(task)}
                       />

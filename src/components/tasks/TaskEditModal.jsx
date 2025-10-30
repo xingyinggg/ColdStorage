@@ -380,37 +380,54 @@ export default function TaskEditModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Assign Task To
               </label>
-              <select
-                value={form.assignTo}
-                onChange={(e) => handleInputChange("assignTo", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {/* Show available staff based on user role */}
-                {userProfile?.role === "manager" && teamMembers.length > 0 && (
-                  <>
-                    <optgroup label="Team Members">
+              
+              {/* Show loading state */}
+              {(userProfile?.role === "manager" && teamMembers.length === 0) || 
+               (userProfile?.role === "director" && availableStaff.length === 0) ? (
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                  Loading assignment options...
+                </div>
+              ) : (
+                <select
+                  value={form.assignTo}
+                  onChange={(e) => handleInputChange("assignTo", e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={task.owner_id}>
+                    Keep current assignment ({task.owner_name || 'Current Owner'})
+                  </option>
+                  
+                  {/* Manager options */}
+                  {userProfile?.role === "manager" && teamMembers.length > 0 && (
+                    <optgroup label={`Team Members (${teamMembers.length})`}>
                       {teamMembers.map((staff) => (
                         <option key={staff.emp_id} value={staff.emp_id}>
                           {staff.name} ({staff.role}) - {staff.department || 'No department'}
                         </option>
                       ))}
                     </optgroup>
-                  </>
-                )}
-                {(userProfile?.role === "director") && availableStaff.length > 0 && (
-                  <>
-                    <optgroup label="Available Staff">
-                      {availableStaff.map((staff) => (
-                        <option key={staff.emp_id} value={staff.emp_id}>
-                          {staff.name} ({staff.role}) - {staff.department || 'No department'}
-                        </option>
-                      ))}
+                  )}
+                  
+                  {/* Director options with performance optimization */}
+                  {userProfile?.role === "director" && availableStaff.length > 0 && (
+                    <optgroup label={`Available Staff (${availableStaff.length})`}>
+                      {availableStaff
+                        .slice(0, 100) // Limit to first 100 for performance, add search later if needed
+                        .map((staff) => (
+                          <option key={staff.emp_id} value={staff.emp_id}>
+                            {staff.name} ({staff.role}) - {staff.department || 'No department'}
+                          </option>
+                        ))}
+                      {availableStaff.length > 100 && (
+                        <option disabled>... and {availableStaff.length - 100} more (use search)</option>
+                      )}
                     </optgroup>
-                  </>
-                )}
-              </select>
+                  )}
+                </select>
+              )}
+              
               <p className="mt-1 text-xs text-gray-500">
-                Changing assignment will transfer task ownership
+                Changing assignment will transfer task ownership to the selected person
               </p>
             </div>
           )}

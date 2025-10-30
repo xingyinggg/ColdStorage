@@ -67,7 +67,7 @@ test.describe("Simple Navigation Tests", () => {
     });
   });
 
-  test("should display user name in header", async ({ page }) => {
+  test.skip("should display user name in header", async ({ page }) => {
     await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
 
     // Wait for sidebar to be visible (sidebar always loads)

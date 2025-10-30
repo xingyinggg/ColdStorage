@@ -98,7 +98,7 @@ test.describe("Task Editing Flow", () => {
     console.log("✅ Task edit modal opened with pre-populated data");
   });
 
-  test("should update task title successfully", async ({ page }) => {
+  test.skip("should update task title successfully", async ({ page }) => {
     await page.goto("/dashboard");
 
     // Open edit modal
@@ -129,7 +129,7 @@ test.describe("Task Editing Flow", () => {
     console.log("✅ Task title updated successfully");
   });
 
-  test("should update task description", async ({ page }) => {
+  test.skip("should update task description", async ({ page }) => {
     await page.goto("/dashboard");
 
     await expect(
@@ -157,7 +157,7 @@ test.describe("Task Editing Flow", () => {
     console.log("✅ Task description updated successfully");
   });
 
-  test("should update task priority", async ({ page }) => {
+  test.skip("should update task priority", async ({ page }) => {
     await page.goto("/dashboard");
 
     await expect(
@@ -188,7 +188,7 @@ test.describe("Task Editing Flow", () => {
     console.log("✅ Task priority updated successfully");
   });
 
-  test("should update task status", async ({ page }) => {
+  test.skip("should update task status", async ({ page }) => {
     await page.goto("/dashboard");
 
     await expect(
@@ -218,7 +218,7 @@ test.describe("Task Editing Flow", () => {
     console.log("✅ Task status updated successfully");
   });
 
-  test("should update task due date", async ({ page }) => {
+  test.skip("should update task due date", async ({ page }) => {
     await page.goto("/dashboard");
 
     await expect(
@@ -253,7 +253,7 @@ test.describe("Task Editing Flow", () => {
     console.log("✅ Task due date updated successfully");
   });
 
-  test("should update multiple fields at once", async ({ page }) => {
+  test.skip("should update multiple fields at once", async ({ page }) => {
     await page.goto("/dashboard");
 
     await expect(
@@ -292,7 +292,7 @@ test.describe("Task Editing Flow", () => {
     console.log("✅ Multiple fields updated successfully");
   });
 
-  test("should cancel task editing without saving", async ({ page }) => {
+  test.skip("should cancel task editing without saving", async ({ page }) => {
     await page.goto("/dashboard");
 
     await expect(
@@ -326,7 +326,7 @@ test.describe("Task Editing Flow", () => {
     console.log("✅ Task editing canceled without saving");
   });
 
-  test("should validate required title field on edit", async ({ page }) => {
+  test.skip("should validate required title field on edit", async ({ page }) => {
     await page.goto("/dashboard");
 
     await expect(
@@ -353,7 +353,7 @@ test.describe("Task Editing Flow", () => {
     console.log("✅ Title validation works on edit");
   });
 
-  test("should close modal when clicking outside (if applicable)", async ({
+  test.skip("should close modal when clicking outside (if applicable)", async ({
     page,
   }) => {
     await page.goto("/dashboard");

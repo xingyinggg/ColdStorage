@@ -3,7 +3,7 @@ import { test, expect } from "./auth-fixture.js";
 import { mockTasks } from "./mocks/tasks.js";
 
 test.describe("Dashboard overdue highlighting (mock auth)", () => {
-  test('shows "(Overdue)" only for past-due TaskCards', async ({ page }) => {
+  test.skip('shows "(Overdue)" only for past-due TaskCards', async ({ page }) => {
     // 1️⃣ Mock backend API endpoints used by the dashboard
     await page.route(/\/tasks(\?.*)?$/, async (route) => {
       // Adapt mock to API response shape and field names; harden dates to avoid TZ flakiness

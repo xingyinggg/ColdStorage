@@ -5,6 +5,9 @@ class DeadlineNotificationService {
     // Don't initialize supabase client during construction
     this.supabase = null;
     this.lastCheck = null;
+    // In-memory recent notification keys to prevent duplicate sends in the same process
+    // Key format: `${taskId}:${empId}:${type}:${title}`
+    this._recentNotificationKeys = new Set();
   }
 
   // Get Singapore date in YYYY-MM-DD format
@@ -335,8 +338,7 @@ class DeadlineNotificationService {
         .select("id, title")
         .eq("task_id", taskId)
         .eq("emp_id", empId)
-        .eq("type", type)
-        .eq("read", false);
+        .eq("type", type);
 
       if (error) {
         return null;
@@ -372,17 +374,55 @@ class DeadlineNotificationService {
     metadata,
     notification_category = "deadline",
   }) {
-    try {
-      // Convert emp_id to numeric ID for notifications table
-      const finalEmpId = getNumericIdFromEmpId(emp_id);
-      const finalTaskId = Number.isFinite(Number(task_id))
-        ? Number(task_id)
-        : task_id;
+    // Prepare final ids and dedupe key early
+    const finalTaskId = Number.isFinite(Number(task_id))
+      ? Number(task_id)
+      : task_id;
+    const finalEmpId = getNumericIdFromEmpId(emp_id);
+    const dedupeKey = `${finalTaskId}:${finalEmpId}:${type}:${title}`;
 
+    // If another operation in this process is already creating this notification, skip
+    if (this._recentNotificationKeys.has(dedupeKey)) {
+      return null;
+    }
+
+    // Mark as in-progress in local dedupe cache
+    this._recentNotificationKeys.add(dedupeKey);
+
+    try {
       let supabase = this.getSupabaseClient();
       if (!supabase) {
         supabase = getServiceClient();
         this.supabase = supabase;
+      }
+
+      // Defensive DB check: if a matching notification already exists (by task, emp, type, title), don't insert again
+      try {
+        const { data: existing, error: existErr } = await supabase
+          .from("notifications")
+          .select("id, read, sent_at, created_at")
+          .eq("task_id", finalTaskId)
+          .eq("emp_id", finalEmpId)
+          .eq("type", type)
+          .eq("title", title)
+          .limit(1)
+          .single();
+
+        if (!existErr && existing) {
+          // Optionally update sent_at to indicate re-sent attempt
+          try {
+            await supabase
+              .from("notifications")
+              .update({ sent_at: new Date().toISOString() })
+              .eq("id", existing.id);
+          } catch (uErr) {
+            // ignore update errors
+          }
+
+          return existing;
+        }
+      } catch (e) {
+        // ignore - we'll attempt to insert below; defensive in case select fails
       }
 
       const notificationData = {
@@ -397,6 +437,39 @@ class DeadlineNotificationService {
         sent_at: new Date().toISOString(),
       };
 
+      // Try an atomic upsert first (requires a unique constraint on the target columns)
+      try {
+        // Use comma-separated onConflict string for Supabase/Postgres compatibility
+        const onConflictCols = 'task_id,emp_id,type,title';
+        const { data: upserted, error: upsertErr } = await supabase
+          .from("notifications")
+          .upsert(notificationData, { onConflict: onConflictCols })
+          .select()
+          .single();
+
+        if (!upsertErr && upserted) {
+          // Cleanup any concurrent duplicates (keep the returned row)
+          try {
+            await supabase
+              .from("notifications")
+              .delete()
+              .neq("id", upserted.id)
+              .eq("task_id", finalTaskId)
+              .eq("emp_id", finalEmpId)
+              .eq("type", type)
+              .eq("title", title);
+          } catch (cleanupErr) {
+            // ignore cleanup errors
+          }
+
+          return upserted;
+        }
+        // If upsertErr exists, fall through to fallback insert below
+      } catch (upsertEx) {
+        // Upsert may fail if DB doesn't support the conflict target; fall back to insert
+      }
+
+      // Fallback: attempt a normal insert (we already performed a defensive select above)
       const { data, error } = await supabase
         .from("notifications")
         .insert(notificationData)
@@ -409,9 +482,30 @@ class DeadlineNotificationService {
         );
       }
 
+      // Cleanup any concurrent duplicates (keep the inserted row)
+      try {
+        await supabase
+          .from("notifications")
+          .delete()
+          .neq("id", data.id)
+          .eq("task_id", finalTaskId)
+          .eq("emp_id", finalEmpId)
+          .eq("type", type)
+          .eq("title", title);
+      } catch (cleanupErr) {
+        // ignore cleanup errors
+      }
+
       return data;
     } catch (error) {
       throw error;
+    } finally {
+      // Remove the dedupe key after a short delay so other attempts can proceed later
+      try {
+        setTimeout(() => this._recentNotificationKeys.delete(dedupeKey), 10000);
+      } catch (e) {
+        // ignore
+      }
     }
   }
 

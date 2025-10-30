@@ -12,8 +12,9 @@ import { useDepartmentTeams } from "@/utils/hooks/useDepartmentTeams";
 import TaskForm from "@/components/tasks/TaskForm";
 import SidebarLayout from "@/components/layout/SidebarLayout";
 import HeaderBar from "@/components/layout/HeaderBar";
+import dynamic from "next/dynamic";
 
-export default function CreateTaskPage() {
+function CreateTaskPage() {
   const router = useRouter();
   const { user, userProfile, signOut } = useAuth();
   const { createTask } = useTasks(user);
@@ -385,3 +386,5 @@ export default function CreateTaskPage() {
     </SidebarLayout>
   );
 }
+
+export default dynamic(() => Promise.resolve(CreateTaskPage), { ssr: false });

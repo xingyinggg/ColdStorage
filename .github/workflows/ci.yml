@@ -85,13 +85,6 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/CS-207'
     
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_TEST_ANON_KEY }}
-      SUPABASE_TEST_URL: ${{ secrets.SUPABASE_TEST_URL }}
-      SUPABASE_TEST_SERVICE_KEY: ${{ secrets.SUPABASE_TEST_SERVICE_KEY }}
-      CI: true
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -104,9 +97,6 @@ jobs:
       
       - name: Install dependencies
         run: npm ci
-      
-      - name: Build application
-        run: npm run build
       
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
@@ -128,10 +118,6 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/CS-207'
     
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_TEST_ANON_KEY }}
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -147,6 +133,9 @@ jobs:
       
       - name: Build application
         run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
   # Coverage - only runs on PRs and main/CS-207 branch pushes
   coverage:

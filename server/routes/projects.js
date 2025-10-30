@@ -371,4 +371,222 @@ router.get("/:id/members", async (req, res) => {
   }
 });
 
+// Get complete project data with tasks and member names in one request
+router.get("/complete", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+    if (!token) {
+      return res.status(401).json({ error: "No token provided" });
+    }
+
+    const user = await getUserFromToken(token);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    const empId = await getEmpIdForUserId(user.id);
+    if (!empId) {
+      return res.status(404).json({ error: "Employee ID not found" });
+    }
+
+    // Get projects where user is owner or member
+    const { data: projects, error: projectsError } = await supabase
+      .from("projects")
+      .select("*")
+      .or(`owner_id.eq.${empId},members.cs.{${empId}}`);
+
+    if (projectsError) {
+      console.error("Supabase projects error:", projectsError);
+      return res.status(500).json({ error: projectsError.message });
+    }
+
+    if (!projects || projects.length === 0) {
+      return res.json({
+        projects: [],
+        tasks: {},
+        memberNames: {},
+      });
+    }
+
+    // Get project IDs
+    const projectIds = projects.map((p) => p.id);
+
+    // Get all unique member IDs from all projects
+    const allEmpIds = new Set();
+    projects.forEach((project) => {
+      if (project.members && Array.isArray(project.members)) {
+        project.members.forEach((empId) => allEmpIds.add(empId));
+      }
+      // Also add project owner
+      if (project.owner_id) {
+        allEmpIds.add(project.owner_id);
+      }
+    });
+
+    // Fetch tasks and users in parallel
+    const [tasksResult, usersResult] = await Promise.all([
+      // Get tasks for all projects
+      supabase
+        .from("tasks")
+        .select(
+          "id, title, status, project_id, description, due_date, priority, owner_id, created_at, file, collaborators"
+        )
+        .in("project_id", projectIds),
+
+      // Get user names for all members (only if we have member IDs)
+      allEmpIds.size > 0
+        ? supabase
+            .from("users")
+            .select("emp_id, name, email")
+            .in("emp_id", Array.from(allEmpIds))
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (tasksResult.error) {
+      console.error("Tasks fetch error:", tasksResult.error);
+      return res.status(500).json({ error: tasksResult.error.message });
+    }
+
+    if (usersResult.error) {
+      console.error("Users fetch error:", usersResult.error);
+      return res.status(500).json({ error: usersResult.error.message });
+    }
+
+    // Group tasks by project_id
+    const tasksGrouped = {};
+    projects.forEach((project) => {
+      tasksGrouped[project.id] =
+        tasksResult.data.filter((task) => task.project_id === project.id) || [];
+    });
+
+    // Create member names mapping
+    const memberNames = {};
+    (usersResult.data || []).forEach((user) => {
+      memberNames[user.emp_id] = user.name;
+    });
+
+    // Return everything together
+    res.json({
+      projects: projects,
+      tasks: tasksGrouped,
+      memberNames: memberNames,
+    });
+  } catch (e) {
+    console.error("Error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get complete project data with tasks and member names in one request
+router.get("/complete", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+    if (!token) {
+      return res.status(401).json({ error: "No token provided" });
+    }
+
+    const user = await getUserFromToken(token);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    const empId = await getEmpIdForUserId(user.id);
+    if (!empId) {
+      return res.status(404).json({ error: "Employee ID not found" });
+    }
+
+    // Get projects where user is owner or member
+    const { data: projects, error: projectsError } = await supabase
+      .from("projects")
+      .select("*")
+      .or(`owner_id.eq.${empId},members.cs.{${empId}}`);
+
+    if (projectsError) {
+      console.error("Supabase projects error:", projectsError);
+      return res.status(500).json({ error: projectsError.message });
+    }
+
+    if (!projects || projects.length === 0) {
+      return res.json({
+        projects: [],
+        tasks: {},
+        memberNames: {},
+      });
+    }
+
+    // Get project IDs
+    const projectIds = projects.map((p) => p.id);
+
+    // Get all unique member IDs from all projects
+    const allEmpIds = new Set();
+    projects.forEach((project) => {
+      if (project.members && Array.isArray(project.members)) {
+        project.members.forEach((empId) => allEmpIds.add(empId));
+      }
+      // Also add project owner
+      if (project.owner_id) {
+        allEmpIds.add(project.owner_id);
+      }
+    });
+
+    // Fetch tasks and users in parallel
+    const [tasksResult, usersResult] = await Promise.all([
+      // Get tasks for all projects
+      supabase
+        .from("tasks")
+        .select(
+          "id, title, status, project_id, description, due_date, priority, owner_id, created_at, file, collaborators"
+        )
+        .in("project_id", projectIds),
+
+      // Get user names for all members (only if we have member IDs)
+      allEmpIds.size > 0
+        ? supabase
+            .from("users")
+            .select("emp_id, name, email")
+            .in("emp_id", Array.from(allEmpIds))
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (tasksResult.error) {
+      console.error("Tasks fetch error:", tasksResult.error);
+      return res.status(500).json({ error: tasksResult.error.message });
+    }
+
+    if (usersResult.error) {
+      console.error("Users fetch error:", usersResult.error);
+      return res.status(500).json({ error: usersResult.error.message });
+    }
+
+    // Group tasks by project_id
+    const tasksGrouped = {};
+    projects.forEach((project) => {
+      tasksGrouped[project.id] =
+        tasksResult.data.filter((task) => task.project_id === project.id) || [];
+    });
+
+    // Create member names mapping
+    const memberNames = {};
+    (usersResult.data || []).forEach((user) => {
+      memberNames[user.emp_id] = user.name;
+    });
+
+    // Return everything together
+    res.json({
+      projects: projects,
+      tasks: tasksGrouped,
+      memberNames: memberNames,
+    });
+  } catch (e) {
+    console.error("Error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;

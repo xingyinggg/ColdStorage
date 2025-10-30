@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import TaskEditModal from "@/components/tasks/TaskEditModal";
 import TaskDetailsModal from "@/components/tasks/TaskDetailsModal";
 import { useSubtasks } from "@/utils/hooks/useSubtasks";
+import { useProjects } from "@/utils/hooks/useProjects";
 import SubtaskEditModal from "@/components/tasks/SubtaskEditModal";
 import Toast from "@/components/ui/Toast";
 import RecurrenceStatus from "@/components/tasks/RecurrenceStatus";
@@ -118,6 +119,24 @@ export default function TaskCard({
   memberNames = {},
   projectNames = {} // Add this prop
 }) {
+
+  const { projects, loading: projectsLoading } = useProjects();
+
+  const hookProjectNames = useMemo(() => {
+    const namesMap = {};
+    if (projects && Array.isArray(projects)) {
+      projects.forEach(project => {
+        namesMap[project.id] = project.title;
+      });
+    }
+    return namesMap;
+  }, [projects]);
+
+  const combinedProjectNames = useMemo(() => {
+    return { ...projectNames, ...hookProjectNames };
+  }, [projectNames, hookProjectNames]);
+
+
   // Disable edit functionality if no update handlers are provided
   const actualCanEdit = canEdit && (typeof onTaskUpdate === 'function' || typeof onEdit === 'function');
   
@@ -311,6 +330,82 @@ export default function TaskCard({
     return '';
   };
 
+  const getProjectNameDisplay = () => {
+    
+    // If task has a project_name property, use it directly
+    if (task.project_name) {
+      // console.log("Using task.project_name:", task.project_name);
+      return task.project_name;
+    }
+    
+    // If task has project_id, try to resolve it using projectNames prop
+    if (task.project_id && combinedProjectNames && combinedProjectNames[task.project_id]) {
+      return combinedProjectNames[task.project_id];
+    }
+    
+    // Fallback to showing project ID if name resolution fails
+    if (task.project_id) {
+      // console.log("Falling back to Project ID:", `Project ${task.project_id}`);
+      return `Project ${task.project_id}`;
+    }
+    
+    // No project assigned
+    return 'No project assigned';
+  };
+
+  const getAllMemberNames = useMemo(() => {
+    const allMembers = { ...memberNames };
+    
+    // Add data from the current task only (not tasks array)
+    if (task.owner_id && task.owner_name) {
+      allMembers[task.owner_id] = task.owner_name;
+    }
+    if (task.manager?.id && task.manager?.name) {
+      allMembers[task.manager.id] = task.manager.name;
+    }
+    if (task.task_owner?.id && task.task_owner?.name) {
+      allMembers[task.task_owner.id] = task.task_owner.name;
+    }
+    
+    // Add assignees
+    if (task.assignees && Array.isArray(task.assignees)) {
+      task.assignees.forEach(assignee => {
+        if (assignee.id && assignee.name) {
+          allMembers[assignee.id] = assignee.name;
+        }
+        if (assignee.emp_id && assignee.name) {
+          allMembers[assignee.emp_id] = assignee.name;
+        }
+      });
+    }
+    
+    // Add collaborators if they have name data embedded
+    if (task.collaborators && Array.isArray(task.collaborators)) {
+      task.collaborators.forEach(collab => {
+        if (typeof collab === 'object' && collab.id && collab.name) {
+          allMembers[collab.id] = collab.name;
+        }
+        if (typeof collab === 'object' && collab.emp_id && collab.name) {
+          allMembers[collab.emp_id] = collab.name;
+        }
+      });
+    }
+    
+    return allMembers;
+  }, [memberNames, task]);
+
+  // Create a similar useMemo for project names
+  const getAllProjectNames = useMemo(() => {
+    const allProjects = { ...combinedProjectNames };
+    
+    // Add project name from current task if available
+    if (task.project_id && task.project_name) {
+      allProjects[task.project_id] = task.project_name;
+    }
+    
+    return allProjects;
+  }, [combinedProjectNames, task]);
+
   const priorityConfig = getPriorityColor(task.priority);
 
   return (
@@ -379,6 +474,17 @@ export default function TaskCard({
               </svg>
               <span className="text-gray-500 font-medium mr-1 flex-shrink-0">Collaborators:</span>
               <span className="font-medium text-gray-700 truncate">{getCollaboratorsDisplay()}</span>
+            </div>
+          )}
+
+          {/* Project */}
+          {(task.project_id || task.project_name) && (
+            <div className="flex items-center text-xs">
+              <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              <span className="text-gray-500 font-medium mr-1 flex-shrink-0">Project:</span>
+              <span className="font-medium text-gray-700 truncate">{getProjectNameDisplay()}</span>
             </div>
           )}
 
@@ -511,13 +617,13 @@ export default function TaskCard({
         )}
       </div>
 
-      {/* Task Details Modal - Add this */}
+      {/* Task Details Modal */}
       <TaskDetailsModal
         open={detailsModalOpen}
         task={task}
         onClose={closeDetailsModal}
-        memberNames={memberNames}
-        projectNames={projectNames}
+        memberNames={getAllMemberNames}
+        projectNames={getAllProjectNames}
         subtasks={subtasks} 
         loadingSubtasks={loadingSubtasks}
         subtasksError={subtasksError}

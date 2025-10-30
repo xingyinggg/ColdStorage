@@ -122,6 +122,7 @@ export default function HrTasksView({ onLogout, showHeader = true }) {
                       isOwner={isOwner}
                       isCollaborator={isCollaborator}
                       onTaskUpdate={updateTask}
+                      projectNames={projectNames}
                       currentUserId={userProfile?.emp_id}
                       memberNames={hrStaff.reduce((acc, staff) => {
                         acc[staff.emp_id] = staff.name;

@@ -33,56 +33,57 @@ export default function SidebarLayout({ children }) {
   return (
     <div className="min-h-screen flex bg-gray-50" suppressHydrationWarning>
       <NotificationInitializer />
-      <aside
-        suppressHydrationWarning
-        className={`${collapsed ? "w-16" : "w-64"} bg-white shadow-sm border-b border-gray-200 transition-all duration-200 flex flex-col fixed left-0 top-0 h-screen z-10`}
-      >
-        <div className="h-14 border-b border-gray-200 flex items-center justify-between px-3">
-          {!collapsed && (
-            <span className="font-semibold text-gray-900">Menu</span>
-          )}
-          <button
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            onClick={() => setCollapsed((c) => !c)}
-            className="p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <HamburgerIcon collapsed={collapsed} />
-          </button>
-        </div>
 
-        <nav className="flex-1 overflow-y-auto py-3" suppressHydrationWarning>
-          <ul className="space-y-1" suppressHydrationWarning>
-            {navItems.map(({ label, href, icon: Icon }) => {
-              const active = pathname === href || (href !== "/dashboard" && pathname?.startsWith(href));
-              return (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    className={`group flex items-center ${collapsed ? "justify-center" : "px-3"} h-10 mx-2 rounded transition-colors relative ${active
-                      ? "bg-blue-50 text-blue-700"
-                      : "text-gray-700 hover:bg-gray-50"
-                      }`}
-                    title={collapsed ? label : undefined}
-                  >
-                    <Icon className={`w-5 h-5 ${collapsed ? "" : "mr-3"}`} />
-                    {!collapsed && <span className="text-sm font-medium">{label}</span>}
-                    {label === "Mailbox" && unreadCount > 0 && (
-                      <span className={`${collapsed ? "absolute -top-1 -right-1" : "ml-auto"} inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full`}>
-                        {unreadCount > 99 ? "99+" : unreadCount}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+<aside
+  suppressHydrationWarning
+  className={`${collapsed ? "w-16" : "w-64"} bg-white shadow-sm border-b border-gray-200 transition-all duration-200 flex flex-col fixed left-0 top-0 h-screen z-10`}
+>
+  <div className="h-14 border-b border-gray-200 flex items-center justify-between px-3">
+    {!collapsed && (
+      <span className="font-semibold text-gray-900">Menu</span>
+    )}
+    <button
+      aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      onClick={() => setCollapsed((c) => !c)}
+      className="p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    >
+      <HamburgerIcon collapsed={collapsed} />
+    </button>
+  </div>
 
-        <div className="p-3 text-xs text-gray-400 border-t border-gray-100">
-          {!collapsed && <span>© {new Date().getFullYear()}</span>}
-        </div>
-      </aside>
+  <nav className="flex-1 overflow-y-auto py-3" suppressHydrationWarning>
+    <ul className="space-y-1" suppressHydrationWarning>
+      {navItems.map(({ label, href, icon: Icon }) => {
+        const active = pathname === href || (href !== "/dashboard" && pathname?.startsWith(href));
+        return (
+          <li key={href}>
+            <Link
+              href={href}
+              className={`group flex items-center ${collapsed ? "justify-center" : "px-3"} h-10 mx-2 rounded transition-colors relative ${active
+                ? "bg-blue-50 text-blue-700"
+                : "text-gray-700 hover:bg-gray-50"
+                }`}
+              title={collapsed ? label : undefined}
+            >
+              <Icon className={`w-5 h-5 ${collapsed ? "" : "mr-3"}`} />
+              {!collapsed && <span className="text-sm font-medium">{label}</span>}
+              {label === "Mailbox" && unreadCount > 0 && (
+                <span className={`${collapsed ? "absolute -top-1 -right-1" : "ml-auto"} inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full`}>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  </nav>
 
+  {/* Footer - this will stick to bottom */}
+  <div className="mt-auto p-3 text-xs text-gray-400 border-t border-gray-100 bg-white">
+    {!collapsed && <span>© {new Date().getFullYear()} TaskAllinOne by Cold Storage</span>}
+  </div>
+</aside>
       <main className={`flex-1 min-w-0 ${collapsed ? "ml-16" : "ml-64"} transition-all duration-200`}>
         {children}
       </main>

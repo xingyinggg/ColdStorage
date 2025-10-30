@@ -17,7 +17,6 @@ const DEPARTMENTS = [
 
 const ROLES = ["Director", "HR", "Manager", "Staff"];
 
-
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [empId, setEmpId] = useState("");
@@ -77,17 +76,22 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-            Create your account
+          <img
+            src="/name.png"
+            alt="TaskAllinOne"
+            className="mx-auto h-8 w-auto mb-2"
+          />
+          <h2 className="mt-4 text-center text-3xl font-bold text-gray-900">
+            Sign in to your account
           </h2>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleRegister}>
-          {error && (<Alert type="error">{error}</Alert>)}
+          {error && <Alert type="error">{error}</Alert>}
 
-          {message && (<Alert type="success">{message}</Alert>)}
+          {message && <Alert type="success">{message}</Alert>}
 
           <div className="space-y-4">
             <div>
@@ -134,7 +138,10 @@ export default function RegisterPage() {
 
             {/* Role (Dropdown) */}
             <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="role"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Role
               </label>
               <select

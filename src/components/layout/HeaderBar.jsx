@@ -9,8 +9,10 @@ export default function HeaderBar({ title, user, userProfile, roleLabel, roleCol
         <div className="flex justify-between h-14 items-center">
           <h1 className="text-xl font-semibold">{title}</h1>
           <div className="flex items-center space-x-4">
-            <span className="text-gray-700">Welcome, {userProfile?.name || user?.email}</span>
-            <Badge color={roleColor}>{roleLabel}</Badge>
+            <span className="text-gray-700 hidden md:block">Welcome, {userProfile?.name || user?.email}</span>
+            <div className="hidden md:block">
+              <Badge color={roleColor}>{roleLabel}</Badge>
+            </div>
             {onLogout && (
               <button
                 onClick={onLogout}
@@ -25,5 +27,3 @@ export default function HeaderBar({ title, user, userProfile, roleLabel, roleCol
     </div>
   );
 }
-
-

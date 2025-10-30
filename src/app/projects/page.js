@@ -31,20 +31,95 @@ export default function ProjectsPage() {
   // Use centralized auth hook
   const { user, userProfile, loading: authLoading, signOut } = useAuth();
 
+  // Instead of using useProjects hook, we'll fetch complete data
+  const [projects, setProjects] = useState([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectsError, setProjectsError] = useState(null);
+
+  // Optimized: Fetch all project data (projects + tasks + member names) in ONE request
+  const fetchCompleteProjectData = async () => {
+    if (!user) return;
+
+    try {
+      setProjectsLoading(true);
+      setLoadingTasks(true);
+      setProjectsError(null);
+
+      const token = await getAuthToken();
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/projects/complete`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch project data");
+      const data = await response.json();
+
+      // Set all the data at once
+      setProjects(data.projects || []);
+      setProjectTasks(data.tasks || {});
+      setMemberNames(data.memberNames || {});
+
+    } catch (error) {
+      console.error("Error fetching complete project data:", error);
+      setProjectsError(error.message);
+    } finally {
+      setProjectsLoading(false);
+      setLoadingTasks(false);
+    }
+  };
+
+  // Fetch everything when user is available
+  useEffect(() => {
+    if (user) {
+      fetchCompleteProjectData();
+    }
+  }, [user]);
+
+  // Create project function (we still need this from the hook)
+  const createProject = async (projectData) => {
+    try {
+      const token = await getAuthToken();
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/projects`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(projectData),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create project");
+      }
+
+      // Refresh all data after creating
+      await fetchCompleteProjectData();
+    } catch (error) {
+      console.error("Error creating project:", error);
+      throw error;
+    }
+  };
+
   const {
-    projects,
-    loading: projectsLoading,
-    error: projectsError,
-    createProject,
     getProjectNames,
   } = useProjects(user);
 
-  useEffect(() => {
-    if (projects && projects.length > 0) {
-      fetchMemberNames(projects);
-      fetchProjectTasks();
-    }
-  }, [projects]);
+  // Optimized: Fetch all data together when projects load
+  // This useEffect is no longer needed since we fetch everything in one go
+  // useEffect(() => {
+  //   if (projects && projects.length > 0) {
+  //     fetchAllProjectData(projects);
+  //   }
+  // }, [projects]);
 
   // Fetch project names using hook
   useEffect(() => {
@@ -82,36 +157,72 @@ export default function ProjectsPage() {
     setExpandedProjects({});
   };
 
-  // Replace the fetchProjectTasks function (around line 55):
-  const fetchProjectTasks = async () => {
-    if (!projects || projects.length === 0) return;
+  // Optimized: Fetch all project data (tasks + member names) in parallel
+  const fetchAllProjectData = async (projectsList) => {
+    if (!projectsList || projectsList.length === 0) return;
 
     try {
       setLoadingTasks(true);
-      const projectIds = projects.map((project) => project.id);
 
+      // Get all unique member IDs from all projects
+      const allEmpIds = new Set();
+      projectsList.forEach((project) => {
+        if (project.members && Array.isArray(project.members)) {
+          project.members.forEach((empId) => allEmpIds.add(empId));
+        }
+      });
+
+      // Get project IDs for tasks
+      const projectIds = projectsList.map((project) => project.id);
       const token = await getAuthToken();
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/tasks/bulk`,
-        {
+
+      // Execute both API calls in parallel
+      const [tasksResponse, usersResponse] = await Promise.all([
+        // Fetch tasks for all projects
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/bulk`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ project_ids: projectIds }),
-        }
-      );
+        }),
+        // Fetch member names (only if we have member IDs)
+        allEmpIds.size > 0
+          ? fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/bulk`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ emp_ids: Array.from(allEmpIds) }),
+            })
+          : Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      ]);
 
-      if (!response.ok) throw new Error("Failed to fetch tasks");
-      const tasksData = await response.json(); // Renamed to avoid confusion
+      // Process tasks response
+      if (!tasksResponse.ok) throw new Error("Failed to fetch tasks");
+      const tasksData = await tasksResponse.json();
 
       // Group tasks by project_id
       const tasksGrouped = {};
-      projects.forEach((project) => {
+      projectsList.forEach((project) => {
         tasksGrouped[project.id] =
           tasksData.filter((task) => task.project_id === project.id) || [];
       });
+
+      // Process users response
+      if (!usersResponse.ok) throw new Error("Failed to fetch users");
+      const usersData = await usersResponse.json();
+
+      const namesMap = {};
+      usersData.forEach((user) => {
+        namesMap[user.emp_id] = user.name;
+      });
+
+      // Update both states at once
+      setProjectTasks(tasksGrouped);
+      setMemberNames(namesMap);
 
       // Debug: Check for tasks with invalid statuses
       const validStatuses = [
@@ -136,9 +247,8 @@ export default function ProjectsPage() {
         );
       }
 
-      setProjectTasks(tasksGrouped);
     } catch (error) {
-      console.error("Error fetching project tasks:", error);
+      console.error("Error fetching project data:", error);
     } finally {
       setLoadingTasks(false);
     }
@@ -154,42 +264,9 @@ export default function ProjectsPage() {
 
   // Replace fetchMemberNames function:
   const fetchMemberNames = async (projectsList) => {
-    if (!projectsList || projectsList.length === 0) return;
-
-    const allEmpIds = new Set();
-    projectsList.forEach((project) => {
-      if (project.members && Array.isArray(project.members)) {
-        project.members.forEach((empId) => allEmpIds.add(empId));
-      }
-    });
-
-    if (allEmpIds.size === 0) return;
-
-    try {
-      const token = await getAuthToken();
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/users/bulk`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ emp_ids: Array.from(allEmpIds) }),
-        }
-      );
-
-      if (!response.ok) throw new Error("Failed to fetch users");
-      const usersData = await response.json();
-
-      const namesMap = {};
-      usersData.forEach((user) => {
-        namesMap[user.emp_id] = user.name;
-      });
-      setMemberNames(namesMap);
-    } catch (error) {
-      console.error("Error fetching member names:", error);
-    }
+    // This function is now handled by fetchAllProjectData
+    // Keeping for backward compatibility but it's no longer used
+    console.warn("fetchMemberNames is deprecated, use fetchAllProjectData instead");
   };
 
   // Replace searchUsers function:
@@ -269,8 +346,8 @@ export default function ProjectsPage() {
         throw new Error(errorData.error || "Failed to update task");
       }
 
-      // Refresh the project tasks
-      await fetchProjectTasks();
+      // Optimized: Refetch all data to stay in sync
+      await fetchCompleteProjectData();
     } catch (error) {
       console.error("Error updating task:", error);
       throw error;

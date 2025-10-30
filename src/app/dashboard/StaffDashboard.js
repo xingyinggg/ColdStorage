@@ -20,7 +20,6 @@ export default function StaffDashboard({
   currentUserEmpId,
   onEditTask,
   memberNames = {},
-  projectNames = {},
 }) {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -33,7 +32,7 @@ export default function StaffDashboard({
         onLogout={handleLogout}
       />
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* Dashboard Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white overflow-hidden shadow rounded-lg">
@@ -199,7 +198,6 @@ export default function StaffDashboard({
                       task.collaborators.includes(currentUserEmpId)
                     }
                     memberNames={memberNames}
-                    projectNames={projectNames}
                   />
                 ))}
 

@@ -13,7 +13,10 @@ export default function TaskEditModal({
   successMessage = "",
   isOwner = false,
   isCollaborator = false,
-  canAssignTasks = false
+  canAssignTasks = false,
+  availableStaff = [], 
+  teamMembers = [], 
+  userProfile = null
 }) {
   const [form, setForm] = useState({
     title: "",
@@ -21,6 +24,7 @@ export default function TaskEditModal({
     priority: 5,
     status: "ongoing",
     due_date: "",
+    assignTo: ""
   });
   const [file, setFile] = useState(null);
   const [removeExistingFile, setRemoveExistingFile] = useState(false);
@@ -103,6 +107,7 @@ export default function TaskEditModal({
         priority: task.priority !== null && task.priority !== undefined ? task.priority : 5,
         status: task.status || "ongoing",
         due_date: task.due_date ? task.due_date.slice(0, 10) : "",
+        assignTo: task.owner_id || "", //set current owner as assignto
       });
       setFile(null);
       setRemoveExistingFile(false);
@@ -154,24 +159,18 @@ export default function TaskEditModal({
       if (isCollaborator && !isOwner) {
         console.log("Collaborator updating task status to:", form.status);
         const updates = { status: form.status };
+      
+        const result = await onSave(task.id, updates);
+        console.log("Collaborator update result:", result);
         
-        try {
-          const result = await onSave(task.id, updates);
-          console.log("Collaborator update result:", result);
+        // Show success message and close modal
+        setEditSuccess("Task status updated successfully!");
+        setTimeout(() => {
+          closeEditModal();
+          setEditSuccess("");
+        }, 1000);
           
-          // Show success message and close modal
-          setEditSuccess("Task status updated successfully!");
-          setTimeout(() => {
-            closeEditModal();
-            setEditSuccess("");
-          }, 1000);
-          
-          return;
-        } catch (error) {
-          console.error("Collaborator status update failed:", error);
-          setEditError(error.message || "Failed to update task status");
-          return;
-        }
+        return;
       }
 
       // Full edit permissions for owners
@@ -189,9 +188,37 @@ export default function TaskEditModal({
       if (form.priority !== null && form.priority !== undefined) {
         formData.append("priority", form.priority.toString());
       }
-      if (form.status) {
+
+      // Handle assignment logic for managers/directors/HR
+      if (canAssignTasks && isOwner) {
+        console.log("🔧 Processing assignment logic...");
+      console.log("🔧 form.assignTo:", form.assignTo);
+      console.log("🔧 task.owner_id:", task.owner_id);
+
+        if (form.assignTo && form.assignTo !== "" && form.assignTo !== task.owner_id) {
+          // Assignment is changing - validate if it's a manager
+          if (userProfile?.role === "manager") {
+            const isTeamMember = teamMembers.some(member => 
+              member.emp_id === form.assignTo
+            );
+            if (!isTeamMember) {
+              setEditError("You can only assign tasks to members of your team");
+              return;
+            }
+          }
+          
+          // Transfer ownership
+          formData.append("assignTo", form.assignTo);
+          console.log("🔧 Added assignTo for ownership transfer:", form.assignTo);
+        } else {
+          // No assignment change or assigning to self
+          formData.append("status", form.status);
+        }
+      } else {
+        // Regular status update
         formData.append("status", form.status);
       }
+      
       if (form.due_date) {
         formData.append("due_date", form.due_date);
       }
@@ -205,8 +232,22 @@ export default function TaskEditModal({
         formData.append("remove_file", "true");
       }
 
-      // Call onSave with FormData instead of form object and await the result
-      await onSave(task.id, formData);
+      console.log("🔧 Calling onSave with FormData");
+      const result = await onSave(task.id, formData);
+      console.log("🔧 onSave result:", result);
+
+      // FIX: Check if result exists and has success property
+      if (result && result.success !== false) {
+        setEditSuccess("Task updated successfully!");
+        setTimeout(() => {
+          closeEditModal();
+          setEditSuccess("");
+        }, 1000);
+      } else {
+        // Handle error case
+        const errorMessage = result?.error || "Failed to update task";
+        setEditError(errorMessage);
+      }
     } catch (error) {
       console.error("Error in handleSave:", error);
     }
@@ -332,6 +373,47 @@ export default function TaskEditModal({
               }`}
             />
           </div>
+          
+          {/* Assignment field - only for owners who can assign tasks */}
+          {isOwner && canAssignTasks && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Assign Task To
+              </label>
+              <select
+                value={form.assignTo}
+                onChange={(e) => handleInputChange("assignTo", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {/* Show available staff based on user role */}
+                {userProfile?.role === "manager" && teamMembers.length > 0 && (
+                  <>
+                    <optgroup label="Team Members">
+                      {teamMembers.map((staff) => (
+                        <option key={staff.emp_id} value={staff.emp_id}>
+                          {staff.name} ({staff.role}) - {staff.department || 'No department'}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </>
+                )}
+                {(userProfile?.role === "director") && availableStaff.length > 0 && (
+                  <>
+                    <optgroup label="Available Staff">
+                      {availableStaff.map((staff) => (
+                        <option key={staff.emp_id} value={staff.emp_id}>
+                          {staff.name} ({staff.role}) - {staff.department || 'No department'}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </>
+                )}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Changing assignment will transfer task ownership
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>

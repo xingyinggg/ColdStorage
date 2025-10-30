@@ -170,8 +170,6 @@ router.get('/workload', async (req, res) => {
       });
     }
 
-    console.log('🔍 Debug - Team member IDs:', uniqueMemberIds);
-
     // Get member details
     const { data: members, error: membersError } = await supabase
       .from('users')
@@ -182,8 +180,6 @@ router.get('/workload', async (req, res) => {
       console.error('Error fetching members:', membersError);
       return res.status(500).json({ error: 'Failed to fetch member details' });
     }
-
-    console.log('👥 Debug - Found members:', members?.length || 0);
 
     // FIXED: Get tasks for team members (both owned and collaboration)
     const memberIdsAsStrings = uniqueMemberIds.map(id => String(id));
@@ -199,8 +195,6 @@ router.get('/workload', async (req, res) => {
       console.error('Error fetching owned tasks:', ownedTasksError);
       return res.status(500).json({ error: 'Failed to fetch owned tasks' });
     }
-
-    console.log('📋 Debug - Found owned tasks:', ownedTasks?.length || 0);
 
     // Get collaboration tasks separately
     let collaborationTasks = [];
@@ -227,12 +221,8 @@ router.get('/workload', async (req, res) => {
       console.error('Collaboration tasks query failed:', collabErr);
     }
 
-    console.log('🤝 Debug - Found collaboration tasks:', collaborationTasks.length);
-
     // Combine all tasks
     const allTasks = [...(ownedTasks || []), ...collaborationTasks];
-    
-    console.log('📊 Debug - Total tasks:', allTasks.length);
 
     // Process workload data
     const workloadData = {};
@@ -317,8 +307,6 @@ router.get('/workload', async (req, res) => {
       due_soon: Object.values(workloadData).reduce((sum, member) => sum + member.due_soon_count, 0),
       overdue: Object.values(workloadData).reduce((sum, member) => sum + member.overdue_count, 0)
     };
-
-    console.log('📈 Debug - Summary:', summary);
 
     res.json({ 
       workload: workloadData,

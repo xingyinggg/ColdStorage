@@ -114,19 +114,13 @@ router.post("/", async (req, res) => {
       return res.status(404).json({ error: "Employee ID not found" });
     }
 
-    const { title, description, status = "active", members = [] } = req.body;
+    const { title, description, status = "active", members = [], collaborators = [] } = req.body;
 
-    // Validate request data using schema
-    try {
-      ProjectSchema.parse({ title, description, members });
-    } catch (validationError) {
-      return res.status(400).json({ 
-        error: "Invalid project data", 
-        details: validationError.errors 
-      });
-    }
+    // Use collaborators as fallback for members (test compatibility)
+    const finalMembers = members.length > 0 ? members : collaborators;
 
-    if (!title) {
+    // Validate title first to provide specific error message that tests expect
+    if (!title || title.trim() === "") {
       return res.status(400).json({ error: "Title is required" });
     }
 
@@ -156,8 +150,18 @@ router.post("/", async (req, res) => {
         .json({ error: "A project with this title already exists" });
     }
 
+    // Validate other fields using schema (after title validation)
+    try {
+      ProjectSchema.parse({ title, description, members: finalMembers });
+    } catch (validationError) {
+      return res.status(400).json({ 
+        error: "Invalid project data", 
+        details: validationError.errors 
+      });
+    }
+
     // Extract emp_ids from members array if they are objects
-    const memberIds = members.map((member) => {
+    const memberIds = finalMembers.map((member) => {
       if (typeof member === "object" && member.emp_id) {
         return member.emp_id;
       }

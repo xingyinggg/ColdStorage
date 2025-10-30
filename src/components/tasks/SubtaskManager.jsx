@@ -62,8 +62,8 @@ export default function SubtaskManager({
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-medium text-gray-900">Subtasks</h3>
         <div className="flex items-center space-x-2">
-          <span className="text-sm text-gray-500">
-            {subtasks.length} subtask{subtasks.length !== 1 ? 's' : ''}
+          <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+            {subtasks.length}
           </span>
           <button
             type="button"
@@ -80,13 +80,13 @@ export default function SubtaskManager({
         <div className="space-y-3 mb-4">
           {subtasks.map((subtask, index) => (
             <div key={subtask.id} className="bg-gray-50 p-3 rounded-md border">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h4 className="font-medium text-sm">{subtask.title}</h4>
+              <div className="flex gap-3">
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-medium text-sm break-words pr-2">{subtask.title}</h4>
                   {subtask.description && (
-                    <p className="text-xs text-gray-600 mt-1">{subtask.description}</p>
+                    <p className="text-xs text-gray-600 mt-1 break-words pr-2 line-clamp-2">{subtask.description}</p>
                   )}
-                  <div className="flex items-center space-x-3 mt-2 text-xs text-gray-500">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-gray-500">
                     <span className="capitalize">Priority: {subtask.priority}</span>
                     <span className="capitalize">{subtask.status}</span>
                     {subtask.dueDate && (
@@ -97,13 +97,15 @@ export default function SubtaskManager({
                     )}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removeSubtask(subtask.id)}
-                  className="text-red-400 hover:text-red-600 text-sm ml-2"
-                >
-                  Remove
-                </button>
+                <div className="flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => removeSubtask(subtask.id)}
+                    className="text-red-400 hover:text-red-600 text-sm px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             </div>
           ))}

@@ -130,7 +130,7 @@ export default function DashboardPage() {
           onLogout={handleLogout}
         />
         <div>
-          <ManagerTasksView 
+          <ManagerTasksView
             currentUserEmpId={userProfile?.emp_id}
             onLogout={handleLogout}
           />

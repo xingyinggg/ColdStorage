@@ -46,17 +46,8 @@ export default function SchedulePage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("");
 
-  const {
-    user,
-    isStaff,
-    userProfile,
-    signOut,
-  } = useAuth();
-  const {
-    tasks,
-    loading: tasksLoading,
-    error: tasksError,
-  } = useTasks(user);
+  const { user, isStaff, userProfile, signOut } = useAuth();
+  const { tasks, loading: tasksLoading, error: tasksError } = useTasks(user);
   const { projects, loading: projectsLoading } = useProjects(user);
   const { users, fetchUsers } = useUsers();
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -90,9 +81,10 @@ export default function SchedulePage() {
   }, [isStaff, userProfile?.emp_id]);
 
   // Build maps for quick lookups
-  const projectList = useMemo(() => (
-    isManagerView ? (managerAllProjects || []) : (projects || [])
-  ), [isManagerView, managerAllProjects, projects]);
+  const projectList = useMemo(
+    () => (isManagerView ? managerAllProjects || [] : projects || []),
+    [isManagerView, managerAllProjects, projects]
+  );
   const projectIdToTitle = useMemo(() => {
     const map = {};
     (projectList || []).forEach((p) => {
@@ -101,20 +93,60 @@ export default function SchedulePage() {
     return map;
   }, [projectList]);
 
+  // Choose tasks by role
+  const roleTasks = useMemo(
+    () => (isManagerView ? managerAllTasks || [] : tasks || []),
+    [isManagerView, managerAllTasks, tasks]
+  );
+
   const memberIdToName = useMemo(() => {
     const map = {};
-    const sourceUsers = isManagerView ? (staffMembers || []) : (users || []);
+    const sourceUsers = isManagerView ? staffMembers || [] : users || [];
+
     (sourceUsers || []).forEach((u) => {
       const id = u.emp_id || u.id;
       if (id) map[id] = u.name || u.email || String(id);
     });
-    return map;
-  }, [users, staffMembers, isManagerView]);
 
-  // Choose tasks by role
-  const roleTasks = useMemo(() => (
-    isManagerView ? (managerAllTasks || []) : (tasks || [])
-  ), [isManagerView, managerAllTasks, tasks]);
+    (roleTasks || []).forEach((task) => {
+      // Add owner names
+      if (task.owner_id && task.owner_name) {
+        map[task.owner_id] = task.owner_name;
+      }
+      if (task.manager?.id && task.manager?.name) {
+        map[task.manager.id] = task.manager.name;
+      }
+      if (task.task_owner?.id && task.task_owner?.name) {
+        map[task.task_owner.id] = task.task_owner.name;
+      }
+
+      // Add assignee names
+      if (task.assignees && Array.isArray(task.assignees)) {
+        task.assignees.forEach((assignee) => {
+          if (assignee.id && assignee.name) {
+            map[assignee.id] = assignee.name;
+          }
+          if (assignee.emp_id && assignee.name) {
+            map[assignee.emp_id] = assignee.name;
+          }
+        });
+      }
+
+      // Add collaborator names if they're objects with name data
+      if (task.collaborators && Array.isArray(task.collaborators)) {
+        task.collaborators.forEach((collab) => {
+          if (typeof collab === "object" && collab.id && collab.name) {
+            map[collab.id] = collab.name;
+          }
+          if (typeof collab === "object" && collab.emp_id && collab.name) {
+            map[collab.emp_id] = collab.name;
+          }
+        });
+      }
+    });
+
+    return map;
+  }, [users, staffMembers, isManagerView, roleTasks]);
 
   // Normalize and filter tasks: must have due_date
   const schedulableTasks = useMemo(() => {
@@ -269,46 +301,41 @@ export default function SchedulePage() {
           <div className="bg-white shadow rounded-lg p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <h1 className="text-lg sm:text-xl font-semibold">Schedule</h1>
-              <div className="flex items-center gap-2">
-                <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
-                  <button
-                    className={`px-3 py-1 text-sm ${
-                      view === "day" ? "bg-gray-900 text-white" : "bg-white"
-                    }`}
-                    onClick={() => setView("day")}
-                  >
-                    Day
-                  </button>
-                  <button
-                    className={`px-3 py-1 text-sm ${
-                      view === "week" ? "bg-gray-900 text-white" : "bg-white"
-                    }`}
-                    onClick={() => setView("week")}
-                  >
-                    Week
-                  </button>
-                  <button
-                    className={`px-3 py-1 text-sm ${
-                      view === "month" ? "bg-gray-900 text-white" : "bg-white"
-                    }`}
-                    onClick={() => setView("month")}
-                  >
-                    Month
-                  </button>
+              <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
+                {/* View mode buttons */}
+                <div className="flex w-full sm:w-auto justify-between sm:justify-start rounded-md border border-gray-200 overflow-hidden text-sm">
+                  {["day", "week", "month"].map((mode) => (
+                    <button
+                      key={mode}
+                      className={`flex-1 px-3 py-1 ${
+                        view === mode
+                          ? "bg-gray-900 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-100"
+                      }`}
+                      onClick={() => setView(mode)}
+                    >
+                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    </button>
+                  ))}
                 </div>
-                <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
+
+                {/* Navigation buttons */}
+                <div className="flex w-full sm:w-auto justify-between sm:justify-start rounded-md border border-gray-200 overflow-hidden text-sm">
                   <button
-                    className="px-3 py-1 text-sm"
+                    className="flex-1 px-3 py-1 hover:bg-gray-100"
                     onClick={goPrev}
                     aria-label="Previous"
                   >
                     ◀
                   </button>
-                  <button className="px-3 py-1 text-sm" onClick={goToday}>
+                  <button
+                    className="flex-1 px-3 py-1 hover:bg-gray-100"
+                    onClick={goToday}
+                  >
                     Today
                   </button>
                   <button
-                    className="px-3 py-1 text-sm"
+                    className="flex-1 px-3 py-1 hover:bg-gray-100"
                     onClick={goNext}
                     aria-label="Next"
                   >
@@ -355,11 +382,13 @@ export default function SchedulePage() {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 >
                   <option value="">All assignees</option>
-                  {((isManagerView ? (staffMembers || []) : (users || []))).map((u) => (
-                    <option key={u.emp_id || u.id} value={u.emp_id || u.id}>
-                      {u.name || u.email}
-                    </option>
-                  ))}
+                  {(isManagerView ? staffMembers || [] : users || []).map(
+                    (u) => (
+                      <option key={u.emp_id || u.id} value={u.emp_id || u.id}>
+                        {u.name || u.email}
+                      </option>
+                    )
+                  )}
                 </select>
               )}
             </div>
@@ -369,122 +398,134 @@ export default function SchedulePage() {
               <div className="text-sm font-medium text-gray-700">
                 {headerLabel}
               </div>
-              {(((isManagerView ? managerLoading : tasksLoading) || projectsLoading) ? (
+              {(isManagerView ? managerLoading : tasksLoading) ||
+              projectsLoading ? (
                 <div className="text-xs text-gray-500">Loading…</div>
-              ) : null)}
-              {((isManagerView ? managerError : tasksError) ? (
-                <div className="text-xs text-red-600">{isManagerView ? managerError : tasksError}</div>
-              ) : null)}
+              ) : null}
+              {(isManagerView ? managerError : tasksError) ? (
+                <div className="text-xs text-red-600">
+                  {isManagerView ? managerError : tasksError}
+                </div>
+              ) : null}
             </div>
 
             {/* Calendar grid */}
             {view === "month" && (
-              <div className="mt-3 grid grid-cols-7 gap-2">
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-                  <div
-                    key={d}
-                    className="text-xs font-semibold text-gray-600 px-2"
-                  >
-                    {d}
-                  </div>
-                ))}
-                {daysGrid.map((day, idx) => {
-                  const dayTasks =
-                    tasksByDay.get(startOfDay(day).getTime()) || [];
-                  const isCurrentMonth =
-                    day.getMonth() === cursorDate.getMonth();
-                  const isTodayCell = isSameDay(day, new Date());
-                  return (
-                    <div
-                      key={idx}
-                      className={`border border-gray-200 rounded-md p-2 min-h-[110px] relative ${
-                        isCurrentMonth ? "bg-white" : "bg-gray-50"
-                      } ${isTodayCell ? "ring-2 ring-red-300" : ""}`}
-                    >
-                      <div className="text-[11px] font-medium text-gray-700 flex items-center">
-                        {day.getDate()}
-                        {isTodayCell && (
-                          <span className="ml-1 w-1.5 h-1.5 bg-red-500 rounded-full" />
-                        )}
+              <div className="mt-3 overflow-x-auto">
+                <div className="min-w-[600px] sm:min-w-full grid grid-cols-7 gap-2">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
+                    (d) => (
+                      <div
+                        key={d}
+                        className="text-xs font-semibold text-gray-600 px-2"
+                      >
+                        {d}
                       </div>
-                      <div className="mt-1 space-y-1">
-                        {dayTasks.length === 0 ? (
-                          <div className="text-[11px] text-gray-400">
-                            No tasks
-                          </div>
-                        ) : (
-                          dayTasks.slice(0, 5).map((t) => (
-                            <button
-                              key={t.id}
-                              onClick={() => openDetails(t)}
-                              className={`w-full text-left text-[11px] px-2 py-1 rounded border truncate hover:opacity-95 ${getStatusChipClasses(
-                                t.status
-                              )}`}
-                              title={`${t.title}\nProject: ${
-                                projectIdToTitle[t.project_id] || "No project"
-                              }\nStatus: ${t.status || "-"}\nPriority: ${
-                                t.priority ?? "-"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center min-w-0">
-                                  <span
-                                    className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${getStatusDotClasses(
-                                      t.status
-                                    )}`}
-                                  />
-                                  <span className="truncate">{t.title}</span>
-                                </div>
-                                {t.priority !== null &&
-                                  t.priority !== undefined && (
-                                    <span
-                                      className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] ${getPriorityBadgeClasses(
-                                        t.priority
+                    )
+                  )}
+                  {daysGrid.map((day, idx) => {
+                    const dayTasks =
+                      tasksByDay.get(startOfDay(day).getTime()) || [];
+                    const isCurrentMonth =
+                      day.getMonth() === cursorDate.getMonth();
+                    const isTodayCell = isSameDay(day, new Date());
+                    return (
+                      <div
+                        key={idx}
+                        className={`border border-gray-200 rounded-md p-1 sm:p-2 min-h-[90px] sm:min-h-[110px] relative ${
+                          isCurrentMonth ? "bg-white" : "bg-gray-50"
+                        } ${isTodayCell ? "ring-2 ring-red-300" : ""}`}
+                      >
+                        <div className="text-[11px] font-medium text-gray-700 flex items-center">
+                          {day.getDate()}
+                          {isTodayCell && (
+                            <span className="ml-1 w-1.5 h-1.5 bg-red-500 rounded-full" />
+                          )}
+                        </div>
+                        <div className="mt-1 space-y-1">
+                          {dayTasks.length === 0 ? (
+                            <div className="text-[11px] text-gray-400">
+                              No tasks
+                            </div>
+                          ) : (
+                            dayTasks.slice(0, 5).map((t) => (
+                              <button
+                                key={t.id}
+                                onClick={() => openDetails(t)}
+                                className={`w-full text-left text-[10px] sm:text-[11px] px-2 py-1 rounded border truncate hover:opacity-95 ${getStatusChipClasses(
+                                  t.status
+                                )}`}
+                                title={`${t.title}\nProject: ${
+                                  projectIdToTitle[t.project_id] || "No project"
+                                }\nStatus: ${t.status || "-"}\nPriority: ${
+                                  t.priority ?? "-"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center min-w-0">
+                                    {/* <span
+                                      className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${getStatusDotClasses(
+                                        t.status
                                       )}`}
-                                    >
-                                      P{t.priority}
-                                    </span>
-                                  )}
-                              </div>
-                            </button>
-                          ))
-                        )}
-                        {dayTasks.length > 5 && (
-                          <div className="text-[11px] text-gray-500">
-                            +{dayTasks.length - 5} more
-                          </div>
-                        )}
+                                    /> */}
+                                    <span className="truncate">{t.title}</span>
+                                  </div>
+
+                                  {/* Hide priority badge on mobile */}
+                                  <span
+                                    className={`hidden sm:inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] ${getPriorityBadgeClasses(
+                                      t.priority
+                                    )}`}
+                                  >
+                                    P{t.priority}
+                                  </span>
+                                </div>
+                              </button>
+                            ))
+                          )}
+                          {dayTasks.length > 5 && (
+                            <div className="text-[11px] text-gray-500">
+                              +{dayTasks.length - 5} more
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             )}
 
             {view === "week" && (
-              <div className="mt-3 grid grid-cols-7 gap-2">
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-7 gap-2">
                 {daysGrid.map((day, idx) => {
                   const dayTasks =
                     tasksByDay.get(startOfDay(day).getTime()) || [];
                   const isTodayCell = isSameDay(day, new Date());
+
                   return (
                     <div
                       key={idx}
-                      className={`border border-gray-200 rounded-md p-2 bg-white ${
+                      className={`border border-gray-200 rounded-md p-2 sm:p-3 bg-white ${
                         isTodayCell ? "ring-2 ring-red-300" : ""
                       }`}
                     >
-                      <div className="text-xs font-semibold text-gray-700 flex items-center">
-                        {day.toLocaleDateString(undefined, {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                        })}
+                      {/* Day header */}
+                      <div className="text-xs sm:text-sm font-semibold text-gray-700 flex items-center justify-between">
+                        <span>
+                          {day.toLocaleDateString(undefined, {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
                         {isTodayCell && (
                           <span className="ml-2 w-1.5 h-1.5 bg-red-500 rounded-full" />
                         )}
                       </div>
-                      <ul className="mt-2 space-y-1">
+
+                      {/* Task list */}
+                      <ul className="mt-2 space-y-2">
                         {dayTasks.length === 0 ? (
                           <li className="text-[11px] text-gray-400">
                             No tasks
@@ -494,39 +535,47 @@ export default function SchedulePage() {
                             <li key={t.id}>
                               <button
                                 onClick={() => openDetails(t)}
-                                className={`w-full text-left rounded border px-2 py-1 hover:opacity-95 ${getStatusChipClasses(
+                                className={`w-full text-left rounded border p-2 sm:p-3 hover:opacity-95 ${getStatusChipClasses(
                                   t.status
                                 )}`}
-                                title={`${t.title}\nProject: ${
-                                  projectIdToTitle[t.project_id] || "No project"
-                                }\nStatus: ${t.status || "-"}\nPriority: ${
-                                  t.priority ?? "-"
-                                }`}
+                                title={`${t.title}\nStatus: ${
+                                  t.status || "-"
+                                }\nPriority: ${t.priority ?? "-"}`}
                               >
-                                <div className="flex items-center">
-                                  <span
-                                    className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${getStatusDotClasses(
+                                <div className="flex items-start gap-2">
+                                  {/* Status dot */}
+                                  {/* <span
+                                    className={`inline-block flex-shrink-0 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full mt-1 ${getStatusDotClasses(
                                       t.status
                                     )}`}
-                                  />
-                                  <span className="font-medium truncate mr-2">
-                                    {t.title}
-                                  </span>
-                                  <span className="ml-auto inline-flex items-center gap-1 text-[10px]">
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded border bg-gray-50 text-gray-700 border-gray-200">
-                                      {getProjectCode(t.project_id)}
-                                    </span>
-                                    {t.priority !== null &&
-                                      t.priority !== undefined && (
-                                        <span
-                                          className={`inline-flex items-center px-1.5 py-0.5 rounded border ${getPriorityBadgeClasses(
-                                            t.priority
-                                          )}`}
-                                        >
-                                          P{t.priority}
-                                        </span>
-                                      )}
-                                  </span>
+                                  /> */}
+
+                                  {/* Task content */}
+                                  <div className="flex-1 min-w-0">
+                                    {/* Task title */}
+                                    <div className="font-medium text-[12px] sm:text-[13px] truncate sm:whitespace-normal">
+                                      {t.title}
+                                    </div>
+
+                                    {/* Description */}
+                                    {t.description && (
+                                      <div className="text-[11px] sm:text-[12px] text-gray-700 mt-0.5 line-clamp-2 sm:line-clamp-3">
+                                        {t.description}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Priority badge */}
+                                  {t.priority !== null &&
+                                    t.priority !== undefined && (
+                                      <span
+                                        className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] sm:text-[11px] ${getPriorityBadgeClasses(
+                                          t.priority
+                                        )}`}
+                                      >
+                                        P{t.priority}
+                                      </span>
+                                    )}
                                 </div>
                               </button>
                             </li>
@@ -552,6 +601,7 @@ export default function SchedulePage() {
                     <span className="ml-2 w-2 h-2 bg-red-500 rounded-full" />
                   )}
                 </div>
+
                 <ul className="mt-2 space-y-2">
                   {(tasksByDay.get(startOfDay(cursorDate).getTime()) || [])
                     .length === 0 ? (
@@ -565,47 +615,52 @@ export default function SchedulePage() {
                       <li key={t.id}>
                         <button
                           onClick={() => openDetails(t)}
-                          className={`w-full text-left p-2 border rounded-md hover:opacity-95 ${getStatusChipClasses(
+                          className={`w-full text-left p-2 sm:p-3 border rounded-md hover:opacity-95 ${getStatusChipClasses(
                             t.status
                           )}`}
-                          title={`${t.title}\nProject: ${
-                            projectIdToTitle[t.project_id] || "No project"
-                          }\nStatus: ${t.status || "-"}\nPriority: ${
-                            t.priority ?? "-"
-                          }`}
+                          title={`${t.title}\nStatus: ${
+                            t.status || "-"
+                          }\nPriority: ${t.priority ?? "-"}`}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="flex items-center">
-                                <span
-                                  className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusDotClasses(
-                                    t.status
-                                  )}`}
-                                />
-                                <span className="text-sm font-medium truncate">
-                                  {t.title}
-                                </span>
+                          <div className="flex items-start gap-2">
+                            {/* Status dot */}
+                            {/* <span
+                              className={`inline-block flex-shrink-0 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full mt-1 ${getStatusDotClasses(
+                                t.status
+                              )}`}
+                            /> */}
+
+                            {/* Task content */}
+                            <div className="flex-1 min-w-0">
+                              {/* Title */}
+                              <div className="text-[13px] sm:text-[14px] font-medium truncate sm:whitespace-normal">
+                                {t.title}
                               </div>
-                              <div className="mt-1 text-[11px] text-current/80 flex items-center gap-2">
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded border bg-white/60">
-                                  {projectIdToTitle[t.project_id] ||
-                                    "No project"}
-                                </span>
-                                {t.priority !== null &&
-                                  t.priority !== undefined && (
-                                    <span
-                                      className={`inline-flex items-center px-1.5 py-0.5 rounded border ${getPriorityBadgeClasses(
-                                        t.priority
-                                      )}`}
-                                    >
-                                      Priority {t.priority}
-                                    </span>
-                                  )}
-                              </div>
+
+                              {/* Description */}
+                              {t.description && (
+                                <div className="text-[11px] sm:text-[12px] text-gray-700 mt-1 line-clamp-3 sm:line-clamp-4">
+                                  {t.description}
+                                </div>
+                              )}
                             </div>
-                            <span className="text-[11px] opacity-80 capitalize hidden sm:inline">
-                              {t.status}
-                            </span>
+
+                            {/* Priority badge — same look as week view */}
+                            {t.priority !== null &&
+                              t.priority !== undefined && (
+                                <span
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] sm:text-[11px] ${getPriorityBadgeClasses(
+                                    t.priority
+                                  )}`}
+                                >
+                                  P{t.priority}
+                                </span>
+                              )}
+                          </div>
+
+                          {/* Status text (desktop only) */}
+                          <div className="hidden sm:flex justify-end mt-1 text-[11px] capitalize opacity-80">
+                            {t.status}
                           </div>
                         </button>
                       </li>

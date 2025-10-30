@@ -19,7 +19,8 @@ import { useHrInsights } from "@/utils/hooks/useHrInsights";
 
 export default function ReportPage() {
   const router = useRouter();
-  const { user, userProfile, isManager, isDirector, isHR, loading, signOut } = useAuth();
+  const { user, userProfile, isManager, isDirector, isHR, loading, signOut } =
+    useAuth();
   console.log("test", isManager, "isDirector", isDirector);
 
   const handleLogout = async () => {
@@ -48,9 +49,9 @@ export default function ReportPage() {
           roleColor="gray"
           onLogout={handleLogout}
         />
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
-            <div className="bg-white shadow rounded-lg p-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+          <div className="bg-white shadow rounded-lg p-4 sm:p-6 overflow-hidden">
+            <div className="w-full break-words whitespace-normal text-wrap">
               {/* Header with back button */}
               {/* <div className="mb-6 flex items-center justify-between">
                 <div>
@@ -63,8 +64,16 @@ export default function ReportPage() {
                   Back to Dashboard
                 </Link>
               </div> */}
-              
-              {isDirector ? <DirectorReports /> : isHR ? <HRReports /> : isManager ? <ManagerReports /> : <StaffReports />}
+
+              {isDirector ? (
+                <DirectorReports />
+              ) : isHR ? (
+                <HRReports />
+              ) : isManager ? (
+                <ManagerReports />
+              ) : (
+                <StaffReports />
+              )}
             </div>
           </div>
         </div>
@@ -153,10 +162,14 @@ function DirectorReports() {
   const [showPreview, setShowPreview] = useState(false);
   const [reportType, setReportType] = useState(null);
   const [selectedData, setSelectedData] = useState(null);
-  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState("all");
   const { user, userProfile } = useAuth();
   const { projects = [], loading: projectsLoading } = useProjects(user);
-  const { departmentPerformance, collaborationMetrics, loading: insightsLoading } = useDirectorInsights();
+  const {
+    departmentPerformance,
+    collaborationMetrics,
+    loading: insightsLoading,
+  } = useDirectorInsights();
 
   const handleGenerateReport = (type, data = null) => {
     setReportType(type);
@@ -165,21 +178,25 @@ function DirectorReports() {
   };
 
   // Get unique departments for filter
-  const departments = departmentPerformance?.map(dept => dept.name) || [];
-  
+  const departments = departmentPerformance?.map((dept) => dept.name) || [];
+
   // Filter projects based on department selection
-  const filteredProjects = departmentFilter === 'all' 
-    ? projects 
-    : projects.filter(project => {
-        // This would need to be enhanced based on how projects are associated with departments
-        return true; // For now, show all projects
-      });
+  const filteredProjects =
+    departmentFilter === "all"
+      ? projects
+      : projects.filter((project) => {
+          // This would need to be enhanced based on how projects are associated with departments
+          return true; // For now, show all projects
+        });
 
   // Generate organizational report data
   const getOrganizationalReportData = () => {
-    const filteredDepartments = departmentFilter === 'all' 
-      ? departmentPerformance 
-      : departmentPerformance.filter(dept => dept.name === departmentFilter);
+    const filteredDepartments =
+      departmentFilter === "all"
+        ? departmentPerformance
+        : departmentPerformance.filter(
+            (dept) => dept.name === departmentFilter
+          );
 
     return {
       departments: filteredDepartments,
@@ -187,16 +204,37 @@ function DirectorReports() {
       filter: departmentFilter,
       summary: {
         totalDepartments: filteredDepartments.length,
-        totalEmployees: filteredDepartments.reduce((sum, dept) => sum + dept.employeeCount, 0),
-        totalTasks: filteredDepartments.reduce((sum, dept) => sum + dept.totalTasks, 0),
-        totalProjects: filteredDepartments.reduce((sum, dept) => sum + dept.totalProjects, 0),
-        avgTaskCompletion: filteredDepartments.length > 0 
-          ? Math.round(filteredDepartments.reduce((sum, dept) => sum + dept.taskCompletionRate, 0) / filteredDepartments.length)
-          : 0,
-        avgProjectCompletion: filteredDepartments.length > 0
-          ? Math.round(filteredDepartments.reduce((sum, dept) => sum + dept.projectCompletionRate, 0) / filteredDepartments.length)
-          : 0
-      }
+        totalEmployees: filteredDepartments.reduce(
+          (sum, dept) => sum + dept.employeeCount,
+          0
+        ),
+        totalTasks: filteredDepartments.reduce(
+          (sum, dept) => sum + dept.totalTasks,
+          0
+        ),
+        totalProjects: filteredDepartments.reduce(
+          (sum, dept) => sum + dept.totalProjects,
+          0
+        ),
+        avgTaskCompletion:
+          filteredDepartments.length > 0
+            ? Math.round(
+                filteredDepartments.reduce(
+                  (sum, dept) => sum + dept.taskCompletionRate,
+                  0
+                ) / filteredDepartments.length
+              )
+            : 0,
+        avgProjectCompletion:
+          filteredDepartments.length > 0
+            ? Math.round(
+                filteredDepartments.reduce(
+                  (sum, dept) => sum + dept.projectCompletionRate,
+                  0
+                ) / filteredDepartments.length
+              )
+            : 0,
+      },
     };
   };
 
@@ -204,8 +242,8 @@ function DirectorReports() {
 
   // Filter options for department selector
   const departmentOptions = [
-    { value: 'all', label: 'All Departments' },
-    ...departments.map(dept => ({ value: dept, label: dept }))
+    { value: "all", label: "All Departments" },
+    ...departments.map((dept) => ({ value: dept, label: dept })),
   ];
 
   return (
@@ -221,20 +259,23 @@ function DirectorReports() {
       />
 
       {/* Director's Projects Overview (if showing all departments) */}
-      {departmentFilter === 'all' && (
+      {departmentFilter === "all" && (
         <ProjectsSection
           title="My Projects"
           projects={projects.slice(0, 10)}
           loading={loading}
           userProfile={userProfile}
-          onGenerateReport={(type, projectData) => handleGenerateReport('project-report', projectData)}
+          onGenerateReport={(type, projectData) =>
+            handleGenerateReport("project-report", projectData)
+          }
           showTeamBadge={false}
           emptyMessage="No projects found in the organization."
           maxHeight="max-h-96"
         >
           {projects.length > 10 && (
             <div className="text-center py-2 text-sm text-gray-500">
-              Showing 10 of {projects.length} projects. Use organizational report for complete view.
+              Showing 10 of {projects.length} projects. Use organizational
+              report for complete view.
             </div>
           )}
         </ProjectsSection>
@@ -242,15 +283,25 @@ function DirectorReports() {
 
       {/* Organizational Report Card */}
       <ReportCard
-        title={departmentFilter === 'all' ? 'Organization-wide Report' : `${departmentFilter} Department Report`}
-        description={departmentFilter === 'all' 
-          ? 'Generate comprehensive report for entire organization and all departments'
-          : `Generate detailed report for ${departmentFilter} department performance and metrics`
+        title={
+          departmentFilter === "all"
+            ? "Organization-wide Report"
+            : `${departmentFilter} Department Report`
+        }
+        description={
+          departmentFilter === "all"
+            ? "Generate comprehensive report for entire organization and all departments"
+            : `Generate detailed report for ${departmentFilter} department performance and metrics`
         }
         details="Includes: Department performance, task distribution, project status, collaboration metrics, and productivity analysis"
         buttonText="Generate Report"
         buttonColor="bg-purple-600 hover:bg-purple-700"
-        onClick={() => handleGenerateReport('organizational-report', getOrganizationalReportData())}
+        onClick={() =>
+          handleGenerateReport(
+            "organizational-report",
+            getOrganizationalReportData()
+          )
+        }
         loading={loading}
       />
 
@@ -261,11 +312,13 @@ function DirectorReports() {
         details="Includes: Task status breakdown, priority analysis, overdue tracking, and completion trends"
         buttonText="Generate Report"
         buttonColor="bg-green-600 hover:bg-green-700"
-        onClick={() => handleGenerateReport('task-analysis', { 
-          departments: departmentPerformance,
-          filter: departmentFilter,
-          type: 'task-analysis'
-        })}
+        onClick={() =>
+          handleGenerateReport("task-analysis", {
+            departments: departmentPerformance,
+            filter: departmentFilter,
+            type: "task-analysis",
+          })
+        }
         loading={loading}
       />
 
@@ -403,7 +456,7 @@ function ManagerReports() {
   return (
     <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       {/* Single Projects Section with Filter */}
-      <div className="border rounded-lg p-6">
+      <div className="border rounded-lg p-6 mb-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-gray-900">
             My Projects{" "}
@@ -417,15 +470,18 @@ function ManagerReports() {
           </h3>
 
           {/* Filter Dropdown */}
-          <div className="flex items-center space-x-2">
-            <label htmlFor="project-filter" className="text-sm text-gray-600">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-2 sm:space-y-0 w-full sm:w-auto">
+            <label
+              htmlFor="project-filter"
+              className="text-sm text-gray-600 whitespace-nowrap"
+            >
               Show:
             </label>
             <select
               id="project-filter"
               value={projectFilter}
               onChange={(e) => setProjectFilter(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
               disabled={projectsLoading}
             >
               <option value="my">My Projects ({myProjects.length})</option>
@@ -466,7 +522,7 @@ function ManagerReports() {
 
       {/* Team Workload Report Card */}
       <div
-        className={`border rounded-lg p-6 ${
+        className={`border rounded-lg p-6 mb-4 ${
           hasTeam ? "hover:shadow-md" : "bg-gray-50"
         } transition-shadow`}
       >
@@ -538,8 +594,6 @@ function ManagerReports() {
   );
 }
 
-
-
 function HRReports() {
   const [showPreview, setShowPreview] = useState(false);
   const [reportType, setReportType] = useState(null);
@@ -575,7 +629,7 @@ function HRReports() {
     { value: "3months", label: "Last 3 Months" },
     { value: "6months", label: "Last 6 Months" },
     { value: "1year", label: "Last Year" },
-    { value: "custom", label: "Custom Range" }
+    { value: "custom", label: "Custom Range" },
   ];
 
   return (
@@ -610,7 +664,12 @@ function HRReports() {
         details="Includes: Individual performance metrics, productivity scores, workload distribution, and improvement recommendations"
         buttonText="Generate Report"
         buttonColor="bg-blue-600 hover:bg-blue-700"
-        onClick={() => handleGenerateReport("employee-performance", { timeRange, type: "performance" })}
+        onClick={() =>
+          handleGenerateReport("employee-performance", {
+            timeRange,
+            type: "performance",
+          })
+        }
       />
 
       {/* Workload & Wellbeing Analysis */}
@@ -620,7 +679,12 @@ function HRReports() {
         details="Includes: Workload balance, overtime patterns, task equity, burnout risk indicators, and wellness recommendations"
         buttonText="Generate Report"
         buttonColor="bg-yellow-600 hover:bg-yellow-700"
-        onClick={() => handleGenerateReport("workload-wellbeing", { timeRange, type: "wellbeing" })}
+        onClick={() =>
+          handleGenerateReport("workload-wellbeing", {
+            timeRange,
+            type: "wellbeing",
+          })
+        }
       />
 
       {/* Organizational Performance Trends */}
@@ -630,7 +694,12 @@ function HRReports() {
         details="Includes: Performance trends, departmental growth patterns, efficiency improvements, and strategic recommendations"
         buttonText="Generate Report"
         buttonColor="bg-purple-600 hover:bg-purple-700"
-        onClick={() => handleGenerateReport("organizational-trends", { timeRange, type: "trends" })}
+        onClick={() =>
+          handleGenerateReport("organizational-trends", {
+            timeRange,
+            type: "trends",
+          })
+        }
       />
 
       {/* Report Preview Modal */}

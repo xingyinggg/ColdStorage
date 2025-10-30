@@ -8,6 +8,7 @@ import { useProjects } from "@/utils/hooks/useProjects";
 import SubtaskEditModal from "@/components/tasks/SubtaskEditModal";
 import Toast from "@/components/ui/Toast";
 import RecurrenceStatus from "@/components/tasks/RecurrenceStatus";
+import { useAuth } from "@/utils/hooks/useAuth";
 
 // Helper function to get priority color based on numeric value (1-10)
 const getPriorityColor = (priority) => {
@@ -121,6 +122,7 @@ export default function TaskCard({
 }) {
 
   const { projects, loading: projectsLoading } = useProjects();
+  const { userProfile } = useAuth();
 
   const hookProjectNames = useMemo(() => {
     const namesMap = {};
@@ -643,6 +645,7 @@ export default function TaskCard({
             console.log("TaskEditModal onSave called with:", id, updates);
             return handleEditTask(id, updates);
           }}
+          canAssignTasks={userProfile?.role == "manager" ||userProfile?.role === "director" || userProfile?.role === "hr"}
         />
       )}
 

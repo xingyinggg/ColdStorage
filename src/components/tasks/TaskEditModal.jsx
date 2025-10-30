@@ -12,7 +12,8 @@ export default function TaskEditModal({
   errorMessage = "", 
   successMessage = "",
   isOwner = false,
-  isCollaborator = false
+  isCollaborator = false,
+  canAssignTasks = false
 }) {
   const [form, setForm] = useState({
     title: "",
@@ -371,7 +372,7 @@ export default function TaskEditModal({
                 }`}
               >
                 <option value="">Select status...</option>
-                <option value="unassigned">Unassigned</option>
+                {canAssignTasks && <option value="unassigned">Unassigned</option>}
                 <option value="ongoing">Ongoing</option>
                 <option value="under review">Under Review</option>
                 <option value="completed">Completed</option>

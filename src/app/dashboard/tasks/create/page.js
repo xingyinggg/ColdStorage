@@ -214,10 +214,9 @@ export default function CreateTaskPage() {
             const assigneeNotification = {
               emp_id: task.owner_id,
               task_id: task?.id || null,
-              title: `New Task Assigned (${task.title})`,
-              description: `${
-                assigner?.name || "Someone"
-              } has assigned you a new task: "${task.title}".`,
+              title: `New Task Assigned "${task.title}"`,
+              description: `${assigner?.name || "Someone"
+                } has assigned you a new task: "${task.title}".`,
               type: "Task Assignment",
               created_at: new Date().toISOString(),
             };
@@ -254,12 +253,10 @@ export default function CreateTaskPage() {
               const collaboratorNotification = {
                 emp_id: collaboratorEmpId,
                 task_id: task?.id || null,
-                title: `Added as collaborator for (${task.title})`,
-                description: `${
-                  assigner?.name || "Someone"
-                } has added you as a collaborator for the shared task: "${
-                  task.title
-                }".`,
+                title: `Added as collaborator for "${task.title}"`,
+                description: `${assigner?.name || "Someone"
+                  } has added you as a collaborator for the shared task: "${task.title
+                  }".`,
                 type: "Shared Task",
                 created_at: new Date().toISOString(),
               };

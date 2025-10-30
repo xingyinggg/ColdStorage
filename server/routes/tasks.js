@@ -410,7 +410,7 @@ router.get("/", async (req, res) => {
       tasksData = tasksData.filter(task => {
         const isOwner = task.owner_id && String(task.owner_id) === String(empId);
         let isCollaborator = false;
-        
+
         if (task.collaborators) {
           if (Array.isArray(task.collaborators)) {
             isCollaborator = task.collaborators.includes(String(empId));
@@ -423,7 +423,7 @@ router.get("/", async (req, res) => {
             }
           }
         }
-        
+
         return isOwner || isCollaborator;
       });
     }
@@ -1019,8 +1019,9 @@ router.put("/:id", upload.single("file"), async (req, res) => {
       // Notify the editor (confirmation)
       notificationsToInsert.push({
         emp_id: getNumericIdFromEmpId(empId), // Convert emp_id to numeric ID for notifications table
+        task_id: updatedTask.id,
         title: `Task Updated (${updatedTask.title})`,
-        description: `You updated the task "${updatedTask.title}".`,
+        description: `You updated the task "${updatedTask.title}."`,
         type: "Task Update Confirmation",
         created_at: new Date().toISOString(),
         read: false,
@@ -1030,8 +1031,9 @@ router.put("/:id", upload.single("file"), async (req, res) => {
       if (updatedTask.owner_id && String(updatedTask.owner_id) !== String(empId)) {
         notificationsToInsert.push({
           emp_id: getNumericIdFromEmpId(updatedTask.owner_id), // Convert emp_id to numeric ID for notifications table
+          task_id: updatedTask.id,
           title: `Task Updated (${updatedTask.title})`,
-          description: `${editorName} updated the task "${updatedTask.title}".`,
+          description: `${editorName} updated the task "${updatedTask.title}."`,
           type: "Task Update",
           created_at: new Date().toISOString(),
           read: false,
@@ -1055,8 +1057,9 @@ router.put("/:id", upload.single("file"), async (req, res) => {
             if (updatedTask.owner_id && String(collabId) === String(updatedTask.owner_id)) return; // owner already notified
             notificationsToInsert.push({
               emp_id: getNumericIdFromEmpId(collabId), // Convert emp_id to numeric ID for notifications table
+              task_id: updatedTask.id,
               title: `Task Updated (${updatedTask.title})`,
-              description: `${editorName} updated a task you're collaborating on: "${updatedTask.title}".`,
+              description: `${editorName} updated a task you're collaborating on: "${updatedTask.title}."`,
               type: "Task Update",
               created_at: new Date().toISOString(),
               read: false,

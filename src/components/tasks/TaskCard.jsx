@@ -323,11 +323,13 @@ export default function TaskCard({
   const getProjectNameDisplay = () => {
     // If task has a project_name property, use it directly
     if (task.project_name) {
+      console.log('Using project name from task:', task.project_name);
       return task.project_name;
     }
-    
+    console.log('Combined project names:', combinedProjectNames);
     // If task has project_id, try to resolve it using projectNames prop
     if (task.project_id && combinedProjectNames && combinedProjectNames[task.project_id]) {
+      console.log('Resolving project name for ID:', task.project_id, '->', combinedProjectNames[task.project_id]);
       return combinedProjectNames[task.project_id];
     }
     
@@ -401,14 +403,14 @@ export default function TaskCard({
         className={`bg-white rounded-xl border ${borderColor} shadow-sm hover:shadow-md transition-all duration-200 p-3 sm:p-4 cursor-pointer`}
         onClick={openDetailsModal}
       >
-        {/* 🎯 MOBILE-FIRST: Header with Title only */}
+        {/* Header with Title only */}
         <div className="mb-3">
           <h3 className="font-semibold text-sm sm:text-base text-gray-900 leading-5 break-words">
             {task.title}
           </h3>
         </div>
 
-        {/* 🎯 MOBILE-FIRST: Badges Row - Priority, Recurring, Edit Button */}
+        {/* Badges Row - Priority, Recurring, Edit Button */}
         <div className="flex flex-wrap items-center gap-2 mb-3">
           {/* Priority Badge - Compact for mobile */}
           {task.priority !== null && task.priority !== undefined && (
@@ -443,7 +445,7 @@ export default function TaskCard({
           </p>
         )}
 
-        {/* 🎯 MOBILE-OPTIMIZED: Metadata Section */}
+        {/* Metadata Section */}
         <div className="space-y-2 sm:space-y-3">
           {/* Assigned To */}
           <div className="flex items-start sm:items-center text-xs sm:text-sm">

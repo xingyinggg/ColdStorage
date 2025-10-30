@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useTasks } from "@/utils/hooks/useTasks";
 import { useProjects } from "@/utils/hooks/useProjects";
 import { useAuth } from "@/utils/hooks/useAuth";
-import Link from "next/link";
 import SidebarLayout from "@/components/layout/SidebarLayout";
 import HeaderBar from "@/components/layout/HeaderBar";
 import TaskCard from "@/components/tasks/TaskCard";
@@ -15,11 +14,12 @@ import StaffTasksView from "./components/StaffTasksView";
 import ManagerTasksView from "./components/ManagerTasksView";
 import DirectorTasksView from "./components/DirectorTasksView";
 import HrTasksView from "./components/HRTasksView";
+import dynamic from "next/dynamic";
 
 // moved status constants into StaffTasksView component
 
 // ✅ Single default export (the page)
-export default function DashboardPage() {
+function DashboardPage() {
   const router = useRouter();
   const [hasHydrated, setHasHydrated] = useState(false);
   const {
@@ -432,3 +432,5 @@ function AllTasksSection({
     </div>
   );
 }
+
+export default dynamic(() => Promise.resolve(DashboardPage), { ssr: false });

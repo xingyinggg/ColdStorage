@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import TaskCard from "@/components/tasks/TaskCard";
 import { formatDate, getPriorityColor, getStatusColor } from "./taskUtils";
 import { useAuth } from "@/utils/hooks/useAuth";
@@ -107,7 +106,7 @@ export default function StaffTasksView({
                     task.owner_id &&
                     userProfile?.emp_id &&
                     (isOwner || isCollaborator);
-
+                  console.log('asfsaf', task);
                   return (
                     <TaskCard
                       key={task.id}

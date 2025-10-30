@@ -67,19 +67,6 @@ test.describe("Simple Navigation Tests", () => {
     });
   });
 
-  test.skip("should display user name in header", async ({ page }) => {
-    await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
-
-    // Wait for sidebar to be visible (sidebar always loads)
-    await page.waitForSelector('a[href="/dashboard"]', { timeout: 15000 });
-
-    // Check for user name anywhere on page (should appear in header once loaded)
-    const userName = page.getByText("E2E Tester");
-    await userName.waitFor({ state: "visible", timeout: 10000 });
-
-    console.log("✅ User name displayed");
-  });
-
   test("should navigate to tasks page", async ({ page }) => {
     await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
 

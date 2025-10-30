@@ -85,6 +85,13 @@ vi.mock("../../server/lib/supabase.js", () => {
     getUserFromToken: vi.fn(),
     getEmpIdForUserId: vi.fn(),
     getUserRole: vi.fn(),
+    getNumericIdFromEmpId: vi.fn((empId) => {
+      // Extract numeric portion from emp_id (e.g., "TEST001" -> 1)
+      if (!empId) return null;
+      if (typeof empId === 'number') return empId;
+      const match = String(empId).match(/(\d+)$/);
+      return match ? parseInt(match[1], 10) : null;
+    }),
   };
 });
 
@@ -94,6 +101,7 @@ import {
   getUserFromToken,
   getEmpIdForUserId,
   getUserRole,
+  getNumericIdFromEmpId,
 } from "../../server/lib/supabase.js";
 
 // Get the mock instance for direct manipulation in tests

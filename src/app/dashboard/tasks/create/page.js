@@ -64,7 +64,7 @@ export default function CreateTaskPage() {
             setAllStaff(allUsersResult.users);
           }
         }
-        
+
         // For managers, fetch their team members
         if (isManager) {
           setLoadingTeam(true);
@@ -187,7 +187,7 @@ export default function CreateTaskPage() {
               throw new Error("You can only assign tasks to members of your team");
             }
           }
-          
+
           formData.append("status", "ongoing");
           formData.append("owner_id", taskData.assignTo);
         } else if (taskData.status === "unassigned") {
@@ -223,7 +223,10 @@ export default function CreateTaskPage() {
         // after creation (e.g. open details, create related records, etc.).
         try {
           if (result.task && result.task.id) {
-            sessionStorage.setItem("last_created_task_id", String(result.task.id));
+            sessionStorage.setItem(
+              "last_created_task_id",
+              String(result.task.id)
+            );
             console.log("Saved last_created_task_id ->", result.task.id);
           }
         } catch (e) {
@@ -258,8 +261,9 @@ export default function CreateTaskPage() {
               emp_id: task.owner_id,
               task_id: task?.id || null,
               title: `New Task Assigned (${task.title})`,
-              description: `${assigner?.name || "Someone"
-                } has assigned you a new task: "${task.title}".`,
+              description: `${
+                assigner?.name || "Someone"
+              } has assigned you a new task: "${task.title}".`,
               type: "Task Assignment",
               created_at: new Date().toISOString(),
             };
@@ -270,8 +274,9 @@ export default function CreateTaskPage() {
               emp_id: userProfile.emp_id,
               task_id: task?.id || null,
               title: `Task Assigned Successfully`,
-              description: `You assigned "${task.title}" to ${assignee?.name || "an employee"
-                }.`,
+              description: `You assigned "${task.title}" to ${
+                assignee?.name || "an employee"
+              }.`,
               type: "Task Assignment Confirmation",
               created_at: new Date().toISOString(),
             };
@@ -296,9 +301,11 @@ export default function CreateTaskPage() {
                 emp_id: collaboratorEmpId,
                 task_id: task?.id || null,
                 title: `Added as collaborator for (${task.title})`,
-                description: `${assigner?.name || "Someone"
-                  } has added you as a collaborator for the shared task: "${task.title
-                  }".`,
+                description: `${
+                  assigner?.name || "Someone"
+                } has added you as a collaborator for the shared task: "${
+                  task.title
+                }".`,
                 type: "Shared Task",
                 created_at: new Date().toISOString(),
               };
@@ -333,20 +340,10 @@ export default function CreateTaskPage() {
     <SidebarLayout>
       <div className="min-h-screen bg-gray-50">
         <HeaderBar
-          title={
-            <div className="flex items-center space-x-3">
-              <Link
-                href="/dashboard/tasks"
-                className="text-blue-600 hover:text-blue-800 font-medium text-sm sm:text-base"
-              >
-                ← Tasks
-              </Link>
-              <span>Create Task</span>
-            </div>
-          }
-          user={user}
+          title="Create Task"
+          user={{ email: userProfile?.email }}
           userProfile={userProfile}
-          roleLabel={userProfile?.role || "User"}
+          roleLabel={userProfile?.role || "Staff"}
           roleColor="gray"
           onLogout={handleLogout}
         />

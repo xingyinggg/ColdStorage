@@ -3,6 +3,8 @@ import {
   getServiceClient,
   getUserFromToken,
   getEmpIdForUserId,
+  getNumericIdFromEmpId,
+  getEmpIdFromNumericId,
 } from "../lib/supabase.js";
 
 const router = Router();
@@ -135,7 +137,19 @@ router.get("/task/:taskId", async (req, res) => {
     const { data: subtasks, error: subErr } = await subQuery;
 
     if (subErr) return res.status(400).json({ error: subErr.message });
-    return res.json({ subtasks: subtasks || [] });
+    
+    // Convert numeric owner_id back to emp_id format
+    const subtasksWithEmpId = await Promise.all(
+      (subtasks || []).map(async (subtask) => {
+        if (subtask.owner_id && typeof subtask.owner_id === 'number') {
+          const empId = await getEmpIdFromNumericId(subtask.owner_id);
+          return { ...subtask, owner_id: empId || subtask.owner_id };
+        }
+        return subtask;
+      })
+    );
+    
+    return res.json({ subtasks: subtasksWithEmpId });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
@@ -217,11 +231,18 @@ router.post("/", async (req, res) => {
         status: status || "ongoing",
         due_date: due_date || null,
         collaborators: Array.isArray(collaborators) ? collaborators : [],
-        owner_id: parent.owner_id,
+        owner_id: getNumericIdFromEmpId(parent.owner_id), // Convert emp_id to numeric ID for sub_task table
       })
       .select()
       .single();
     if (error) return res.status(400).json({ error: error.message });
+    
+    // Convert numeric owner_id back to emp_id format
+    if (data.owner_id && typeof data.owner_id === 'number') {
+      const empIdForOwner = await getEmpIdFromNumericId(data.owner_id);
+      data.owner_id = empIdForOwner || data.owner_id;
+    }
+    
     // Write task history for subtask creation
     try {
       await supabase
@@ -319,6 +340,13 @@ router.put("/:id", async (req, res) => {
       .select()
       .single();
     if (error) return res.status(400).json({ error: error.message });
+    
+    // Convert numeric owner_id back to emp_id format
+    if (data.owner_id && typeof data.owner_id === 'number') {
+      const empIdForOwner = await getEmpIdFromNumericId(data.owner_id);
+      data.owner_id = empIdForOwner || data.owner_id;
+    }
+    
     // Write task history for subtask update
     try {
       await supabase

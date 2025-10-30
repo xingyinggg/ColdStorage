@@ -223,7 +223,7 @@ export default function ProjectStatusReport({ project }) {
         <p className="text-gray-700 mb-4">
           {project.description || "No description provided"}
         </p>
-        <div className="grid grid-cols-3 gap-4 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-gray-700">
           <div>
             <span className="text-gray-600">Status:</span>
             <div className="font-semibold text-gray-900 capitalize">
@@ -246,7 +246,7 @@ export default function ProjectStatusReport({ project }) {
       </div>
 
       {/* Project Statistics */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
           <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
           <div className="text-sm text-gray-600 mt-1">Total Tasks</div>
@@ -298,7 +298,7 @@ export default function ProjectStatusReport({ project }) {
         {teamMembers.length === 0 ? (
           <p className="text-gray-500 text-sm">No team members found</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {teamMembers.map((member) => (
               <div
                 key={member.emp_id}
@@ -510,7 +510,7 @@ export default function ProjectStatusReport({ project }) {
             No tasks found for this project
           </p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-x-hidden w-full break-words">
             {/* Group tasks by date */}
             {(() => {
               // Group tasks by due date
@@ -567,7 +567,8 @@ export default function ProjectStatusReport({ project }) {
                           {tasksForDate.map((task) => (
                             <div
                               key={task.id}
-                              className="bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-gray-100 transition-colors"
+                              className="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4 hover:bg-gray-100 transition-colors break-words"
+
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
@@ -686,7 +687,7 @@ export default function ProjectStatusReport({ project }) {
       </div>
 
       {/* Task Breakdown by Status */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 overflow-hidden break-words">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Task Breakdown by Status
         </h3>
@@ -698,13 +699,13 @@ export default function ProjectStatusReport({ project }) {
                 <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
                 Completed Tasks ({tasksByStatus.completed.length})
               </h4>
-              <div className="pl-5 space-y-1">
+              <div className="pl-3 sm:pl-5 space-y-1 text-sm sm:text-base break-words">
                 {tasksByStatus.completed.map((task) => (
                   <div
                     key={task.id}
                     className="text-sm text-gray-600 flex items-center justify-between"
                   >
-                    <span>• {task.title}</span>
+                    <span>• Task Title: {task.title}</span>
                     <span className="text-xs text-gray-500">
                       {task.owner_name}
                     </span>
@@ -744,7 +745,7 @@ export default function ProjectStatusReport({ project }) {
                 <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
                 Ongoing ({tasksByStatus.ongoing.length})
               </h4>
-              <div className="pl-5 space-y-1">
+              <div className="pl-3 sm:pl-5 space-y-1 text-sm sm:text-base break-words">
                 {tasksByStatus.ongoing.map((task) => (
                   <div
                     key={task.id}
@@ -767,7 +768,7 @@ export default function ProjectStatusReport({ project }) {
                 <span className="w-3 h-3 bg-gray-400 rounded-full mr-2"></span>
                 Unassigned ({tasksByStatus.unassigned.length})
               </h4>
-              <div className="pl-5 space-y-1">
+              <div className="pl-3 sm:pl-5 space-y-1 text-sm sm:text-base break-words">
                 {tasksByStatus.unassigned.map((task) => (
                   <div
                     key={task.id}

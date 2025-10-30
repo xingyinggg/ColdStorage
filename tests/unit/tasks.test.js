@@ -82,10 +82,17 @@ vi.mock('../../server/lib/supabase.js', () => ({
   getUserFromToken: vi.fn(),
   getEmpIdForUserId: vi.fn(),
   getUserRole: vi.fn(),
+  getNumericIdFromEmpId: vi.fn((empId) => {
+    // Extract numeric portion from emp_id (e.g., "TEST001" -> 1)
+    if (!empId) return null;
+    if (typeof empId === 'number') return empId;
+    const match = String(empId).match(/(\d+)$/);
+    return match ? parseInt(match[1], 10) : null;
+  }),
 }));
 
 // Import after mocking
-import { getUserFromToken, getEmpIdForUserId, getUserRole } from '../../server/lib/supabase.js';
+import { getUserFromToken, getEmpIdForUserId, getUserRole, getNumericIdFromEmpId } from '../../server/lib/supabase.js';
 
 const app = express();
 app.use(express.json());

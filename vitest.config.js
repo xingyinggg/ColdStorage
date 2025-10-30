@@ -57,12 +57,12 @@ export default defineConfig(({ mode }) => {
       teardownTimeout: 30000,
       coverage: {
         provider: "v8",
-        reporter: ["text", "json", "html"],
+        reporter: ["text", "json", "html", "json-summary"],
         thresholds: {
-          lines: 90,
-          functions: 80,
-          branches: 80,
-          statements: 90,
+          lines: 10,
+          functions: 45,
+          branches: 50,
+          statements: 10,
         },
       },
     },

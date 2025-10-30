@@ -6,6 +6,7 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export function useProjects(user = null) {
   const [projects, setProjects] = useState([]);
+  const [projectNames, setProjectNames] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const supabaseRef = useRef(createClient());
@@ -29,19 +30,18 @@ export function useProjects(user = null) {
       try {
         const { projects: cachedProjects, timestamp } = JSON.parse(cachedData);
         const now = Date.now();
-        
+
         if (now - timestamp < CACHE_DURATION && cachedProjects?.length > 0) {
           // Check if this is a subsequent load (after initial sign-in)
-          const hasLoadedBefore = sessionStorage.getItem('projects_ever_loaded') === 'true';
-          
+          const hasLoadedBefore =
+            sessionStorage.getItem("projects_ever_loaded") === "true";
+
           if (hasLoadedBefore) {
-            console.log('✓ Showing cached', cachedProjects.length, 'projects immediately');
             setProjects(cachedProjects);
             setLoading(false);
             hasFetchedRef.current = true;
             hasEverLoadedRef.current = true;
           } else {
-            console.log('First load after sign-in - waiting for fresh data (projects)');
             // Don't load cache, keep showing loading spinner
           }
         }
@@ -52,10 +52,12 @@ export function useProjects(user = null) {
     }
   }, []);
 
+  // Replace the entire fetchProjects function with this:
+
   const fetchProjects = useCallback(async () => {
     // Don't fetch if no user (not authenticated)
     if (!user) {
-      console.log('⏸️ Skipping projects fetch - no user authenticated');
+      // console.log("⏸️ Skipping projects fetch - no user authenticated");
       return;
     }
 
@@ -66,12 +68,12 @@ export function useProjects(user = null) {
 
     try {
       fetchInProgressRef.current = true;
-      
+
       // Show loading spinner ONLY on first load (not subsequent loads with cache)
       if (!hasEverLoadedRef.current) {
         setLoading(true);
       }
-      
+
       const token = await getAuthToken();
 
       if (!token) {
@@ -99,22 +101,37 @@ export function useProjects(user = null) {
       }
 
       const data = await response.json();
-      
+
+      // ✅ SINGLE UPDATE: Set both projects and projectNames together
       setProjects(data || []);
+
+      const namesMap = {};
+      if (data && Array.isArray(data)) {
+        data.forEach((project) => {
+          // Use the correct property - check which one exists
+          const projectName = project.title || `Project ${project.id}`;
+          namesMap[project.id] = projectName;
+        });
+      }
+      setProjectNames(namesMap);
+
       setError(null);
       hasFetchedRef.current = true;
-      
+
       // Cache the results
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-        projects: data || [],
-        timestamp: Date.now()
-      }));
-      
+      sessionStorage.setItem(
+        CACHE_KEY,
+        JSON.stringify({
+          projects: data || [],
+          timestamp: Date.now(),
+        })
+      );
+
       // Mark that we've loaded data successfully
-      sessionStorage.setItem('projects_ever_loaded', 'true');
+      sessionStorage.setItem("projects_ever_loaded", "true");
       hasEverLoadedRef.current = true;
     } catch (err) {
-      console.error("❌ Fetch projects error:", err);
+      console.error("Fetch projects error:", err);
       setError(err.message);
     } finally {
       fetchInProgressRef.current = false;
@@ -159,10 +176,13 @@ export function useProjects(user = null) {
         setProjects((prev) => {
           const updatedProjects = [newProject, ...prev];
           // Update cache
-          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-            projects: updatedProjects,
-            timestamp: Date.now()
-          }));
+          sessionStorage.setItem(
+            CACHE_KEY,
+            JSON.stringify({
+              projects: updatedProjects,
+              timestamp: Date.now(),
+            })
+          );
           return updatedProjects;
         });
       }
@@ -281,12 +301,17 @@ export function useProjects(user = null) {
       const updatedProject = await response.json();
       if (isMountedRef.current) {
         setProjects((prev) => {
-          const updatedProjects = prev.map((project) => (project.id === id ? updatedProject : project));
+          const updatedProjects = prev.map((project) =>
+            project.id === id ? updatedProject : project
+          );
           // Update cache
-          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-            projects: updatedProjects,
-            timestamp: Date.now()
-          }));
+          sessionStorage.setItem(
+            CACHE_KEY,
+            JSON.stringify({
+              projects: updatedProjects,
+              timestamp: Date.now(),
+            })
+          );
           return updatedProjects;
         });
       }
@@ -330,10 +355,13 @@ export function useProjects(user = null) {
         setProjects((prev) => {
           const updatedProjects = prev.filter((project) => project.id !== id);
           // Update cache
-          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-            projects: updatedProjects,
-            timestamp: Date.now()
-          }));
+          sessionStorage.setItem(
+            CACHE_KEY,
+            JSON.stringify({
+              projects: updatedProjects,
+              timestamp: Date.now(),
+            })
+          );
           return updatedProjects;
         });
       }
@@ -349,15 +377,12 @@ export function useProjects(user = null) {
   // Fetch when user becomes available
   useEffect(() => {
     isMountedRef.current = true;
-    
+
     if (!user) {
-      console.log('⏸️ useProjects: Waiting for user to authenticate...');
       return;
     }
-
-    console.log('✓ useProjects: User authenticated, fetching projects for user:', user.id);
     fetchProjects();
-    
+
     return () => {
       isMountedRef.current = false;
     };
@@ -366,6 +391,7 @@ export function useProjects(user = null) {
 
   return {
     projects,
+    projectNames,
     loading,
     error,
     createProject,

@@ -1,4 +1,4 @@
-import { getServiceClient } from "../lib/supabase.js";
+import { getServiceClient, getNumericIdFromEmpId } from "../lib/supabase.js";
 
 class DeadlineNotificationService {
   constructor() {
@@ -373,10 +373,8 @@ class DeadlineNotificationService {
     notification_category = "deadline",
   }) {
     try {
-      // Be lenient with ID types for tests/mocks: accept numeric or string IDs
-      const finalEmpId = Number.isFinite(Number(emp_id))
-        ? Number(emp_id)
-        : emp_id;
+      // Convert emp_id to numeric ID for notifications table
+      const finalEmpId = getNumericIdFromEmpId(emp_id);
       const finalTaskId = Number.isFinite(Number(task_id))
         ? Number(task_id)
         : task_id;

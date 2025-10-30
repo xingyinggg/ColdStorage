@@ -133,13 +133,6 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/CS-207'
     
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_TEST_ANON_KEY || secrets.SUPABASE_TEST_SERVICE_KEY }}
-      SUPABASE_TEST_URL: ${{ secrets.SUPABASE_TEST_URL }}
-      SUPABASE_TEST_SERVICE_KEY: ${{ secrets.SUPABASE_TEST_SERVICE_KEY }}
-      NEXT_PUBLIC_API_URL: http://localhost:4000
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -153,25 +146,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Verify environment variables
-        run: |
-          echo "Checking environment variables..."
-          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ]; then
-            echo "ERROR: NEXT_PUBLIC_SUPABASE_URL is not set!"
-            exit 1
-          fi
-          if [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then
-            echo "ERROR: NEXT_PUBLIC_SUPABASE_ANON_KEY is not set!"
-            exit 1
-          fi
-          echo "Environment variables are set correctly"
-          echo "NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:0:20}..."
-      
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
       
       - name: Run E2E tests
         run: npx playwright test --reporter=github
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_TEST_ANON_KEY || secrets.SUPABASE_TEST_SERVICE_KEY }}
+          SUPABASE_TEST_URL: ${{ secrets.SUPABASE_TEST_URL }}
+          SUPABASE_TEST_SERVICE_KEY: ${{ secrets.SUPABASE_TEST_SERVICE_KEY }}
+          NEXT_PUBLIC_API_URL: http://localhost:4000
       
       - name: Upload test results
         if: always()
@@ -211,11 +196,6 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/CS-207'
     
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_TEST_ANON_KEY || secrets.SUPABASE_TEST_SERVICE_KEY }}
-      NEXT_PUBLIC_API_URL: http://localhost:4000
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -229,24 +209,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Verify environment variables
-        run: |
-          echo "Checking environment variables..."
-          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ]; then
-            echo "ERROR: NEXT_PUBLIC_SUPABASE_URL is not set!"
-            echo "Please ensure SUPABASE_TEST_URL secret is configured in GitHub"
-            exit 1
-          fi
-          if [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then
-            echo "ERROR: NEXT_PUBLIC_SUPABASE_ANON_KEY is not set!"
-            echo "Please ensure SUPABASE_TEST_ANON_KEY or SUPABASE_TEST_SERVICE_KEY secret is configured"
-            exit 1
-          fi
-          echo "Environment variables are set correctly"
-          echo "NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:0:20}..."
-      
       - name: Build application
         run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_TEST_ANON_KEY || secrets.SUPABASE_TEST_SERVICE_KEY }}
+          NEXT_PUBLIC_API_URL: http://localhost:4000
       
       - name: Notify Telegram (failure)
         if: failure()

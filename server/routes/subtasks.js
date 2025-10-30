@@ -3,6 +3,7 @@ import {
   getServiceClient,
   getUserFromToken,
   getEmpIdForUserId,
+  getNumericIdFromEmpId,
 } from "../lib/supabase.js";
 
 const router = Router();
@@ -217,7 +218,7 @@ router.post("/", async (req, res) => {
         status: status || "ongoing",
         due_date: due_date || null,
         collaborators: Array.isArray(collaborators) ? collaborators : [],
-        owner_id: parent.owner_id,
+        owner_id: getNumericIdFromEmpId(parent.owner_id), // Convert emp_id to numeric ID for sub_task table
       })
       .select()
       .single();

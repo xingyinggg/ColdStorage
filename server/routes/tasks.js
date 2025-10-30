@@ -3,6 +3,7 @@ import {
   getServiceClient,
   getUserFromToken,
   getEmpIdForUserId,
+  getNumericIdFromEmpId,
 } from "../lib/supabase.js";
 import { TaskSchema } from "../schemas/task.js";
 import multer from "multer";
@@ -219,7 +220,7 @@ router.post("/", upload.single("file"), async (req, res) => {
               status: subtask.status || "ongoing",
               due_date: subtask.dueDate || null,
               collaborators: subtask.collaborators || [],
-              owner_id: finalOwnerId,
+              owner_id: getNumericIdFromEmpId(finalOwnerId), // Convert emp_id to numeric ID for sub_task table
             };
           });
 
@@ -288,7 +289,7 @@ router.post("/", upload.single("file"), async (req, res) => {
               status: subtask.status || "ongoing",
               due_date: subtask.dueDate || null, // Note: frontend uses 'dueDate', backend uses 'due_date'
               collaborators: subtask.collaborators || [],
-              owner_id: finalOwnerId, // Subtasks inherit the main task owner
+              owner_id: getNumericIdFromEmpId(finalOwnerId), // Convert emp_id to numeric ID for sub_task table
             };
           });
 
@@ -1017,7 +1018,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
 
       // Notify the editor (confirmation)
       notificationsToInsert.push({
-        emp_id: empId,
+        emp_id: getNumericIdFromEmpId(empId), // Convert emp_id to numeric ID for notifications table
         title: `Task Updated (${updatedTask.title})`,
         description: `You updated the task "${updatedTask.title}".`,
         type: "Task Update Confirmation",
@@ -1028,7 +1029,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
       // Notify the owner if different from editor
       if (updatedTask.owner_id && String(updatedTask.owner_id) !== String(empId)) {
         notificationsToInsert.push({
-          emp_id: updatedTask.owner_id,
+          emp_id: getNumericIdFromEmpId(updatedTask.owner_id), // Convert emp_id to numeric ID for notifications table
           title: `Task Updated (${updatedTask.title})`,
           description: `${editorName} updated the task "${updatedTask.title}".`,
           type: "Task Update",
@@ -1053,7 +1054,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
             if (String(collabId) === String(empId)) return; // don't notify the editor twice
             if (updatedTask.owner_id && String(collabId) === String(updatedTask.owner_id)) return; // owner already notified
             notificationsToInsert.push({
-              emp_id: collabId,
+              emp_id: getNumericIdFromEmpId(collabId), // Convert emp_id to numeric ID for notifications table
               title: `Task Updated (${updatedTask.title})`,
               description: `${editorName} updated a task you're collaborating on: "${updatedTask.title}".`,
               type: "Task Update",

@@ -3,6 +3,7 @@ import {
   getServiceClient,
   getUserFromToken,
   getEmpIdForUserId,
+  getNumericIdFromEmpId,
 } from "../lib/supabase.js";
 
 // Import deadline notification functions - but handle gracefully if not available
@@ -45,7 +46,7 @@ router.get("/", async (req, res) => {
     const { data: notifications, error } = await supabase
       .from("notifications")
       .select("*")
-      .eq("emp_id", empId)
+      .eq("emp_id", getNumericIdFromEmpId(empId)) // Convert emp_id to numeric ID for notifications table
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -88,7 +89,7 @@ router.get("/unread-count", async (req, res) => {
     const { count, error } = await supabase
       .from("notifications")
       .select("*", { count: "exact", head: true })
-      .eq("emp_id", empId)
+      .eq("emp_id", getNumericIdFromEmpId(empId)) // Convert emp_id to numeric ID for notifications table
       .eq("read", false);
 
     if (error) {
@@ -131,7 +132,7 @@ router.post("/", async (req, res) => {
       title,
       type,
       description,
-      emp_id,
+      emp_id: getNumericIdFromEmpId(emp_id), // Convert emp_id to numeric ID for notifications table
       created_at: new Date().toISOString(),
       read: false,
     };
@@ -186,7 +187,7 @@ router.patch("/:id/read", async (req, res) => {
         read_at: new Date().toISOString(),
       })
       .eq("id", notificationId)
-      .eq("emp_id", empId) // Ensure user can only update their own notifications
+      .eq("emp_id", getNumericIdFromEmpId(empId)) // Convert emp_id to numeric ID for notifications table
       .select()
       .single();
 
@@ -229,7 +230,7 @@ router.patch("/mark-all-read", async (req, res) => {
         read: true,
         read_at: new Date().toISOString(),
       })
-      .eq("emp_id", empId)
+      .eq("emp_id", getNumericIdFromEmpId(empId)) // Convert emp_id to numeric ID for notifications table
       .eq("read", false)
       .select();
 

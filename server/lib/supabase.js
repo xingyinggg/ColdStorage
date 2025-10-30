@@ -49,4 +49,41 @@ export async function getEmpIdForUserId(userId) {
   return data?.emp_id || null;
 }
 
+/**
+ * Get numeric user ID from emp_id (for tables that use numeric foreign keys)
+ * This function extracts the number from emp_id strings like "TEST001" -> 1
+ * @param {string} empId - The employee ID (e.g., "TEST001")
+ * @returns {number|null} - The numeric ID or null if invalid
+ */
+export function getNumericIdFromEmpId(empId) {
+  if (!empId) return null;
+  
+  // Handle if it's already a number
+  if (typeof empId === 'number') return empId;
+  
+  // Extract numeric portion from emp_id (e.g., "TEST001" -> 1)
+  const match = String(empId).match(/(\d+)$/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+  
+  return null;
+}
+
+/**
+ * Get UUID from emp_id by querying the users table
+ * @param {string} empId - The employee ID (e.g., "TEST001")
+ * @returns {Promise<string|null>} - The user UUID or null
+ */
+export async function getUserIdFromEmpId(empId) {
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from('users')
+    .select('id')
+    .eq('emp_id', empId)
+    .single();
+  if (error) return null;
+  return data?.id || null;
+}
+
 

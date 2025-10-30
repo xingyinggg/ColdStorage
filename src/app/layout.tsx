@@ -15,10 +15,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "SPM Project",
-    template: "%s | SPM Project",
+    default: "TaskAllinOne",
+    template: "%s | TaskAllinOne",
   },
-  description: "Starter stack: Next.js, TypeScript, Tailwind CSS, ESLint",
+  description: "Starter stack: Next.js, JavaScript, Tailwind CSS, Express, Supabase",
 };
 
 export default function RootLayout({

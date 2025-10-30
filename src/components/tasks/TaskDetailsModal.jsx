@@ -36,6 +36,7 @@ export default function TaskDetailsModal({
   // Memoize collaborator names to prevent unnecessary recalculations
   const collaboratorNames = useMemo(() => {
     if (task?.collaborators && Array.isArray(task.collaborators)) {
+      console.log('dfdfff', task);
       return task.collaborators.map(empId =>
         memberNames?.[empId] || `User ${empId}`
       );

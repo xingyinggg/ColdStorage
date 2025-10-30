@@ -4,10 +4,13 @@ import ProjectStatusReport from "./ProjectStatusReport"
 import { useAuth } from "@/utils/hooks/useAuth"
 import { useDirectorInsights } from "@/utils/hooks/useDirectorInsights"
 import { useHrInsights } from "@/utils/hooks/useHrInsights"
+import { set } from "zod"
+import { useState } from "react"
 
 export default function ReportPreviewModal({ reportType, data, onClose, userRole }) {
   const { user } = useAuth();
   const { departmentPerformance } = useDirectorInsights();
+  const [isExporting, setIsExporting] = useState(false);
   const { 
     headcount, 
     departments, 
@@ -15,69 +18,49 @@ export default function ReportPreviewModal({ reportType, data, onClose, userRole
     orgOverdueTasks, 
     performanceRankings 
   } = useHrInsights();
+  
   const handleExportPDF = async () => {
-    const element = document.querySelector("#report-content");
-    if (!element) {
-      alert("Report content not found!");
-      return;
+  const element = document.querySelector("#report-content");
+  if (!element) {
+    alert("Report content not found!");
+    return;
+  }
+
+  setIsExporting(true); // start loading
+
+  try {
+    const html = element.innerHTML;
+    const filename = getReportFileName();
+    const title = getReportTitle();
+
+    const response = await fetch("http://localhost:4000/report/generate-pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html, filename, title }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "PDF generation failed");
     }
 
-    try {
-      // Show loading state
-      const originalText = document.querySelector('button[onclick*="handleExportPDF"]')?.textContent;
-      const exportButton = document.querySelector('button[onclick*="handleExportPDF"]');
-      if (exportButton) {
-        exportButton.disabled = true;
-        exportButton.textContent = 'Generating PDF...';
-      }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("PDF export failed:", err);
+    alert(`Error generating PDF: ${err.message}`);
+  } finally {
+    setIsExporting(false); // end loading
+  }
+};
 
-      const html = element.innerHTML;
-      const filename = getReportFileName();
-      const title = getReportTitle();
-      
-      // Call your Express backend
-      const response = await fetch('http://localhost:4000/report/generate-pdf', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ html, filename, title })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'PDF generation failed');
-      }
-      
-      // Download the PDF
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      
-      // Reset button
-      if (exportButton) {
-        exportButton.disabled = false;
-        exportButton.textContent = originalText;
-      }
-      
-    } catch (err) {
-      console.error("PDF export failed:", err);
-      alert(`Error generating PDF: ${err.message}`);
-      
-      // Reset button on error
-      const exportButton = document.querySelector('button[onclick*="handleExportPDF"]');
-      if (exportButton) {
-        exportButton.disabled = false;
-        exportButton.textContent = 'Export PDF';
-      }
-    }
-  };
 
   const renderPreviewContent = () => {
     if (reportType === 'project-report' && data) {
@@ -943,46 +926,96 @@ export default function ReportPreviewModal({ reportType, data, onClose, userRole
   };
 
   return (
-    <div className="fixed inset-0 bg-black/10 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-5xl w-full max-h-[95vh] overflow-y-auto">
-        <div className="p-6 border-b sticky top-0 bg-white z-10">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-gray-900">
-              Report Preview: {getReportTitle()}
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-2 sm:p-4 z-50">
+      {/* Modal container */}
+      <div className="bg-white rounded-lg w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden shadow-xl">
+        {/* Header */}
+        <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10 flex items-center justify-between">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 leading-tight">
+            Report Preview: {getReportTitle()}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 p-1"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        <div id='report-content' className="p-6">
+        {/* Scrollable content */}
+        <div
+          id="report-content"
+          className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6 text-sm sm:text-base leading-relaxed break-words"
+        >
           {renderPreviewContent()}
         </div>
 
-        <div className="p-6 border-t bg-gray-50 flex justify-end space-x-3 sticky bottom-0">
+        {/* Footer buttons */}
+        <div className="p-3 sm:p-6 border-t bg-gray-50 flex flex-col sm:flex-row gap-3 sm:gap-4 sm:justify-end sticky bottom-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 text-sm sm:text-base"
           >
             Close
           </button>
           <button
-            onClick={handleExportPDF}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center space-x-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <span>Export PDF</span>
-          </button>
+  onClick={handleExportPDF}
+  disabled={isExporting}
+  className={`w-full sm:w-auto px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-sm sm:text-base transition-colors ${
+    isExporting
+      ? "bg-gray-400 cursor-not-allowed"
+      : "bg-red-600 hover:bg-red-700 text-white"
+  }`}
+>
+  {isExporting ? (
+    <>
+      <svg
+        className="animate-spin w-4 h-4 sm:w-5 sm:h-5 text-white"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        ></circle>
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8v8H4z"
+        ></path>
+      </svg>
+      <span>Generating PDF...</span>
+    </>
+  ) : (
+    <>
+      <svg
+        className="w-4 h-4 sm:w-5 sm:h-5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        />
+      </svg>
+      <span>Export PDF</span>
+    </>
+  )}
+</button>
+
         </div>
       </div>
     </div>
   );
+
 }

@@ -62,25 +62,48 @@ router.get('/my-team', async (req, res) => {
       });
     }
 
-    // Get detailed member information
+    // FIXED: Convert to strings and use proper query
+    const memberIdsAsStrings = uniqueMemberIds.map(id => String(id));
+    
+    // Debug: Check what's actually in the users table
+    const { data: allUsers, error: allUsersError } = await supabase
+      .from('users')
+      .select('emp_id, name, email, department, role');
+    
+    console.log('All users in database:', allUsers?.map(u => ({ emp_id: u.emp_id, name: u.name })));
+    
+    // Get detailed member information with better error handling
     const { data: members, error: membersError } = await supabase
       .from('users')
       .select('emp_id, name, email, department, role')
-      .in('emp_id', uniqueMemberIds)
+      .in('emp_id', memberIdsAsStrings)
       .order('name');
 
+    console.log('Query result - members found:', members?.length || 0);
+    console.log('Members data:', members);
+    
     if (membersError) {
       console.error('Error fetching members:', membersError);
       return res.status(500).json({ error: 'Failed to fetch member details' });
     }
 
     // Combine team data with member details
-    const teamsWithMembers = teams.map(team => ({
-      ...team,
-      members: (team.member_ids || []).map(memberId => 
-        members.find(member => member.emp_id === memberId)
-      ).filter(Boolean) // Remove any null/undefined members
-    }));
+    const teamsWithMembers = teams.map(team => {
+      const teamMembers = (team.member_ids || []).map(memberId => {
+        const member = members?.find(member => String(member.emp_id) === String(memberId));
+        if (!member) {
+          console.log(`Member with emp_id ${memberId} not found in users table`);
+        }
+        return member;
+      }).filter(Boolean); // Remove any null/undefined members
+      
+      console.log(`Team ${team.team_name}: ${teamMembers.length} members found`);
+      
+      return {
+        ...team,
+        members: teamMembers
+      };
+    });
 
     res.json({ teams: teamsWithMembers });
     

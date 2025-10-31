@@ -68,7 +68,7 @@ export default function HrTasksView({ onLogout, showHeader = true }) {
   }, {});
 
   return (
-    <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <div className="max-w-7xl mx-auto">
         <div className="flex gap-6">
           {statusOrder.map((status) => {          
             return (
@@ -122,7 +122,7 @@ export default function HrTasksView({ onLogout, showHeader = true }) {
                       isOwner={isOwner}
                       isCollaborator={isCollaborator}
                       onTaskUpdate={updateTask}
-                      projectNames={projectNames}
+                      // projectNames={projectNames}
                       currentUserId={userProfile?.emp_id}
                       memberNames={hrStaff.reduce((acc, staff) => {
                         acc[staff.emp_id] = staff.name;
@@ -132,8 +132,8 @@ export default function HrTasksView({ onLogout, showHeader = true }) {
                   );
                 })}
                 {(!grouped[status] || grouped[status].length === 0) && (
-                  <div className="p-4 text-center text-gray-500 text-sm bg-white rounded-lg">
-                    No tasks in this status
+                  <div className="p-4 text-center text-gray-500 text-sm rounded-lg">
+                    No tasks
                   </div>
                 )}
               </div>

@@ -25,6 +25,8 @@ export default function ProjectsPage() {
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState({});
   const [projectNames, setProjectNames] = useState({});
+  const [createError, setCreateError] = useState(null);
+  const [creating, setCreating] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -381,7 +383,8 @@ export default function ProjectsPage() {
   // Update create form button handler
   const handleShowCreateForm = async () => {
     if (!showCreateForm) {
-      // When opening form, auto-add current user
+      // When opening form, auto-add current user and clear errors
+      setCreateError(null);
       await resetForm();
     }
     setShowCreateForm(!showCreateForm);
@@ -390,6 +393,7 @@ export default function ProjectsPage() {
   // Update cancel button handler
   const handleCancelForm = () => {
     setShowCreateForm(false);
+    setCreateError(null);
     setNewProject({
       name: "",
       description: "",
@@ -424,14 +428,17 @@ export default function ProjectsPage() {
     }));
   };
 
-  const handleCreateProject = async (e) => {
+    const handleCreateProject = async (e) => {
     e.preventDefault();
+    setCreating(true);
+    setCreateError(null);
+    
     try {
       // Extract just the emp_ids for the database
       const memberIds = newProject.members.map((member) => member.emp_id);
 
       const projectData = {
-        name: newProject.name,
+        title: newProject.name,  // Fixed: send as 'title' to match backend expectation
         description: newProject.description,
         members: memberIds,
       };
@@ -443,6 +450,9 @@ export default function ProjectsPage() {
       setSearchResults([]);
     } catch (error) {
       console.error("Error creating project:", error);
+      setCreateError(error.message || "Failed to create project");
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -520,6 +530,13 @@ export default function ProjectsPage() {
               {showCreateForm && (
                 <div className="mb-4 sm:mb-6 p-3 sm:p-4 border border-gray-200 rounded-lg bg-gray-50">
                   <form onSubmit={handleCreateProject}>
+                    {/* Error Display */}
+                    {createError && (
+                      <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                        <p className="text-sm text-red-700">{createError}</p>
+                      </div>
+                    )}
+                    
                     <div className="mb-3 sm:mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Project Name
@@ -629,22 +646,14 @@ export default function ProjectsPage() {
                     <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                       <button
                         type="submit"
-                        className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                        disabled={creating}
+                        className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                       >
-                        Create Project
+                        {creating ? "Creating..." : "Create Project"}
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          setShowCreateForm(false);
-                          setNewProject({
-                            name: "",
-                            description: "",
-                            members: [],
-                          });
-                          setMemberSearch("");
-                          setSearchResults([]);
-                        }}
+                        onClick={handleCancelForm}
                         className="w-full sm:w-auto px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 text-sm"
                       >
                         Cancel

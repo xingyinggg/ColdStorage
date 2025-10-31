@@ -26,6 +26,12 @@ const dotColors = {
   completed: "bg-green-400",      // Stays the same
 };
 
+const handleLogout = async () => {
+  await signOut();
+  router.push("/login");
+};
+
+
 export default function StaffTasksView({ tasks = [], onLogout, onEditTask, showHeader = true }) {
   const { user, userProfile } = useAuth();
 
@@ -49,83 +55,55 @@ export default function StaffTasksView({ tasks = [], onLogout, onEditTask, showH
   }, {});
 
   return (
-    <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      {/* {showHeader && (
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-xl font-semibold">My Tasks</h1>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
-            >
-              Back to Dashboard
-            </Link>
-            <button
-              onClick={onLogout}
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-            >
-              Logout
-            </button>
-          </div>
+<div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+  {/* Responsive grid layout */}
+  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {statusOrder.map((status) => (
+      <div
+        key={status}
+        className={`rounded-lg shadow p-4 ${statusColors[status]} overflow-x-auto`}
+      >
+        <div className="flex items-center mb-2">
+          <span className={`w-3 h-3 rounded-full mr-2 ${dotColors[status]}`} />
+          <span className="font-semibold">
+            {statusLabels[status]}{" "}
+            <span className="bg-white rounded-full px-2 py-0.5 text-xs ml-1 border">
+              {grouped[status]?.length || 0}
+            </span>
+          </span>
         </div>
-      )} */}
-
-      <div className="flex gap-6">
-        {statusOrder.map((status) => {
-          return (
-            <div
-              key={status}
-              className={`flex-1 rounded-lg shadow p-4 ${statusColors[status]}`}
-            >
-              <div className="flex items-center mb-2">
-                <span
-                  className={`w-3 h-3 rounded-full mr-2 ${dotColors[status]}`}
-                />
-                <span className="font-semibold">
-                  {statusLabels[status]}{" "}
-                  <span className="bg-white rounded-full px-2 py-0.5 text-xs ml-1 border">
-                    {grouped[status]?.length || 0}
-                  </span>
-                </span>
-              </div>
-              <div className="space-y-3">
-                {grouped[status]?.map((task) => {
-                  const isOwner = task.owner_id && userProfile?.emp_id && String(userProfile.emp_id) === String(task.owner_id);
-
-                  // More robust collaborator detection - handle both array and object formats
-                  let isCollaborator = false;
-                  if (task.collaborators && userProfile?.emp_id) {
-                    if (Array.isArray(task.collaborators)) {
-                      // Standard array format
-                      isCollaborator = task.collaborators.includes(String(userProfile.emp_id));
-                    } else if (typeof task.collaborators === 'object' && task.collaborators !== null) {
-                      // Object format - convert to array
-                      const collabArray = Object.values(task.collaborators);
-                      isCollaborator = collabArray.includes(String(userProfile.emp_id));
-                    }
-                  }
-
-                  const canEdit = task.owner_id && userProfile?.emp_id && (isOwner || isCollaborator);
-
-                  return (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      canEdit={canEdit && typeof onEditTask === 'function'}
-                      isOwner={isOwner}
-                      isCollaborator={isCollaborator}
-                      formatDate={formatDate}
-                      getPriorityColor={getPriorityColor}
-                      getStatusColor={getStatusColor}
-                      onTaskUpdate={onEditTask}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+        <div className="space-y-3">
+          {grouped[status]?.map((task) => {
+            const isOwner = task.owner_id && userProfile?.emp_id && String(userProfile.emp_id) === String(task.owner_id);
+            let isCollaborator = false;
+            if (task.collaborators && userProfile?.emp_id) {
+              if (Array.isArray(task.collaborators)) {
+                isCollaborator = task.collaborators.includes(String(userProfile.emp_id));
+              } else if (typeof task.collaborators === "object" && task.collaborators !== null) {
+                const collabArray = Object.values(task.collaborators);
+                isCollaborator = collabArray.includes(String(userProfile.emp_id));
+              }
+            }
+            const canEdit = task.owner_id && userProfile?.emp_id && (isOwner || isCollaborator);
+            return (
+              <TaskCard
+                key={task.id}
+                task={task}
+                canEdit={canEdit && typeof onEditTask === "function"}
+                isOwner={isOwner}
+                isCollaborator={isCollaborator}
+                formatDate={formatDate}
+                getPriorityColor={getPriorityColor}
+                getStatusColor={getStatusColor}
+                onTaskUpdate={onEditTask}
+              />
+            );
+          })}
+        </div>
       </div>
-    </div>
+    ))}
+  </div>
+</div>
+
   );
 }

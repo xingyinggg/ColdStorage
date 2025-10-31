@@ -789,7 +789,12 @@ export default function ReportPreviewModal({ reportType, data, onClose, userRole
               <div className="text-xs text-green-600 mt-1">↗ +5% vs last quarter</div>
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-              <div className="text-3xl font-bold text-blue-700">{Math.round((orgActiveTasks / headcount) * 100) / 100}</div>
+              <div className="text-3xl font-bold text-blue-700">
+                {orgActiveTasks && headcount && headcount > 0 
+                  ? (Math.round((orgActiveTasks / headcount) * 100) / 100).toFixed(1)
+                  : '0.0'
+                }
+              </div>
               <div className="text-sm text-gray-600 mt-1">Productivity Index</div>
               <div className="text-xs text-green-600 mt-1">↗ +12% vs last quarter</div>
             </div>

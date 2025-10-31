@@ -112,15 +112,15 @@ const getStatusColor = (status) => {
 
 export default function TaskCard({
   task,
-  onTaskUpdate, // new prop name used in some places
-  onEdit,        // backwards-compatible prop used elsewhere
-  canEdit = false, // ← Use this prop instead of calculating internally
-  isOwner = false, // New prop to indicate if user is the task owner
-  isCollaborator = false, // New prop to indicate if user is a collaborator
+  onTaskUpdate,
+  onEdit,
+  canEdit = false,
+  isOwner = false,
+  isCollaborator = false,
   borderColor = "border-gray-200",
-  currentUserId, // Keep for backwards compatibility
+  currentUserId,
   memberNames = {},
-  projectNames = {} // Add this prop
+  projectNames = {}
 }) {
 
   const { projects, loading: projectsLoading } = useProjects();
@@ -142,14 +142,11 @@ export default function TaskCard({
     return { ...projectNames, ...hookProjectNames };
   }, [projectNames, hookProjectNames]);
 
-
   // Disable edit functionality if no update handlers are provided
   const actualCanEdit = canEdit && (typeof onTaskUpdate === 'function' || typeof onEdit === 'function');
   
   // Log the update functions to help debug
   useEffect(() => {
-    // console.log("TaskCard render - onTaskUpdate type:", typeof onTaskUpdate);
-    // console.log("TaskCard render - onEdit type:", typeof onEdit);
     if (canEdit && !actualCanEdit) {
       console.warn("TaskCard has canEdit=true but no update handlers - disabling edit functionality");
     }
@@ -284,7 +281,7 @@ export default function TaskCard({
         })
         .catch((error) => {
           console.error("Error fetching subtasks:", error);
-          setSubtaskCount(0); // Assume no subtasks on error
+          setSubtaskCount(0);
         })
         .finally(() => {
           setLoadingSubtaskCount(false);
@@ -298,13 +295,6 @@ export default function TaskCard({
       setSubtaskCount(subtasks.length);
     }
   }, [subtasks, hasFetchedSubtasks]);
-
-  // REMOVED: Old useEffect that only fetched on showSubtasks change
-  // useEffect(() => {
-  //   if (showSubtasks && task?.id && !hasFetchedSubtasks) {
-  //     fetchSubtasks(task.id).finally(() => setHasFetchedSubtasks(true));
-  //   }
-  // }, [showSubtasks, task?.id]);
 
   const handleEditTask = async (taskId, formOrFormData) => {
     try {
@@ -406,21 +396,20 @@ export default function TaskCard({
   };
 
   const getProjectNameDisplay = () => {
-    
     // If task has a project_name property, use it directly
     if (task.project_name) {
-      // console.log("Using task.project_name:", task.project_name);
+      console.log('Using project name from task:', task.project_name);
       return task.project_name;
     }
-    
+    console.log('Combined project names:', combinedProjectNames);
     // If task has project_id, try to resolve it using projectNames prop
     if (task.project_id && combinedProjectNames && combinedProjectNames[task.project_id]) {
+      console.log('Resolving project name for ID:', task.project_id, '->', combinedProjectNames[task.project_id]);
       return combinedProjectNames[task.project_id];
     }
     
     // Fallback to showing project ID if name resolution fails
     if (task.project_id) {
-      // console.log("Falling back to Project ID:", `Project ${task.project_id}`);
       return `Project ${task.project_id}`;
     }
     
@@ -486,126 +475,141 @@ export default function TaskCard({
   return (
     <>
       <div
-        className={`bg-white rounded-xl border ${borderColor} shadow-sm hover:shadow-md transition-all duration-200 p-4 cursor-pointer`}
-        onClick={openDetailsModal} // click handler to open details modal
+        className={`bg-white rounded-xl border ${borderColor} shadow-sm hover:shadow-md transition-all duration-200 p-3 sm:p-4 cursor-pointer`}
+        onClick={openDetailsModal}
       >
-        {/* Header with Title and Edit Button */}
-        <div className="flex items-start justify-between mb-3">
-          <h3 className="font-semibold text-sm text-gray-900 leading-5 flex-1 mr-2 min-w-0">
+        {/* Header with Title only */}
+        <div className="mb-3">
+          <h3 className="font-semibold text-sm sm:text-base text-gray-900 leading-5 break-words">
             {task.title}
           </h3>
+        </div>
 
-          <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
-            {/* Recurring Badge with Status */}
-            {task.is_recurring && (
-              <RecurrenceStatus task={task} variant="compact" />
-            )}
-            
-            {/* Priority Badge - Show numeric value */}
-            {task.priority !== null && task.priority !== undefined && (
-              <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${priorityConfig.bg} ${priorityConfig.text} ${priorityConfig.border}`}>
-                Priority: {task.priority}
-              </div>
-            )}
+        {/* Badges Row - Priority, Recurring, Edit Button */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          {/* Priority Badge - Compact for mobile */}
+          {task.priority !== null && task.priority !== undefined && (
+            <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${priorityConfig.bg} ${priorityConfig.text} ${priorityConfig.border} flex-shrink-0`}>
+              <span className="hidden sm:inline">Priority: </span>
+              <span className="sm:hidden">P</span>
+              {task.priority}
+            </div>
+          )}
 
-            {/* Edit Button - Use userCanEdit */}
-            {userCanEdit && (
-              <button
-                onClick={(e) => { e.stopPropagation(); openEditModal(e); }}
-                className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-gray-700 bg-gray-100 hover:bg-gray-200 flex-shrink-0"
-              >
-                Edit
-              </button>
-            )}
-          </div>
+          {/* Recurring Badge */}
+          {task.is_recurring && (
+            <RecurrenceStatus task={task} variant="compact" />
+          )}
+
+          {/* Edit Button */}
+          {userCanEdit && (
+            <button
+              onClick={(e) => { e.stopPropagation(); openEditModal(e); }}
+              className="inline-flex items-center px-2 sm:px-3 py-1 border border-transparent text-xs font-medium rounded text-gray-700 bg-gray-100 hover:bg-gray-200 flex-shrink-0 ml-auto"
+            >
+              <span className="hidden sm:inline">Edit</span>
+              <span className="sm:hidden">✏️</span>
+            </button>
+          )}
         </div>
 
         {/* Description */}
         {task.description && (
-          <p className="text-xs text-gray-600 leading-relaxed mb-4 line-clamp-2">
+          <p className="text-xs sm:text-sm text-gray-600 leading-relaxed mb-3 line-clamp-2 break-words">
             {task.description}
           </p>
         )}
 
         {/* Metadata Section */}
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {/* Assigned To */}
-          <div className="flex items-center text-xs">
-            <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-start sm:items-center text-xs sm:text-sm">
+            <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5 flex-shrink-0 mt-0.5 sm:mt-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
-            <span className="text-gray-500 font-medium mr-1 flex-shrink-0">Assigned to:</span>
-            <span className={`font-medium truncate ${userCanEdit ? "text-blue-700" : "text-gray-700"
-              }`}>
-              {getAssignedToDisplay()}
-            </span>
+            <div className="min-w-0 flex-1">
+              <span className="text-gray-500 font-medium">Assigned to:</span>
+              <span className={`block sm:inline sm:ml-1 font-medium break-words ${userCanEdit ? "text-blue-700" : "text-gray-700"}`}>
+                {getAssignedToDisplay()}
+              </span>
+            </div>
           </div>
 
           {/* Collaborators */}
           {getCollaboratorsDisplay() && (
-            <div className="flex items-center text-xs">
-              <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-start sm:items-center text-xs sm:text-sm">
+              <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5 flex-shrink-0 mt-0.5 sm:mt-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M9 20H4v-2a3 3 0 015.356-1.857M15 11a3 3 0 110-6 3 3 0 010 6zM6 11a3 3 0 110-6 3 3 0 010 6z" />
               </svg>
-              <span className="text-gray-500 font-medium mr-1 flex-shrink-0">Collaborators:</span>
-              <span className="font-medium text-gray-700 truncate">{getCollaboratorsDisplay()}</span>
+              <div className="min-w-0 flex-1">
+                <span className="text-gray-500 font-medium">Collaborators:</span>
+                <span className="block sm:inline sm:ml-1 font-medium text-gray-700 break-words">
+                  {getCollaboratorsDisplay()}
+                </span>
+              </div>
             </div>
           )}
 
           {/* Project */}
           {(task.project_id || task.project_name) && (
-            <div className="flex items-center text-xs">
-              <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-start sm:items-center text-xs sm:text-sm">
+              <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5 flex-shrink-0 mt-0.5 sm:mt-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
-              <span className="text-gray-500 font-medium mr-1 flex-shrink-0">Project:</span>
-              <span className="font-medium text-gray-700 truncate">{getProjectNameDisplay()}</span>
+              <div className="min-w-0 flex-1">
+                <span className="text-gray-500 font-medium">Project:</span>
+                <span className="block sm:inline sm:ml-1 font-medium text-gray-700 break-words">
+                  {getProjectNameDisplay()}
+                </span>
+              </div>
             </div>
           )}
 
           {/* Due Date */}
           {task.due_date && (
-            <div className="flex items-center text-xs">
-              <svg className="w-3 h-3 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-start sm:items-center text-xs sm:text-sm">
+              <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5 flex-shrink-0 mt-0.5 sm:mt-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span className="font-medium text-gray-600">
-                Due: 
-              </span>
-              <span className={`font-medium ml-1 ${isOverdue
-                  ? "text-red-600"
-                  : isApproaching
-                    ? "text-amber-600"
-                    : "text-gray-600"
+              <div className="min-w-0 flex-1">
+                <span className="font-medium text-gray-600">Due:</span>
+                <span className={`block sm:inline sm:ml-1 font-medium ${
+                  isOverdue
+                    ? "text-red-600"
+                    : isApproaching
+                      ? "text-amber-600"
+                      : "text-gray-600"
                 }`}>
-                {new Date(task.due_date).toLocaleDateString()}
-                {isOverdue && (
-                  <span className="ml-1 text-red-500 font-semibold">
-                    (Overdue)
-                  </span>
-                )}
-                {isApproaching && (
-                  <span className="ml-1 text-amber-500 font-semibold">
-                    ({daysUntilDue} day{daysUntilDue === 1 ? '' : 's'} left)
-                  </span>
-                )}
-              </span>
+                  {new Date(task.due_date).toLocaleDateString()}
+                  {isOverdue && (
+                    <span className="block sm:inline sm:ml-1 text-red-500 font-semibold">
+                      (Overdue)
+                    </span>
+                  )}
+                  {isApproaching && (
+                    <span className="block sm:inline sm:ml-1 text-amber-500 font-semibold">
+                      ({daysUntilDue} day{daysUntilDue === 1 ? '' : 's'} left)
+                    </span>
+                  )}
+                </span>
+              </div>
             </div>
           )}
         </div>
         
+        {/* Subtasks Section */}
         {(subtaskCount > 0 || loadingSubtaskCount) && (
-          <div className="mt-3">
+          <div className="mt-3 pt-3 border-t border-gray-100">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation(); 
                 setShowSubtasks((v) => !v);
               }}
-              className="flex items-center text-xs text-blue-600 hover:text-blue-800"
+              className="flex items-center text-xs sm:text-sm text-blue-600 hover:text-blue-800 w-full"
               title="Toggle subtasks"
             >
-              <svg className={`w-3.5 h-3.5 mr-1 transition-transform ${showSubtasks ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-3.5 h-3.5 mr-1.5 transition-transform ${showSubtasks ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
               {loadingSubtaskCount ? (
@@ -618,7 +622,7 @@ export default function TaskCard({
             </button>
 
             {showSubtasks && (
-              <div className="mt-2 border border-gray-200 rounded-md p-3 bg-gray-50">
+              <div className="mt-2 border border-gray-200 rounded-md p-2 sm:p-3 bg-gray-50">
                 {loadingSubtasks ? (
                   <p className="text-xs text-gray-500">Loading subtasks...</p>
                 ) : subtasksError ? (
@@ -629,17 +633,20 @@ export default function TaskCard({
                   <ul className="space-y-2">
                     {subtasks.map((st) => (
                       <li key={st.id} className="bg-white border border-gray-200 rounded p-2">
-                        <div className="flex items-start justify-between">
-                          <div className="min-w-0 pr-3">
-                            <p className="text-xs font-medium text-gray-900 truncate">{st.title}</p>
+                        <div className="space-y-2">
+                          {/* Subtask Title and Description */}
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-medium text-gray-900 break-words">{st.title}</p>
                             {st.description && (
-                              <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">{st.description}</p>
+                              <p className="text-xs text-gray-600 mt-1 break-words line-clamp-2">{st.description}</p>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
+                          
+                          {/* Subtask Badges and Actions */}
+                          <div className="flex flex-wrap items-center gap-2">
                             {st.priority !== null && st.priority !== undefined && (
                               <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(st.priority).bg} ${getPriorityColor(st.priority).text} ${getPriorityColor(st.priority).border}`}>
-                                Priority: {st.priority}
+                                P{st.priority}
                               </span>
                             )}
                             {st.status && (
@@ -651,25 +658,26 @@ export default function TaskCard({
                               <button
                                 type="button"
                                 onClick={(e) => {
-                                  e.stopPropagation(); // Prevent modal from opening
+                                  e.stopPropagation();
                                   setSubtaskBeingEdited(st); 
                                   setSubtaskEditOpen(true);
                                 }}
-                                className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-gray-700 bg-gray-100 hover:bg-gray-200 flex-shrink-0"
+                                className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-gray-700 bg-gray-100 hover:bg-gray-200 ml-auto"
                                 title="Edit subtask"
                               >
-                                Edit
+                                <span className="hidden sm:inline">Edit</span>
+                                <span className="sm:hidden">✏️</span>
                               </button>
                             )}
                           </div>
-                        </div>
-                        <div className="mt-1 flex items-center text-[11px] text-gray-600 gap-3 flex-wrap">
+                          
+                          {/* Subtask Due Date */}
                           {st.due_date && (
-                            <div className="flex items-center">
+                            <div className="flex items-center text-xs text-gray-600">
                               <svg className="w-3 h-3 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                               </svg>
-                              {new Date(st.due_date).toLocaleDateString()}
+                              Due: {new Date(st.due_date).toLocaleDateString()}
                             </div>
                           )}
                         </div>
@@ -681,7 +689,7 @@ export default function TaskCard({
                   <button
                     type="button"
                     onClick={openDetailsModal}
-                    className="text-[11px] text-blue-600 hover:text-blue-800"
+                    className="text-xs sm:text-sm text-blue-600 hover:text-blue-800"
                   >
                     Open full details
                   </button>

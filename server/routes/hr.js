@@ -1,12 +1,12 @@
 import express from 'express';
-import { createClient } from '@supabase/supabase-js';
+import { getServiceClient } from '../lib/supabase.js';
 
 const router = express.Router();
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 // Get all employees with their profiles and stats
 router.get('/employees', async (req, res) => {
   try {
+    const supabase = getServiceClient();
     const { data: employees, error } = await supabase
       .from('users')
       .select(`
@@ -25,6 +25,7 @@ router.get('/employees', async (req, res) => {
 // Get HR dashboard insights/analytics
 router.get('/insights', async (req, res) => {
   try {
+    const supabase = getServiceClient();
     // Employee count by department
     const { data: deptStats, error: deptError } = await supabase
       .from('users')
@@ -79,6 +80,7 @@ router.get('/insights', async (req, res) => {
 // Get employee performance data
 router.get('/performance', async (req, res) => {
   try {
+    const supabase = getServiceClient();
     const { data: performance, error } = await supabase
       .from('users')
       .select(`
@@ -126,6 +128,7 @@ router.get('/reports/:type', async (req, res) => {
   const { startDate, endDate } = req.query;
 
   try {
+    const supabase = getServiceClient();
     switch (type) {
       case 'productivity':
         // Productivity report logic
@@ -167,6 +170,7 @@ router.put('/employees/:empId', async (req, res) => {
   const updates = req.body;
 
   try {
+    const supabase = getServiceClient();
     const { data, error } = await supabase
       .from('user_profiles')
       .update(updates)
@@ -184,6 +188,7 @@ router.put('/employees/:empId', async (req, res) => {
 // Get department workload data
 router.get('/departments', async (req, res) => {
   try {
+    const supabase = getServiceClient();
     // Get all employees grouped by department
     const { data: employees, error: empError } = await supabase
       .from('users')
@@ -242,6 +247,7 @@ router.get('/departments', async (req, res) => {
 // Employee Performance Rankings
 router.get('/analytics/performance-rankings', async (req, res) => {
   try {
+    const supabase = getServiceClient();
     const { data: employees, error } = await supabase
       .from('users')
       .select(`
@@ -283,6 +289,7 @@ router.get('/analytics/trends', async (req, res) => {
   const { period = 'monthly' } = req.query;
   
   try {
+    const supabase = getServiceClient();
     console.log('Fetching tasks for trends...');
     const { data: tasks, error } = await supabase
       .from('tasks')

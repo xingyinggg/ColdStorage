@@ -3,12 +3,19 @@ import request from "supertest";
 import app from "../../server/index.js";
 import { createClient } from "@supabase/supabase-js";
 
-describe("Users Routes Integration Tests", () => {
+// Check if test environment variables are configured
+const hasTestEnv = process.env.SUPABASE_TEST_URL && process.env.SUPABASE_TEST_SERVICE_KEY;
+
+describe.skipIf(!hasTestEnv)("Users Routes Integration Tests", () => {
   let supabase;
   let authToken;
   let testUserId;
 
   beforeAll(async () => {
+    // Set environment variables for server routes
+    process.env.SUPABASE_URL = process.env.SUPABASE_TEST_URL;
+    process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_TEST_SERVICE_KEY;
+    
     supabase = createClient(
       process.env.SUPABASE_TEST_URL,
       process.env.SUPABASE_TEST_SERVICE_KEY

@@ -1,17 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 
 export function getServiceClient() {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error('Server env not configured');
+  // Support both regular and test environment variables
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.SUPABASE_TEST_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_TEST_SERVICE_KEY;
+  
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Server env not configured: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_TEST_URL and SUPABASE_TEST_SERVICE_KEY) are required');
   }
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return createClient(supabaseUrl, supabaseKey);
 }
 
 export function getAnonClient() {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-    throw new Error('Server env not configured');
+  // Support both regular and test environment variables
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.SUPABASE_TEST_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_TEST_ANON_KEY || process.env.SUPABASE_TEST_SERVICE_KEY;
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Server env not configured: SUPABASE_URL and SUPABASE_ANON_KEY (or test equivalents) are required');
   }
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+  return createClient(supabaseUrl, supabaseAnonKey);
 }
 
 export async function getUserFromToken(token) {
@@ -19,10 +27,14 @@ export async function getUserFromToken(token) {
     throw new Error('No token provided');
   }
   
+  // Support both regular and test environment variables
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.SUPABASE_TEST_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_TEST_ANON_KEY || process.env.SUPABASE_TEST_SERVICE_KEY;
+  
   // Create a client with the user's access token
   const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       global: {
         headers: {

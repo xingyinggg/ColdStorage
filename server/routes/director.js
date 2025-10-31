@@ -1,5 +1,4 @@
 import express from 'express';
-import { createClient } from '@supabase/supabase-js';
 import { getServiceClient, getUserFromToken } from '../lib/supabase.js';
 
 const router = express.Router();

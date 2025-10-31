@@ -623,3 +623,10 @@ export function getDeadlineServiceStatus() {
   }
   return { available: true, ...deadlineNotificationService.getStatus() };
 }
+
+export function getSingaporeDate(offsetDays = 0) {
+  if (!deadlineNotificationService) {
+    throw new Error("Deadline notification service not available");
+  }
+  return deadlineNotificationService.getSingaporeDate(offsetDays);
+}

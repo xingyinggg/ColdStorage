@@ -397,16 +397,14 @@ jobs:
           if [ "${{ steps.coverage.outputs.has_unit_coverage }}" = "true" ]; then
             UNIT_COVERAGE_SECTION="
           🔬 *Unit Test Coverage:*
-          📝 Lines: ${{ steps.coverage.outputs.unit_lines }}% | 📊 Statements: ${{ steps.coverage.outputs.unit_statements }}%
-          🔀 Branches: ${{ steps.coverage.outputs.unit_branches }}% | ⚡ Functions: ${{ steps.coverage.outputs.unit_functions }}%"
+          🔧 Functions: ${{ steps.coverage.outputs.unit_functions }}% | 🔀 Branches: ${{ steps.coverage.outputs.unit_branches }}%"
           fi
 
           INTEGRATION_COVERAGE_SECTION=""
           if [ "${{ steps.coverage.outputs.has_integration_coverage }}" = "true" ]; then
             INTEGRATION_COVERAGE_SECTION="
           🔗 *Integration Test Coverage:*
-          📝 Lines: ${{ steps.coverage.outputs.integration_lines }}% | 📊 Statements: ${{ steps.coverage.outputs.integration_statements }}%
-          🔀 Branches: ${{ steps.coverage.outputs.integration_branches }}% | ⚡ Functions: ${{ steps.coverage.outputs.integration_functions }}%"
+          🔧 Functions: ${{ steps.coverage.outputs.integration_functions }}% | 🔀 Branches: ${{ steps.coverage.outputs.integration_branches }}%"
           fi
 
           MESSAGE="📊 *Backend Logic Test Coverage Report*

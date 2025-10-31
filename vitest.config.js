@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
       env: {
         NODE_ENV: "test",
       },
-      
+
       // Test workspaces - separate unit and integration tests
     workspace: [
       {
@@ -25,14 +25,62 @@ export default defineConfig(({ mode }) => {
           include: ["tests/unit/**/*.{test,spec}.{js,ts}"],
           // No database setup for unit tests
         },
+        coverage: {
+          provider: "v8",
+          reporter: ["text", "json", "html", "json-summary"],
+          include: [
+            "server/services/**/*.{js,ts}", // Business logic services
+            "server/lib/**/*.{js,ts}", // Utility libraries
+            "src/utils/**/*.{js,ts}", // Utility functions
+            "src/constants/**/*.{js,ts}", // Constants
+            "src/contexts/**/*.{js,ts}", // React contexts (non-component)
+            "src/supabase/**/*.{js,ts}", // Database utilities
+          ],
+          exclude: [
+            "**/node_modules/**",
+            "**/dist/**",
+            "**/.next/**",
+            "src/app/**/*", // Exclude Next.js pages
+            "src/components/**/*", // Exclude React components
+            "src/utils/hooks/**/*", // Exclude React hooks
+            "tests/**/*", // EXCLUDE: Test files
+            "coverage*/**", // EXCLUDE: Coverage reports
+          ],
+          thresholds: {
+            lines: 70, // Higher threshold for focused unit testing
+            branches: 65,
+          },
+        },
       },
       {
         test: {
-          name: "integration", 
+          name: "integration",
           environment: "node",
           include: ["tests/integration/**/*.{test,spec}.{js,ts}"],
           // Database setup only for integration tests
           setupFiles: ["tests/integration/setupTests.js"],
+        },
+        coverage: {
+          provider: "v8",
+          reporter: ["text", "json", "html", "json-summary"],
+          include: [
+            "server/routes/**/*.{js,ts}", // API endpoints (main focus)
+            "server/index.js", // Server setup
+            "server/schemas/**/*.{js,ts}", // Data validation schemas
+            "server/services/**/*.{js,ts}", // Services used in API flows
+            "server/lib/**/*.{js,ts}", // Libraries used in routes
+          ],
+          exclude: [
+            "**/node_modules/**",
+            "**/dist/**",
+            "**/.next/**",
+            "tests/**/*", // EXCLUDE: Test files
+            "coverage*/**", // EXCLUDE: Coverage reports
+          ],
+          thresholds: {
+            lines: 60, // Reasonable for integration testing
+            branches: 50,
+          },
         },
       },
     ],
@@ -43,7 +91,7 @@ export default defineConfig(({ mode }) => {
         "tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
       ],
       exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**"],
-      
+
       // Test timeout
       testTimeout: 300000,
       setupFiles: ["tests/setupTests.js"],
@@ -55,31 +103,6 @@ export default defineConfig(({ mode }) => {
       // },
       hookTimeout: 30000,
       teardownTimeout: 30000,
-      coverage: {
-        provider: "v8",
-        reporter: ["text", "json", "html", "json-summary"],
-        include: [
-          "server/**/*.{js,ts}",
-          "src/utils/**/*.{js,ts}",
-          "src/constants/**/*.{js,ts}",
-          "src/contexts/**/*.{js,ts}",
-          "src/supabase/**/*.{js,ts}",
-        ],
-        exclude: [
-          "**/node_modules/**",
-          "**/dist/**",
-          "**/.next/**",
-          "src/app/**/*", // Exclude Next.js pages
-          "src/components/**/*", // Exclude React components
-          "src/utils/hooks/**/*", // Exclude React hooks
-        ],
-        thresholds: {
-          lines: 45,
-          functions: 55,
-          branches: 45,
-          statements: 45,
-        },
-      },
     },
     projects: [
       // Backend + integration tests (Node environment)

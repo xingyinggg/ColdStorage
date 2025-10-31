@@ -673,81 +673,81 @@ router.get("/manager/all", async (req, res) => {
 });
 
 // Manager: Update any task (e.g., collaborators, status) regardless of owner
-router.put("/manager/:id", async (req, res) => {
-  try {
-    const supabase = getServiceClient();
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    if (!token) return res.status(401).json({ error: "Missing access token" });
+// router.put("/manager/:id", async (req, res) => {
+//   try {
+//     const supabase = getServiceClient();
+//     const authHeader = req.headers.authorization || "";
+//     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+//     if (!token) return res.status(401).json({ error: "Missing access token" });
 
-    const user = await getUserFromToken(token);
-    if (!user) return res.status(401).json({ error: "Invalid token" });
+//     const user = await getUserFromToken(token);
+//     if (!user) return res.status(401).json({ error: "Invalid token" });
 
-    // Verify manager role
-    const { data: requester, error: reqErr } = await supabase
-      .from("users")
-      .select("id, role")
-      .eq("id", user.id)
-      .single();
-    if (reqErr) return res.status(400).json({ error: reqErr.message });
-    const userRole = (requester?.role || "").toLowerCase();
-    if (userRole !== "manager" && userRole !== "director") {
-      return res.status(403).json({ error: "Forbidden: managers and directors only" });
-    }
+//     // Verify manager role
+//     const { data: requester, error: reqErr } = await supabase
+//       .from("users")
+//       .select("id, role")
+//       .eq("id", user.id)
+//       .single();
+//     if (reqErr) return res.status(400).json({ error: reqErr.message });
+//     const userRole = (requester?.role || "").toLowerCase();
+//     if (userRole !== "manager" && userRole !== "director") {
+//       return res.status(403).json({ error: "Forbidden: managers and directors only" });
+//     }
 
-    const { id } = req.params;
-    const updates = req.body || {};
+//     const { id } = req.params;
+//     const updates = req.body || {};
 
-    // Clean and validate updates - especially priority
-    let cleanUpdates = { ...updates };
-    if (cleanUpdates.priority !== undefined && cleanUpdates.priority !== null && cleanUpdates.priority !== "") {
-      const parsedPriority = parseInt(cleanUpdates.priority, 10);
-      if (!isNaN(parsedPriority) && parsedPriority >= 1 && parsedPriority <= 10) {
-        cleanUpdates.priority = parsedPriority;
-      } else {
-        // Remove invalid priority from updates
-        delete cleanUpdates.priority;
-      }
-    }
+//     // Clean and validate updates - especially priority
+//     let cleanUpdates = { ...updates };
+//     if (cleanUpdates.priority !== undefined && cleanUpdates.priority !== null && cleanUpdates.priority !== "") {
+//       const parsedPriority = parseInt(cleanUpdates.priority, 10);
+//       if (!isNaN(parsedPriority) && parsedPriority >= 1 && parsedPriority <= 10) {
+//         cleanUpdates.priority = parsedPriority;
+//       } else {
+//         // Remove invalid priority from updates
+//         delete cleanUpdates.priority;
+//       }
+//     }
 
-    if (updates.status) {
-      // Normalize status case (first letter uppercase, rest lowercase)
-      cleanUpdates.status = updates.status.charAt(0).toUpperCase() + updates.status.slice(1).toLowerCase();
-    }
+//     if (updates.status) {
+//       // Normalize status case (first letter uppercase, rest lowercase)
+//       cleanUpdates.status = updates.status.charAt(0).toUpperCase() + updates.status.slice(1).toLowerCase();
+//     }
 
-    const { data, error } = await supabase
-      .from("tasks")
-      .update(cleanUpdates)
-      .eq("id", Number(id))
-      .select()
-      .single();
-    if (error) return res.status(400).json({ error: error.message });
-    // Find editor emp_id
-    let editorEmpId = null;
-    try {
-      editorEmpId = await getEmpIdForUserId(user.id);
-    } catch { }
+//     const { data, error } = await supabase
+//       .from("tasks")
+//       .update(cleanUpdates)
+//       .eq("id", Number(id))
+//       .select()
+//       .single();
+//     if (error) return res.status(400).json({ error: error.message });
+//     // Find editor emp_id
+//     let editorEmpId = null;
+//     try {
+//       editorEmpId = await getEmpIdForUserId(user.id);
+//     } catch { }
 
-    // Record history (manager/director update)
-    try {
-      await supabase
-        .from('task_edit_history')
-        .insert([{
-          task_id: data.id,
-          editor_emp_id: editorEmpId,
-          editor_user_id: user.id,
-          action: 'update',
-          details: { updates }
-        }]);
-    } catch (hErr) {
-      console.error('Failed to write task history (manager update):', hErr);
-    }
+//     // Record history (manager/director update)
+//     try {
+//       await supabase
+//         .from('task_edit_history')
+//         .insert([{
+//           task_id: data.id,
+//           editor_emp_id: editorEmpId,
+//           editor_user_id: user.id,
+//           action: 'update',
+//           details: { updates }
+//         }]);
+//     } catch (hErr) {
+//       console.error('Failed to write task history (manager update):', hErr);
+//     }
 
-    res.json(data);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+//     res.json(data);
+//   } catch (e) {
+//     res.status(500).json({ error: e.message });
+//   }
+// });
 
 // Manager: Get staff members list
 router.get("/manager/staff-members", async (req, res) => {
@@ -798,7 +798,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     if (!empId) return res.status(400).json({ error: "emp_id not found" });
 
     const { id } = req.params;
-    const { remove_file, ...updates } = req.body || {};
+    const { remove_file, assignTo, ...updates } = req.body || {};
 
     // Clean and validate updates object
     let cleanUpdates = {};
@@ -832,6 +832,86 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     if (fetchError || !currentTask) {
       console.error("Fetch error:", fetchError);
       return res.status(404).json({ error: "Task not found" });
+    }
+
+    // Get user role for assignment validation
+    const { data: userProfileData, error: userProfileError } = await supabase
+      .from("users")
+      .select("role")
+      .eq("emp_id", empId)
+      .single();
+
+    if (userProfileError) {
+      console.error("Error fetching user profile:", userProfileError);
+      return res.status(400).json({ error: "Failed to fetch user profile" });
+    }
+
+    const userRole = userProfileData?.role?.toLowerCase();
+    const canAssignTasks = userRole === "manager" || userRole === "director";
+
+    // Map assignment from either assignTo (FormData) or owner_id (JSON)
+    const incomingOwner = assignTo ?? updates.owner_id ?? null;
+    
+    // Snapshot old/new owner as strings to avoid type-mismatch issues
+    const oldOwner = currentTask.owner_id != null ? String(currentTask.owner_id) : null;
+    const newOwner = incomingOwner !== null && incomingOwner !== "" ? String(incomingOwner) : null;
+
+    if (assignTo && assignTo !== "") {
+      cleanUpdates.owner_id = assignTo;
+    }
+
+    // Handle ownership transfer if owner_id is being updated
+    if (newOwner && newOwner !== oldOwner) {
+      // Validate assignment based on user role
+      if (!canAssignTasks) {
+        return res.status(403).json({ error: "You don't have permission to assign tasks" });
+      }
+
+      if (userRole === "manager") {
+       // Validate that the new owner is in manager's team
+        try {
+          const { data: teamData, error: teamError } = await supabase
+            .from("department_teams")
+            .select("member_ids, team_name")
+            .filter("manager_ids", "cs", `{${empId}}`);
+
+          console.log('TEAM DATA ', teamData)
+
+          if (teamError) {
+            console.error("Error fetching manager's team:", teamError);
+            return res.status(400).json({ error: "Failed to validate team membership" });
+          }
+
+          // Check if newOwner is in any of the manager's teams
+          let isTeamMember = false;
+          if (teamData && teamData.length > 0) {
+            for (const team of teamData) {
+              if (team.member_ids && Array.isArray(team.member_ids)) {
+                isTeamMember = team.member_ids.some(memberId => {
+                  return memberId && String(memberId) === newOwner;
+              });
+                if (isTeamMember) break;
+              }
+            }
+          }
+
+          if (!isTeamMember) {
+            return res.status(403).json({ 
+              error: "You can only assign tasks to members of your team" 
+            });
+          }
+        } catch (teamValidationError) {
+          console.error("Team validation error:", teamValidationError);
+          return res.status(500).json({ error: "Failed to validate team membership" });
+        }
+      }
+      // Directors can assign to anyone
+
+       // Transfer ownership and set status to ongoing
+      cleanUpdates.owner_id = newOwner;
+      cleanUpdates.status = "ongoing";
+      
+      console.log(`Transferring ownership from ${oldOwner} to ${newOwner}`);
     }
 
     // NOW we can use currentTask for logging
@@ -944,6 +1024,8 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     cleanUpdates.file = newFileUrl;
 
     console.log("Final updates to apply:", cleanUpdates);
+    console.log("[PUT /tasks/:id] body:", req.body);
+    console.log("[PUT /tasks/:id] incomingOwner(assignTo/owner_id):", assignTo, updates?.owner_id);
 
     // Update the task - don't restrict to owner_id since we've already verified access
     const { data, error } = await supabase

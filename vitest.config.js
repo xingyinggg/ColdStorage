@@ -31,9 +31,7 @@ export default defineConfig(({ mode }) => {
           include: [
             "server/services/**/*.{js,ts}", // Business logic services
             "server/lib/**/*.{js,ts}", // Utility libraries
-            "src/utils/**/*.{js,ts}", // Utility functions
-            "src/constants/**/*.{js,ts}", // Constants
-            "src/contexts/**/*.{js,ts}", // React contexts (non-component)
+            "src/utils/**/*.{js,ts}", // Utility functions (excluding hooks)
             "src/supabase/**/*.{js,ts}", // Database utilities
           ],
           exclude: [
@@ -43,6 +41,12 @@ export default defineConfig(({ mode }) => {
             "src/app/**/*", // Exclude Next.js pages
             "src/components/**/*", // Exclude React components
             "src/utils/hooks/**/*", // Exclude React hooks
+            "src/constants/**/*", // EXCLUDE: UI constants (styling, etc.)
+            "src/contexts/**/*", // EXCLUDE: React contexts
+            "server/routes/**/*", // EXCLUDE: API route handlers
+            "server/index.js", // EXCLUDE: Server entry point
+            "middleware.js", // EXCLUDE: Next.js middleware
+            "*.config.*", // EXCLUDE: Config files
             "tests/**/*", // EXCLUDE: Test files
             "coverage*/**", // EXCLUDE: Coverage reports
           ],

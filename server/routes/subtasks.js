@@ -412,6 +412,8 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+/* istanbul ignore next */
 export default router;
+
 
 

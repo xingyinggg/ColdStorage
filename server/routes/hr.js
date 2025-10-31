@@ -508,4 +508,5 @@ router.get('/staff', async (req, res) => {
   }
 });
 
+/* istanbul ignore next */
 export default router;

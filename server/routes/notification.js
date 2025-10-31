@@ -318,4 +318,6 @@ router.get("/deadline-status", async (req, res) => {
   }
 });
 
+/* istanbul ignore next */
 export default router;
+

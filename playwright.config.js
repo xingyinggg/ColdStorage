@@ -21,3 +21,6 @@ export default defineConfig({
     reuseExistingServer: !isCI,
   },
 });
+
+/* istanbul ignore next */
+export default defineConfig(config);

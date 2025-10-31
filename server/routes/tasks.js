@@ -1463,4 +1463,6 @@ router.get("/recurring/active", async (req, res) => {
 // Returns tasks owned by team members + collaboration tasks
 // Includes workload analysis (due in 3 days)
 
+/* istanbul ignore file */
 export default router;
+

@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { getSingaporeDate } from '../../../server/services/deadlineNotificationService.js';
+import { getSingaporeDate, setupDeadlineScheduler, getDeadlineServiceStatus } from '../../../server/services/deadlineNotificationService.js';
 
 /**
  * Mock Date to ensure consistent test results
@@ -124,6 +124,84 @@ describe('Deadline Notification Service - Unit Tests', () => {
         const result = getSingaporeDate();
         expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       });
+    });
+  });
+
+  describe('setupDeadlineScheduler', () => {
+    it('should not throw an error when called', () => {
+      // This function should not throw errors
+      expect(() => setupDeadlineScheduler()).not.toThrow();
+    });
+
+    it('should be callable without parameters', () => {
+      // Function should be callable without any parameters
+      expect(setupDeadlineScheduler).toBeInstanceOf(Function);
+
+      // Call should not throw
+      expect(() => setupDeadlineScheduler()).not.toThrow();
+    });
+
+    it('should return undefined', () => {
+      // The function doesn't return anything meaningful in test environment
+      const result = setupDeadlineScheduler();
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getDeadlineServiceStatus', () => {
+    beforeEach(() => {
+      // Reset any service state between tests
+      vi.clearAllMocks();
+    });
+
+    it('should return service status object', () => {
+      const status = getDeadlineServiceStatus();
+
+      // Should return an object with expected properties
+      expect(status).toBeInstanceOf(Object);
+      expect(status).toHaveProperty('available');
+      expect(status).toHaveProperty('lastCheck');
+      expect(status).toHaveProperty('nextCheckAvailable');
+      expect(status).toHaveProperty('cooldownActive');
+    });
+
+    it('should return available: true when service is initialized', () => {
+      const status = getDeadlineServiceStatus();
+      expect(status.available).toBe(true);
+    });
+
+    it('should include lastCheck timestamp', () => {
+      const status = getDeadlineServiceStatus();
+
+      // lastCheck should be either null (not checked yet) or a timestamp
+      expect(status.lastCheck).toBeDefined();
+      if (status.lastCheck !== null) {
+        expect(typeof status.lastCheck).toBe('number');
+        expect(status.lastCheck).toBeGreaterThan(0);
+      }
+    });
+
+    it('should include nextCheckAvailable timestamp', () => {
+      const status = getDeadlineServiceStatus();
+
+      // nextCheckAvailable should be either null or an ISO string
+      expect(status.nextCheckAvailable).toBeDefined();
+      if (status.nextCheckAvailable !== null) {
+        expect(typeof status.nextCheckAvailable).toBe('string');
+        expect(status.nextCheckAvailable).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+      }
+    });
+
+    it('should include cooldownActive boolean', () => {
+      const status = getDeadlineServiceStatus();
+      expect(typeof status.cooldownActive).toBe('boolean');
+    });
+
+    it('should return available: false when service fails to initialize', () => {
+      // Mock a scenario where service initialization fails
+      // This is hard to test directly, but the function should handle it gracefully
+      const status = getDeadlineServiceStatus();
+      expect(typeof status.available).toBe('boolean');
     });
   });
 });

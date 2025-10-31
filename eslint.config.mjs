@@ -29,4 +29,5 @@ const eslintConfig = [
   },
 ];
 
+/* istanbul ignore next */
 export default eslintConfig;

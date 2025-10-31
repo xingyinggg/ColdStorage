@@ -14,11 +14,11 @@ export default defineConfig({
     screenshot: "on",
     trace: "on",
   },
-  // No webServer needed - tests use mocked responses
-  // webServer: {
-  //   command: isCI ? "npm run start:all" : "npm run dev:all",
-  //   url: "http://localhost:3000",
-  //   timeout: isCI ? 240000 : 120000,
-  //   reuseExistingServer: !isCI,
-  // },
+  // Start Next.js and backend server before running tests
+  webServer: {
+    command: isCI ? "npm run start:all" : "npm run dev:all",
+    url: "http://localhost:3000",
+    timeout: isCI ? 240000 : 120000,
+    reuseExistingServer: !isCI,
+  },
 });

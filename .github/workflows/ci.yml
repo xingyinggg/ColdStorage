@@ -358,34 +358,34 @@ jobs:
           fi
 
           MESSAGE="📊 *Backend Logic Test Coverage Report*
-
-*Branch:* \`$BRANCH_NAME\`
-*Commit:* $COMMIT_MSG
-*Author:* $ACTOR
-
-*Test Results:*
-🔬 *Unit Tests:* $UNIT_STATUS PASSED
-  └─ Test individual functions/utilities in isolation
-🔗 *Integration Tests:* $INTEGRATION_STATUS PASSED
-  └─ Test API endpoints, database interactions, route logic
-📈 *Coverage Tests:* $COVERAGE_STATUS PASSED
-  └─ Backend code coverage analysis
-
-*Backend Coverage Metrics:*
-📝 *Lines:* ${{ steps.coverage.outputs.lines }}%
-  └─ Executable code lines covered by tests
-📊 *Statements:* ${{ steps.coverage.outputs.statements }}%
-  └─ JavaScript statements executed during tests
-🔀 *Branches:* ${{ steps.coverage.outputs.branches }}%
-  └─ Conditional logic (if/else, switches) tested
-⚡ *Functions:* ${{ steps.coverage.outputs.functions }}%
-  └─ Functions called during test execution
-
-*Coverage Focus:*
-🎯 *Backend Logic Only:* Server routes, utilities, constants, contexts, Supabase integration
-🚫 *Excluded:* Frontend components, Next.js pages, React hooks
-
-[View Full Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          
+          *Branch:* \`$BRANCH_NAME\`
+          *Commit:* $COMMIT_MSG
+          *Author:* $ACTOR
+          
+          *Test Results:*
+          🔬 *Unit Tests:* $UNIT_STATUS PASSED
+            └─ Test individual functions/utilities in isolation
+          🔗 *Integration Tests:* $INTEGRATION_STATUS PASSED
+            └─ Test API endpoints, database interactions, route logic
+          📈 *Coverage Tests:* $COVERAGE_STATUS PASSED
+            └─ Backend code coverage analysis
+          
+          *Backend Coverage Metrics:*
+          📝 *Lines:* ${{ steps.coverage.outputs.lines }}%
+            └─ Executable code lines covered by tests
+          📊 *Statements:* ${{ steps.coverage.outputs.statements }}%
+            └─ JavaScript statements executed during tests
+          🔀 *Branches:* ${{ steps.coverage.outputs.branches }}%
+            └─ Conditional logic (if/else, switches) tested
+          ⚡ *Functions:* ${{ steps.coverage.outputs.functions }}%
+            └─ Functions called during test execution
+          
+          *Coverage Focus:*
+          🎯 *Backend Logic Only:* Server routes, utilities, constants, contexts, Supabase integration
+          🚫 *Excluded:* Frontend components, Next.js pages, React hooks
+          
+          [View Full Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
 
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \

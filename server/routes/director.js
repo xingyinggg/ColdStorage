@@ -104,7 +104,7 @@ router.get('/departments', async (req, res) => {
     const { data: users, error: usersError } = await supabase
       .from('users')
       .select('id, emp_id, name, department, role')
-      .not('department', 'is', null);
+      // .not('department', 'is', null);
     
     if (usersError) throw usersError;
     
@@ -124,10 +124,11 @@ router.get('/departments', async (req, res) => {
     
     // Group users by department
     const departmentGroups = users.reduce((acc, user) => {
-      if (!acc[user.department]) {
-        acc[user.department] = [];
+      const deptName = user.department || "Executive Management";
+      if (!acc[deptName]) {
+        acc[deptName] = [];
       }
-      acc[user.department].push(user);
+      acc[deptName].push(user);
       return acc;
     }, {});
     

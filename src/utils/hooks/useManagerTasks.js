@@ -167,7 +167,7 @@ export const useManagerTasks = () => {
       const token = await getToken();
       if (!token) throw new Error('No authentication token');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const res = await fetch(`${apiUrl}/tasks/manager/${taskId}`, {
+      const res = await fetch(`${apiUrl}/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

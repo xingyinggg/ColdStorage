@@ -179,6 +179,7 @@ export default function TaskForm({
             onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
           >
+            {canAssignTasks && <option value="unassigned">Unassigned</option>}
             <option value="ongoing">Ongoing</option>
             <option value="under review">Under Review</option>
             <option value="completed">Completed</option>

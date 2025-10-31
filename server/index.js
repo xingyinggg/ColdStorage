@@ -54,14 +54,6 @@ app.use('/subtasks', subtasksRoutes);
 app.use('/department-teams', departmentTeamsRoutes)
 app.use('/report', generatePDFRoutes)
 
-app.use((req, res) => res.status(404).type("application/json").send(JSON.stringify({ error: "Not found" })));
-
-
-const port = process.env.PORT || 4000;
-app.listen(port, () =>
-  console.log(`Express API listening on http://localhost:${port}`)
-);
-
 app.get("/", (req, res) => {
   res.json({ message: "Server is running!" });
 });
@@ -69,3 +61,18 @@ app.get("/", (req, res) => {
 app.get("/test", (req, res) => {
   res.json({ message: "Test route works!" });
 });
+
+app.use((req, res) => res.status(404).type("application/json").send(JSON.stringify({ error: "Not found" })));
+
+// Only start the server if this file is run directly
+// When imported by tests, the server won't start
+const isMainModule = import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`;
+if (isMainModule || process.env.NODE_ENV !== 'test') {
+  const port = process.env.PORT || 4000;
+  app.listen(port, () =>
+    console.log(`Express API listening on http://localhost:${port}`)
+  );
+}
+
+// Export app for testing
+export default app;

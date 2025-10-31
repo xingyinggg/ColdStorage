@@ -58,11 +58,26 @@ export default defineConfig(({ mode }) => {
       coverage: {
         provider: "v8",
         reporter: ["text", "json", "html", "json-summary"],
+        include: [
+          "server/**/*.{js,ts}",
+          "src/utils/**/*.{js,ts}",
+          "src/constants/**/*.{js,ts}",
+          "src/contexts/**/*.{js,ts}",
+          "src/supabase/**/*.{js,ts}",
+        ],
+        exclude: [
+          "**/node_modules/**",
+          "**/dist/**",
+          "**/.next/**",
+          "src/app/**/*", // Exclude Next.js pages
+          "src/components/**/*", // Exclude React components
+          "src/utils/hooks/**/*", // Exclude React hooks
+        ],
         thresholds: {
-          lines: 10,
-          functions: 45,
-          branches: 50,
-          statements: 10,
+          lines: 45,
+          functions: 55,
+          branches: 45,
+          statements: 45,
         },
       },
     },

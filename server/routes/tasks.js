@@ -1179,31 +1179,31 @@ router.put("/:id", upload.single("file"), async (req, res) => {
 });
 
 // Delete task
-router.delete("/:id", async (req, res) => {
-  try {
-    const supabase = getServiceClient();
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    if (!token) return res.status(401).json({ error: "Missing access token" });
+// router.delete("/:id", async (req, res) => {
+//   try {
+//     const supabase = getServiceClient();
+//     const authHeader = req.headers.authorization || "";
+//     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+//     if (!token) return res.status(401).json({ error: "Missing access token" });
 
-    const user = await getUserFromToken(token);
-    if (!user) return res.status(401).json({ error: "Invalid token" });
-    const empId = await getEmpIdForUserId(user.id);
-    if (!empId) return res.status(400).json({ error: "emp_id not found" });
+//     const user = await getUserFromToken(token);
+//     if (!user) return res.status(401).json({ error: "Invalid token" });
+//     const empId = await getEmpIdForUserId(user.id);
+//     if (!empId) return res.status(400).json({ error: "emp_id not found" });
 
-    const { id } = req.params;
-    const { error } = await supabase
-      .from("tasks")
-      .delete()
-      .eq("id", Number(id))
-      .eq("owner_id", empId);
-    if (error) return res.status(400).json({ error: error.message });
+//     const { id } = req.params;
+//     const { error } = await supabase
+//       .from("tasks")
+//       .delete()
+//       .eq("id", Number(id))
+//       .eq("owner_id", empId);
+//     if (error) return res.status(400).json({ error: error.message });
 
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+//     res.json({ ok: true });
+//   } catch (e) {
+//     res.status(500).json({ error: e.message });
+//   }
+// });
 
 // Get tasks for multiple projects (needed for your frontend)
 router.post("/bulk", async (req, res) => {

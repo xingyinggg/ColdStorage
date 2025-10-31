@@ -58,4 +58,5 @@ describe('Supabase Library - Unit Tests', () => {
       expect(getNumericIdFromEmpId('C0')).toBe(0);
     });
   });
+  
 });

@@ -396,40 +396,29 @@ jobs:
           UNIT_COVERAGE_SECTION=""
           if [ "${{ steps.coverage.outputs.has_unit_coverage }}" = "true" ]; then
             UNIT_COVERAGE_SECTION="
-          🔬 *Unit Test Coverage:*
-          🎯 *Focused Coverage:* 86% of unit-testable functions (6/7 tested)
-          📋 *Tested Functions:* calculateNextOccurrence, shouldContinueRecurrence, getNumericIdFromEmpId, getSingaporeDate, setupDeadlineScheduler, getDeadlineServiceStatus
-          🔀 *Branch Coverage:* ${{ steps.coverage.outputs.unit_branches }}% (logic paths tested)"
+🔬 *Unit Test Coverage:*
+🎯 Focused Coverage: 86% | 🔀 Branches: ${{ steps.coverage.outputs.unit_branches }}%"
           fi
 
           INTEGRATION_COVERAGE_SECTION=""
           if [ "${{ steps.coverage.outputs.has_integration_coverage }}" = "true" ]; then
             INTEGRATION_COVERAGE_SECTION="
-          🔗 *Integration Test Coverage:*
-          🛠️ *API Endpoints:* Full request/response testing with database
-          📊 *Coverage:* ${{ steps.coverage.outputs.integration_functions }}% functions | 🔀 ${{ steps.coverage.outputs.integration_branches }}% branches"
+🔗 *Integration Test Coverage:*
+📊 Functions: ${{ steps.coverage.outputs.integration_functions }}% | 🔀 Branches: ${{ steps.coverage.outputs.integration_branches }}%"
           fi
 
-          MESSAGE="📊 *Backend Logic Test Coverage Report*
+          MESSAGE="📊 *Test Coverage Report*
 
-          *Branch:* \`$BRANCH_NAME\`
-          *Commit:* $COMMIT_MSG
-          *Author:* $ACTOR
+*Branch:* \`$BRANCH_NAME\`
+*Commit:* $COMMIT_MSG
+*Author:* $ACTOR
 
-          *Test Results:*
-          🔬 *Unit Tests:* $UNIT_STATUS PASSED
-            └─ Test individual functions/utilities in isolation
-          🔗 *Integration Tests:* $INTEGRATION_STATUS PASSED
-            └─ Test API endpoints, database interactions, route logic
-          📈 *Coverage Tests:* $COVERAGE_STATUS PASSED
-            └─ Separate unit and integration coverage analysis$UNIT_COVERAGE_SECTION$INTEGRATION_COVERAGE_SECTION
+*Test Results:*
+🔬 *Unit Tests:* $UNIT_STATUS PASSED
+🔗 *Integration Tests:* $INTEGRATION_STATUS PASSED
+📈 *Coverage Tests:* $COVERAGE_STATUS PASSED$UNIT_COVERAGE_SECTION$INTEGRATION_COVERAGE_SECTION
 
-          *Coverage Strategy:*
-          🎯 *Unit Tests:* 86% of unit-testable functions (business logic only)
-          🛠️ *Integration Tests:* Full API endpoint coverage with database
-          🚫 *Excluded from Unit:* Route handlers, UI components, config files
-
-          [View Full Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+[View Full Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
 
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \

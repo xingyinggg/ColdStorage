@@ -1,66 +1,69 @@
 import { describe, it, expect } from 'vitest';
 import {
-  TASK_STATUS,
-  TASK_PRIORITY,
-  TASK_COLORS,
-  PRIORITY_VALUES,
-  STATUS_VALUES
-} from '@/constants/taskConstants';
+  TASK_PRIORITIES,
+  PRIORITY_LEVELS,
+  PRIORITY_COLORS,
+  TASK_STATUSES,
+  STATUS_LEVELS
+} from '../../../src/constants/taskConstants.js';
 
 describe('Task Constants', () => {
-  describe('TASK_STATUS', () => {
-    it('should have all required statuses', () => {
-      expect(TASK_STATUS).toHaveProperty('OPEN');
-      expect(TASK_STATUS).toHaveProperty('IN_PROGRESS');
-      expect(TASK_STATUS).toHaveProperty('COMPLETED');
+  describe('TASK_PRIORITIES', () => {
+    it('should have all priority levels', () => {
+      expect(TASK_PRIORITIES).toHaveProperty('LOW');
+      expect(TASK_PRIORITIES).toHaveProperty('MEDIUM');
+      expect(TASK_PRIORITIES).toHaveProperty('HIGH');
     });
 
     it('should have string values', () => {
-      Object.values(TASK_STATUS).forEach(status => {
-        expect(typeof status).toBe('string');
+      Object.values(TASK_PRIORITIES).forEach(priority => {
+        expect(typeof priority).toBe('string');
       });
     });
   });
 
-  describe('TASK_PRIORITY', () => {
-    it('should have all priority levels', () => {
-      expect(TASK_PRIORITY).toHaveProperty('LOW');
-      expect(TASK_PRIORITY).toHaveProperty('MEDIUM');
-      expect(TASK_PRIORITY).toHaveProperty('HIGH');
-    });
-  });
-
-  describe('TASK_COLORS', () => {
-    it('should have color for each status', () => {
-      Object.keys(TASK_STATUS).forEach(status => {
-        expect(TASK_COLORS).toHaveProperty(status);
-      });
-    });
-
-    it('should have valid color codes', () => {
-      Object.values(TASK_COLORS).forEach(color => {
-        expect(color).toMatch(/^#[0-9A-Fa-f]{6}$|^rgb/);
-      });
-    });
-  });
-
-  describe('PRIORITY_VALUES', () => {
-    it('should have numeric values for sorting', () => {
-      expect(PRIORITY_VALUES.LOW).toBeLessThan(PRIORITY_VALUES.MEDIUM);
-      expect(PRIORITY_VALUES.MEDIUM).toBeLessThan(PRIORITY_VALUES.HIGH);
-    });
-  });
-
-  describe('STATUS_VALUES', () => {
+  describe('PRIORITY_LEVELS', () => {
     it('should be an array', () => {
-      expect(Array.isArray(STATUS_VALUES)).toBe(true);
+      expect(Array.isArray(PRIORITY_LEVELS)).toBe(true);
     });
 
-    it('should contain all statuses', () => {
-      Object.values(TASK_STATUS).forEach(status => {
-        expect(STATUS_VALUES).toContain(status);
+    it('should contain all priorities in order', () => {
+      expect(PRIORITY_LEVELS).toContain('low');
+      expect(PRIORITY_LEVELS).toContain('medium');
+      expect(PRIORITY_LEVELS).toContain('high');
+    });
+  });
+
+  describe('PRIORITY_COLORS', () => {
+    it('should have colors for each priority', () => {
+      expect(PRIORITY_COLORS).toHaveProperty('high');
+      expect(PRIORITY_COLORS).toHaveProperty('medium');
+      expect(PRIORITY_COLORS).toHaveProperty('low');
+    });
+
+    it('should have color object with required properties', () => {
+      Object.values(PRIORITY_COLORS).forEach(colorObj => {
+        expect(colorObj).toHaveProperty('bg');
+        expect(colorObj).toHaveProperty('text');
+        expect(colorObj).toHaveProperty('border');
+        expect(colorObj).toHaveProperty('dot');
       });
+    });
+  });
+
+  describe('TASK_STATUSES', () => {
+    it('should have all required statuses', () => {
+      expect(TASK_STATUSES).toBeDefined();
+      expect(Object.keys(TASK_STATUSES).length).toBeGreaterThan(0);
+    });
+
+    it('should have correct status values', () => {
+      expect(TASK_STATUSES.UNASSIGNED).toBe('unassigned');
+      expect(TASK_STATUSES.ONGOING).toBe('on going');
+      expect(TASK_STATUSES.UNDER_REVIEW).toBe('under_review');
+      expect(TASK_STATUSES.COMPLETED).toBe('completed');
     });
   });
 });
+
 

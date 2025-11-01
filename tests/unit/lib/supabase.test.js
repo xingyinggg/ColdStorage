@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getNumericIdFromEmpId } from '../../../server/lib/supabase.js';
+import { getNumericIdFromEmpId, getAnonClient, getServiceClient } from '../../../server/lib/supabase.js';
 
 describe('Supabase Library - Unit Tests', () => {
   describe('getNumericIdFromEmpId', () => {
@@ -61,8 +61,6 @@ describe('Supabase Library - Unit Tests', () => {
   describe('Pure Utility Functions', () => {
     describe('getAnonClient', () => {
       it('should create anon client with environment variables', () => {
-        // This is a factory function - unit testable
-        const { getAnonClient } = require('../../../server/lib/supabase.js');
         
         // Mock environment variables for unit test
         process.env.SUPABASE_URL = 'https://test.supabase.co';
@@ -75,8 +73,6 @@ describe('Supabase Library - Unit Tests', () => {
 
     describe('getServiceClient', () => {
       it('should create service client with environment variables', () => {
-        // This is also a factory function - unit testable
-        const { getServiceClient } = require('../../../server/lib/supabase.js');
         
         process.env.SUPABASE_URL = 'https://test.supabase.co';
         process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';

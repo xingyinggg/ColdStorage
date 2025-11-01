@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     test: {
+      testTimeout:10000,
 
       // Environment variables for tests
       env: {

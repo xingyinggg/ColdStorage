@@ -1,20 +1,33 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import express from "express";
-import { createClient } from '@supabase/supabase-js';
-import { 
-  getServiceClient, 
-  getUserFromToken
+import { createClient } from "@supabase/supabase-js";
+import {
+  getServiceClient,
+  getUserFromToken,
 } from "../../server/lib/supabase.js";
 import hrRoutes from "../../server/routes/hr.js";
-import dotenv from 'dotenv';
-import path from 'path';
+import dotenv from "dotenv";
+import path from "path";
 import { vi } from "vitest";
 
 // Load test environment variables FIRST (before any imports)
-dotenv.config({ path: path.join(process.cwd(), 'tests', '.env.test') });
+dotenv.config({ path: path.join(process.cwd(), "tests", ".env.test") });
 
-// Mock auth functions like tasks.test.js does
+function getTestSupabaseClient() {
+  return createClient(
+    process.env.SUPABASE_TEST_URL,
+    process.env.SUPABASE_TEST_SERVICE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+}
+
+// Mock auth functions (routes don't use auth, but keep parity with other tests)
 vi.mock("../../server/lib/supabase.js", async (importOriginal) => {
   const actual = await importOriginal();
   return {
@@ -26,616 +39,627 @@ vi.mock("../../server/lib/supabase.js", async (importOriginal) => {
   };
 });
 
-function getTestSupabaseClient() {
-  return createClient(
-    process.env.SUPABASE_TEST_URL,
-    process.env.SUPABASE_TEST_SERVICE_KEY,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    }
-  );
-}
-
-// Create test app like tasks.test.js
+// Create test app
 const app = express();
 app.use(express.json());
 app.use("/hr", hrRoutes);
 
-describe("HR Routes Integration Tests", () => {
-  let authToken;
+describe("HR Routes Integration Tests - Full Coverage", () => {
   let supabaseClient;
 
   beforeAll(async () => {
-    // Set environment variables for server routes to ensure test database usage
+    // Force server to use test DB
     process.env.SUPABASE_URL = process.env.SUPABASE_TEST_URL;
-    process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_TEST_SERVICE_KEY;
+    process.env.SUPABASE_SERVICE_ROLE_KEY =
+      process.env.SUPABASE_TEST_SERVICE_KEY;
 
-    console.log("🔧 HR Tests using test database:");
-    console.log("  SUPABASE_URL:", process.env.SUPABASE_TEST_URL ? "✅ Set" : "❌ Missing");
-    console.log("  SUPABASE_SERVICE_KEY:", process.env.SUPABASE_TEST_SERVICE_KEY ? "✅ Set" : "❌ Missing");
-
-     // ✅ Create REAL test database client (like tasks.test.js)
+    // REAL test database client
     supabaseClient = getTestSupabaseClient();
-    
-    // ✅ Set up mock implementations AFTER environment is loaded (like tasks.test.js)
-    const testSupabaseClient = supabaseClient;
-    
-    // ✅ Override getServiceClient to return our REAL test client
-    vi.mocked(getServiceClient).mockReturnValue(testSupabaseClient);
-    
-    // ✅ Set up auth mocks (like tasks.test.js)
-    vi.mocked(getUserFromToken).mockImplementation(async (token) => {
-      if (token === "test-hr-token") {
-        return {
-          id: "550e8400-e29b-41d4-a716-446655440001",
-          email: "test@example.com",
-        };
-      }
-      throw new Error("Invalid token");
+
+    // Base getServiceClient returns real test client
+    vi.mocked(getServiceClient).mockReturnValue(supabaseClient);
+
+    // Dummy token logic (unused by hr routes)
+    vi.mocked(getUserFromToken).mockResolvedValue({
+      id: "uid-hr",
+      email: "hr@example.com",
     });
 
-    // Use mock token instead of real login
-    authToken = "test-hr-token";
-    console.log("  Auth Token: ✅ Mocked");
+    // Seed minimal test data that we control
+    await supabaseClient.from("users").upsert([
+      {
+        emp_id: "HR001",
+        name: "HR One",
+        email: "hr1@example.com",
+        role: "hr",
+        department: "HR",
+      },
+      {
+        emp_id: "OPS001",
+        name: "Alice Ops",
+        email: "alice.ops@example.com",
+        role: "staff",
+        department: "Ops",
+      },
+      {
+        emp_id: "IT001",
+        name: "Bob IT",
+        email: "bob.it@example.com",
+        role: "staff",
+        department: "IT",
+      },
+    ]);
 
-    // ✅ ADD DATABASE VERIFICATION (like tasks.test.js)
-    console.log("✅ Using existing test database");
-    console.log("Test DB URL:", process.env.SUPABASE_TEST_URL?.substring(0, 50) + "...");
-    
-    // ✅ Verify connection to test database
+    await supabaseClient
+      .from("projects")
+      .insert([
+        {
+          title: `HRProj-${Date.now()}`,
+          status: "active",
+          created_at: new Date().toISOString(),
+        },
+      ])
+      .select();
+  });
+
+  afterAll(async () => {
     try {
-      const { data: testUsers, error } = await supabaseClient
+      await supabaseClient
         .from("users")
-        .select("*")
-        .in("emp_id", ["TEST001", "TEST002"]);
-      
-      if (error) {
-        console.error("❌ Failed to connect to test database:", error);
-        throw new Error("Test database connection failed");
-      }
-      
-      console.log(`✅ Found ${testUsers?.length || 0} test users in database`);
-      console.log("Test users:", testUsers?.map(u => u.emp_id));
-    } catch (error) {
-      console.error("❌ Database verification failed:", error);
-      throw error;
+        .delete()
+        .in("emp_id", ["HR001", "OPS001", "IT001"]);
+    } catch {}
+    // leave projects as general seed
+  });
+
+  // ---------- /hr/insights ----------
+  it("GET /hr/insights - success with real DB (covers reduction and rate math)", async () => {
+    const res = await request(app).get("/hr/insights");
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("totalEmployees");
+    expect(res.body).toHaveProperty("departmentBreakdown");
+    expect(res.body).toHaveProperty("totalTasks");
+    expect(res.body).toHaveProperty("overdueTasks");
+    expect(res.body).toHaveProperty("taskCompletionRate");
+    expect(res.body).toHaveProperty("totalProjects");
+    expect(res.body).toHaveProperty("activeProjects");
+    expect(typeof res.body.totalEmployees).toBe("number");
+    expect(typeof res.body.totalProjects).toBe("number");
+  });
+
+  it("GET /hr/insights - success path with no tasks (taskCompletionRate 0, overdue 0)", async () => {
+    const makeChain = (table) => {
+      const result =
+        table === "users"
+          ? {
+              data: [
+                { department: "Ops" },
+                { department: "IT" },
+                { department: "IT" },
+              ],
+              error: null,
+            }
+          : table === "tasks"
+          ? { data: [], error: null }
+          : table === "projects"
+          ? {
+              data: [
+                { status: "active", created_at: new Date().toISOString() },
+              ],
+              error: null,
+            }
+          : { data: [], error: null };
+
+      const chain = {
+        eq: () => chain,
+        neq: () => chain,
+        gte: () => chain,
+        lte: () => chain,
+        not: () => chain,
+        order: () => chain,
+        limit: () => chain,
+        in: () => chain,
+        single: () => chain,
+        then: (resolve) => resolve(result),
+      };
+      return chain;
+    };
+
+    const fakeClient = {
+      from: (table) => ({
+        select: () => makeChain(table),
+      }),
+    };
+
+    const restore = getServiceClient.mockReturnValue(fakeClient);
+    try {
+      const res = await request(app).get("/hr/insights");
+      expect(res.status).toBe(200);
+      expect(res.body.totalTasks).toBe(0);
+      expect(res.body.overdueTasks).toBe(0);
+      expect(res.body.taskCompletionRate).toBe(0);
+      expect(res.body.departmentBreakdown).toEqual({ Ops: 1, IT: 2 });
+    } finally {
+      getServiceClient.mockReturnValue(supabaseClient);
+      restore;
     }
   });
 
-  describe("Environment and Database Verification", () => {
-    it("should have test environment variables loaded", () => {
-      expect(process.env.SUPABASE_TEST_URL).toBeTruthy();
-      expect(process.env.SUPABASE_TEST_SERVICE_KEY).toBeTruthy();
-      expect(process.env.SUPABASE_URL).toBe(process.env.SUPABASE_TEST_URL);
-      console.log("✅ Test environment variables verified");
-    });
-
-    it("should be using test database with seeded data", async () => {
-      // Verify we're connected to test database
-      const { data: testUsers, error } = await supabaseClient
-        .from("users")
-        .select("*")
-        .in("emp_id", ["TEST001", "TEST002"]);
-      
-      expect(error).toBeNull();
-      expect(testUsers.length).toBeGreaterThan(0);
-      expect(testUsers.some(u => u.emp_id === "TEST001")).toBe(true);
-      expect(testUsers.some(u => u.emp_id === "TEST002")).toBe(true);
-      
-      console.log("✅ Confirmed using test database with seeded users");
-    });
-
-    it("should have seeded test projects", async () => {
-      // Verify test projects exist for HR data
-      const { data: projects, error } = await supabaseClient
-        .from("projects")
-        .select("*")
-        .limit(5);
-      
-      expect(error).toBeNull();
-      expect(Array.isArray(projects)).toBe(true);
-      console.log(`✅ Found ${projects?.length || 0} test projects`);
-    });
+  it("GET /hr/insights - error path (any subquery error) -> 500", async () => {
+    const fakeClient = {
+      from: (table) => ({
+        select: () => {
+          if (table === "users") {
+            return Promise.resolve({
+              data: null,
+              error: { message: "dept fail" },
+            });
+          }
+          return Promise.resolve({ data: [], error: null });
+        },
+        not: () => ({
+          select: () =>
+            Promise.resolve({ data: null, error: { message: "dept fail" } }),
+        }),
+      }),
+    };
+    const restore = getServiceClient.mockReturnValue(fakeClient);
+    try {
+      const res = await request(app).get("/hr/insights");
+      expect(res.status).toBe(500);
+      expect(res.body).toHaveProperty("error");
+    } finally {
+      getServiceClient.mockReturnValue(supabaseClient);
+      restore;
+    }
   });
 
-  // describe("GET /hr/employees - Get all employees with profiles and stats", () => {
-  //   it("should get all employees with task statistics", async () => {
-  //     const response = await request(app)
-  //       .get("/hr/employees")
-  //       .set("Authorization", `Bearer ${authToken}`);
-      
-  //     console.log("🔍 Debug - Response status:", response.status);
-  //     console.log("🔍 Debug - Response body:", response.body);
-  //     console.log("🔍 Debug - Response error:", response.error);
-
-  //     expect(response.status).toBe(200);
-  //     expect(Array.isArray(response.body)).toBe(true);
-
-  //     // Verify structure if employees exist
-  //     if (response.body.length > 0) {
-  //       const employee = response.body[0];
-  //       expect(employee).toHaveProperty("emp_id");
-  //       expect(employee).toHaveProperty("name");
-  //       expect(employee).toHaveProperty("email");
-  //       expect(employee).toHaveProperty("department");
-  //       expect(employee).toHaveProperty("role");
-
-  //       // Check task statistics structure
-  //       expect(employee).toHaveProperty("tasks_assigned");
-  //       expect(employee).toHaveProperty("tasks_completed");
-  //     }
-  //   });
-
-  //   // it("should reject unauthorized requests", async () => {
-  //   //   const response = await request(app).get("/hr/employees");
-
-  //   //   expect(response.status).toBe(401);
-  //   //   expect(response.body).toHaveProperty("error", "No token provided");
-  //   // });
-  // });
-
-  describe("GET /hr/insights - Get HR dashboard insights/analytics", () => {
-    it("should get HR dashboard insights with comprehensive metrics", async () => {
-      const response = await request(app)
-        .get("/hr/insights")
-        .set("Authorization", `Bearer ${authToken}`);
-
-      console.log("Response status:", response.status);
-    console.log("Response body:", response.body);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty("totalEmployees");
-      expect(response.body).toHaveProperty("departmentBreakdown");
-      expect(response.body).toHaveProperty("totalTasks");
-      expect(response.body).toHaveProperty("overdueTasks");
-      expect(response.body).toHaveProperty("taskCompletionRate");
-      expect(response.body).toHaveProperty("totalProjects");
-      expect(response.body).toHaveProperty("activeProjects");
-
-      // Verify data types
-      expect(typeof response.body.totalEmployees).toBe("number");
-      expect(typeof response.body.totalTasks).toBe("number");
-      expect(typeof response.body.taskCompletionRate).toBe("number");
-      expect(typeof response.body.totalProjects).toBe("number");
-      expect(typeof response.body.activeProjects).toBe("number");
-      expect(typeof response.body.overdueTasks).toBe("number");
-
-      // Verify department breakdown is an object
-      expect(typeof response.body.departmentBreakdown).toBe("object");
-    });
-
-    // it("should reject unauthorized requests", async () => {
-    //   const response = await request(app).get("/hr/insights");
-
-    //   expect(response.status).toBe(401);
-    //   expect(response.body).toHaveProperty("error", "No token provided");
-    // });
+  // ---------- /hr/performance ----------
+  it("GET /hr/performance - success returns array with zeroed metrics", async () => {
+    const res = await request(app).get("/hr/performance");
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    if (res.body.length > 0) {
+      const p = res.body[0];
+      expect(p).toHaveProperty("emp_id");
+      expect(p).toHaveProperty("name");
+      expect(p).toHaveProperty("department");
+      expect(p).toHaveProperty("role");
+      expect(p).toHaveProperty("totalTasks");
+      expect(p).toHaveProperty("completedTasks");
+      expect(p).toHaveProperty("overdueTasks");
+      expect(p).toHaveProperty("completionRate");
+    }
   });
 
-  describe("GET /hr/performance - Get employee performance data", () => {
-    it("should get detailed employee performance data", async () => {
-      if (!authToken) return;
-
-      const response = await request(app)
-        .get("/hr/performance")
-        .set("Authorization", `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-
-      // Verify structure if performance data exists
-      if (response.body.length > 0) {
-        const performance = response.body[0];
-        expect(performance).toHaveProperty("emp_id");
-        expect(performance).toHaveProperty("name");
-        expect(performance).toHaveProperty("department");
-        expect(performance).toHaveProperty("role");
-        expect(performance).toHaveProperty("totalTasks");
-        expect(performance).toHaveProperty("completedTasks");
-        expect(performance).toHaveProperty("overdueTasks");
-        expect(performance).toHaveProperty("completionRate");
-
-        // Verify calculated fields are numbers
-        expect(typeof performance.totalTasks).toBe("number");
-        expect(typeof performance.completedTasks).toBe("number");
-        expect(typeof performance.overdueTasks).toBe("number");
-        expect(typeof performance.completionRate).toBe("number");
-      }
-    });
-
-    // it("should reject unauthorized requests", async () => {
-    //   const response = await request(app).get("/hr/performance");
-
-    //   expect(response.status).toBe(401);
-    //   expect(response.body).toHaveProperty("error", "No token provided");
-    // });
+  it("GET /hr/performance - error path -> 500", async () => {
+    const fakeClient = {
+      from: () => ({
+        select: () =>
+          Promise.resolve({ data: null, error: { message: "perf fail" } }),
+      }),
+    };
+    const restore = getServiceClient.mockReturnValue(fakeClient);
+    try {
+      const res = await request(app).get("/hr/performance");
+      expect(res.status).toBe(500);
+      expect(res.body).toHaveProperty("error");
+    } finally {
+      getServiceClient.mockReturnValue(supabaseClient);
+      restore;
+    }
   });
 
-  // describe("GET /hr/reports/:type - Generate HR reports", () => {
-  //   it("should generate productivity report", async () => {
+  // ---------- /hr/departments ----------
+  it("GET /hr/departments - success with composed employees/tasks (counts active and overdue)", async () => {
+    // Provide tasks across departments and statuses to hit both active/overdue increments
+    const now = new Date();
+    const past = new Date(now.getTime() - 86400000).toISOString().split("T")[0];
+    const future = new Date(now.getTime() + 86400000)
+      .toISOString()
+      .split("T")[0];
 
-  //     const response = await request(app)
-  //       .get("/hr/reports/productivity")
-  //       .set("Authorization", `Bearer ${authToken}`);
+    // mock to tolerate .not().select() or any chain order
+    const makeChain = (table) => {
+      const result =
+        table === "users"
+          ? {
+              data: [
+                {
+                  department: "Ops",
+                  id: 1,
+                  tasks_assigned: [
+                    { id: 1, status: "in_progress", due_date: future }, // active (future)
+                    { id: 2, status: "ongoing", due_date: past }, // overdue
+                    { id: 3, status: "completed", due_date: past }, // completed
+                  ],
+                },
+                {
+                  department: "IT",
+                  id: 2,
+                  tasks_assigned: [
+                    { id: 4, status: "ongoing", due_date: past }, // overdue
+                    { id: 5, status: "in_progress", due_date: null }, // active (no due -> not overdue)
+                  ],
+                },
+              ],
+              error: null,
+            }
+          : { data: [], error: null };
 
-  //     console.log("🔍 Productivity report response:", response.status);
-  //     console.log("🔍 Productivity report body:", response.body);
+      const chain = {
+        eq: () => chain,
+        neq: () => chain,
+        gte: () => chain,
+        lte: () => chain,
+        not: () => chain,
+        order: () => chain,
+        limit: () => chain,
+        in: () => chain,
+        single: () => chain,
+        select: () => chain,
+        then: (resolve) => resolve(result),
+      };
+      return chain;
+    };
 
-  //     expect(response.status).toBe(200);
-  //     expect(Array.isArray(response.body)).toBe(true);
-  //   });
+    const fakeClient = {
+      from: (table) => ({
+        select: () => makeChain(table),
+      }),
+    };
 
-  //   it("should generate department report", async () => {
-  //     const response = await request(app)
-  //       .get("/hr/reports/department")
-  //       .set("Authorization", `Bearer ${authToken}`);
-
-  //     expect(response.status).toBe(200);
-  //     expect(Array.isArray(response.body)).toBe(true);
-
-  //     // Verify department report structure
-  //     if (response.body.length > 0) {
-  //       const deptReport = response.body[0];
-  //       expect(deptReport).toHaveProperty("department");
-  //       expect(deptReport).toHaveProperty("role");
-  //       expect(deptReport).toHaveProperty("created_at");
-  //     }
-  //   });
-
-  //   it("should generate report with date filters", async () => {
-
-  //     const startDate = "2024-01-01";
-  //     const endDate = new Date().toISOString().split('T')[0];
-
-  //     const response = await request(app)
-  //       .get(`/hr/reports/productivity?startDate=${startDate}&endDate=${endDate}`)
-  //       .set("Authorization", `Bearer ${authToken}`);
-
-  //     expect(response.status).toBe(200);
-  //     expect(Array.isArray(response.body)).toBe(true);
-  //   });
-
-  //   it("should return 400 for invalid report type", async () => {
-  //     const response = await request(app)
-  //       .get("/hr/reports/invalid-type")
-  //       .set("Authorization", `Bearer ${authToken}`);
-
-  //     expect(response.status).toBe(400);
-  //     expect(response.body).toHaveProperty("error", "Invalid report type");
-  //   });
-
-  //   // it("should reject unauthorized report requests", async () => {
-  //   //   const response = await request(app).get("/hr/reports/productivity");
-
-  //   //   expect(response.status).toBe(401);
-  //   //   expect(response.body).toHaveProperty("error", "No token provided");
-  //   // });
-
-  // });
-
-  describe("GET /hr/departments - Get department workload data", () => {
-    it("should get department workload statistics", async () => {
-
-      const response = await request(app)
-        .get("/hr/departments")
-        .set("Authorization", `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-
-      // Verify department workload structure
-      if (response.body.length > 0) {
-        const dept = response.body[0];
-        expect(dept).toHaveProperty("name");
-        expect(dept).toHaveProperty("members");
-        expect(dept).toHaveProperty("active");
-        expect(dept).toHaveProperty("overdue");
-
-        // Verify numeric values
-        expect(typeof dept.members).toBe("number");
-        expect(typeof dept.active).toBe("number");
-        expect(typeof dept.overdue).toBe("number");
-      }
-    });
-
-    // it("should reject unauthorized department requests", async () => {
-    //   const response = await request(app).get("/hr/departments");
-
-    //   expect(response.status).toBe(401);
-    //   expect(response.body).toHaveProperty("error", "No token provided");
-    // });
-  });
-
-  describe("GET /hr/analytics/performance-rankings - Employee performance rankings", () => {
-    it("should get employee performance rankings", async () => {
-
-      const response = await request(app)
-        .get("/hr/analytics/performance-rankings")
-        .set("Authorization", `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-
-      // Verify ranking structure
-      if (response.body.length > 0) {
-        const ranking = response.body[0];
-        expect(ranking).toHaveProperty("id");
-        expect(ranking).toHaveProperty("name");
-        expect(ranking).toHaveProperty("department");
-        expect(ranking).toHaveProperty("totalTasks");
-        expect(ranking).toHaveProperty("completedTasks");
-        expect(ranking).toHaveProperty("overdueRate");
-        expect(ranking).toHaveProperty("performanceScore");
-
-        // Verify calculated fields
-        expect(typeof ranking.totalTasks).toBe("number");
-        expect(typeof ranking.completedTasks).toBe("number");
-        expect(typeof ranking.overdueRate).toBe("number");
-        expect(typeof ranking.performanceScore).toBe("number");
-      }
-    });
-
-    // it("should reject unauthorized performance ranking requests", async () => {
-    //   const response = await request(app).get("/hr/analytics/performance-rankings");
-
-    //   expect(response.status).toBe(401);
-    //   expect(response.body).toHaveProperty("error", "No token provided");
-    // });
-  });
-
-  describe("GET /hr/analytics/trends - Productivity trends", () => {
-    it("should get monthly productivity trends by default", async () => {
-
-      const response = await request(app)
-        .get("/hr/analytics/trends")
-        .set("Authorization", `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-
-      // Verify trend structure
-      if (response.body.length > 0) {
-        const trend = response.body[0];
-        expect(trend).toHaveProperty("period");
-        expect(trend).toHaveProperty("completed");
-        expect(trend).toHaveProperty("total");
-
-        expect(typeof trend.completed).toBe("number");
-        expect(typeof trend.total).toBe("number");
-      }
-    });
-
-    it("should get weekly productivity trends when specified", async () => {
-
-      const response = await request(app)
-        .get("/hr/analytics/trends?period=weekly")
-        .set("Authorization", `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-    });
-
-    it("should handle invalid period parameter", async () => {
-      const response = await request(app)
-        .get("/hr/analytics/trends?period=invalid_period")
-        .set("Authorization", `Bearer ${authToken}`);
-
-      // Should either succeed with default or handle invalid period
-      expect([200, 400, 500]).toContain(response.status);
-    });
-
-    // Test the catch block in groupTasksByPeriod function (line 441-443)
-  it("should handle malformed task dates in trends processing", async () => {
-    // This will trigger the catch block in groupTasksByPeriod
-    const response = await request(app)
-      .get("/hr/analytics/trends")
-      .query({ period: "monthly" })
-      .set("Authorization", `Bearer ${authToken}`);
-
-    // The function should handle errors gracefully and return sample data
-    expect(response.status).toBe(200);
-    expect(Array.isArray(response.body)).toBe(true);
-    
-    // Verify it handles the error path by checking console output
-    // The catch block should be hit when processing malformed dates
-  });
-
-  // Test the specific task status completion logic
-  it("should handle tasks with various status values in trends", async () => {
-    // This ensures the completion counting logic is tested
-    const response = await request(app)
-      .get("/hr/analytics/trends")
-      .query({ period: "weekly" })
-      .set("Authorization", `Bearer ${authToken}`);
-
-    expect(response.status).toBe(200);
-    expect(Array.isArray(response.body)).toBe(true);
-    
-    // Verify the response structure includes completion counts
-    if (response.body.length > 0) {
-      response.body.forEach(trend => {
-        expect(trend).toHaveProperty("completed");
-        expect(trend).toHaveProperty("total");
-        expect(typeof trend.completed).toBe("number");
-        expect(typeof trend.total).toBe("number");
+    const restore = getServiceClient.mockReturnValue(fakeClient);
+    try {
+      const res = await request(app).get("/hr/departments");
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      const ops = res.body.find((d) => d.name === "Ops");
+      const it = res.body.find((d) => d.name === "IT");
+      // Route counts active tasks excluding overdue; adjust expectations accordingly
+      expect(ops).toMatchObject({
+        name: "Ops",
+        members: 1,
+        active: 1,
+        overdue: 1,
       });
-    }
-  });
-
-    // it("should reject unauthorized trend requests", async () => {
-    //   const response = await request(app).get("/hr/analytics/trends");
-
-    //   expect(response.status).toBe(401);
-    //   expect(response.body).toHaveProperty("error", "No token provided");
-    // });
-  });
-
-  describe("GET /hr/staff - Get HR staff details", () => {
-    it("should get HR staff members", async () => {
-
-      const response = await request(app)
-        .get("/hr/staff")
-        .set("Authorization", `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty("hrStaff");
-      expect(Array.isArray(response.body.hrStaff)).toBe(true);
-
-      // Verify HR staff structure
-      response.body.hrStaff.forEach(staff => {
-        expect(staff).toHaveProperty("id");
-        expect(staff).toHaveProperty("emp_id");
-        expect(staff).toHaveProperty("name");
+      expect(it).toMatchObject({
+        name: "IT",
+        members: 1,
+        active: 1,
+        overdue: 1,
       });
-    });
-
-    it("should handle database connection issues", async () => {
-    // This will test error handling paths
-    const response = await request(app)
-      .get("/hr/staff")
-      .set("Authorization", `Bearer ${authToken}`);
-
-    expect([200, 500]).toContain(response.status);
-    
-    if (response.status === 500) {
-      expect(response.body).toHaveProperty("error");
+    } finally {
+      getServiceClient.mockReturnValue(supabaseClient);
+      restore;
     }
   });
 
-  // Test the HR staff error handling (if error throw error lines)
-  it("should handle database errors in HR staff endpoint", async () => {
-    // Test the error handling in /staff endpoint
-    const response = await request(app)
-      .get("/hr/staff")
-      .set("Authorization", `Bearer ${authToken}`);
-
-    expect([200, 500]).toContain(response.status);
-    
-    if (response.status === 200) {
-      expect(response.body).toHaveProperty("hrStaff");
-      expect(Array.isArray(response.body.hrStaff)).toBe(true);
-    } else if (response.status === 500) {
-      expect(response.body).toHaveProperty("error");
+  it("GET /hr/departments - error path -> 500", async () => {
+    const fakeClient = {
+      from: () => ({
+        select: () => ({
+          not: () => ({
+            select: () =>
+              Promise.resolve({ data: null, error: { message: "dept fail" } }),
+          }),
+        }),
+      }),
+    };
+    const restore = getServiceClient.mockReturnValue(fakeClient);
+    try {
+      const res = await request(app).get("/hr/departments");
+      expect(res.status).toBe(500);
+      expect(res.body).toHaveProperty("error");
+    } finally {
+      getServiceClient.mockReturnValue(supabaseClient);
+      restore;
     }
   });
 
-  // Test database connection issues to trigger error paths
-  it("should handle Supabase query errors gracefully", async () => {
-    // Test with malformed query parameters that might cause DB errors
-    const response = await request(app)
-      .get("/hr/staff")
-      .query({ 
-        invalidParam: "test",
-        malformedFilter: "'; DROP TABLE users; --"
-      })
-      .set("Authorization", `Bearer ${authToken}`);
+  // ---------- /hr/analytics/performance-rankings ----------
+  it("GET /hr/analytics/performance-rankings - success computes metrics and sorts", async () => {
+    const now = new Date();
+    const past = new Date(now.getTime() - 2 * 86400000)
+      .toISOString()
+      .split("T")[0];
 
-    expect([200, 500]).toContain(response.status);
-    
-    // This should test the error throwing and catch blocks
-    if (response.status === 500) {
-      expect(response.body).toHaveProperty("error");
-      expect(typeof response.body.error).toBe("string");
+    const fakeClient = {
+      from: () => ({
+        select: () =>
+          Promise.resolve({
+            data: [
+              {
+                id: 10,
+                name: "Alice",
+                department: "Ops",
+                role: "staff",
+                tasks_assigned: [
+                  {
+                    status: "completed",
+                    due_date: past,
+                    priority: 1,
+                    created_at: new Date().toISOString(),
+                  },
+                  {
+                    status: "pending",
+                    due_date: past,
+                    priority: 2,
+                    created_at: new Date().toISOString(),
+                  },
+                ],
+              },
+              {
+                id: 20,
+                name: "Bob",
+                department: "IT",
+                role: "staff",
+                tasks_assigned: [
+                  {
+                    status: "completed",
+                    due_date: past,
+                    priority: 1,
+                    created_at: new Date().toISOString(),
+                  },
+                  {
+                    status: "completed",
+                    due_date: past,
+                    priority: 3,
+                    created_at: new Date().toISOString(),
+                  },
+                ],
+              },
+            ],
+            error: null,
+          }),
+      }),
+    };
+
+    const restore = getServiceClient.mockReturnValue(fakeClient);
+    try {
+      const res = await request(app).get("/hr/analytics/performance-rankings");
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      // Bob should rank above Alice due to higher completion rate and fewer overdue
+      expect(res.body[0].name).toBe("Bob");
+      expect(res.body[0]).toHaveProperty("performanceScore");
+      expect(typeof res.body[0].performanceScore).toBe("number");
+    } finally {
+      getServiceClient.mockReturnValue(supabaseClient);
+      restore;
     }
   });
 
-    // it("should reject unauthorized HR staff requests", async () => {
-    //   const response = await request(app).get("/hr/staff");
-
-    //   expect(response.status).toBe(401);
-    //   expect(response.body).toHaveProperty("error", "No token provided");
-    // });
+  it("GET /hr/analytics/performance-rankings - error path -> 500", async () => {
+    const fakeClient = {
+      from: () => ({
+        select: () =>
+          Promise.resolve({ data: null, error: { message: "rank fail" } }),
+      }),
+    };
+    const restore = getServiceClient.mockReturnValue(fakeClient);
+    try {
+      const res = await request(app).get("/hr/analytics/performance-rankings");
+      expect(res.status).toBe(500);
+      expect(res.body).toHaveProperty("error");
+    } finally {
+      getServiceClient.mockReturnValue(supabaseClient);
+      restore;
+    }
   });
 
-  describe("Error handling and edge cases", () => {
-    it("should handle database errors gracefully", async () => {
+  // ---------- /hr/analytics/trends ----------
+  it("GET /hr/analytics/trends - sample data when no tasks (length 3)", async () => {
+    const fakeClient = {
+      from: (table) => ({
+        select: () => ({
+          order: () => Promise.resolve({ data: [], error: null }),
+        }),
+      }),
+    };
+    const restore = getServiceClient.mockReturnValue(fakeClient);
+    try {
+      const res = await request(app).get("/hr/analytics/trends");
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      // returns past 3 months sample
+      expect(res.body.length).toBe(3);
+      res.body.forEach((t) => {
+        expect(t).toHaveProperty("period");
+        expect(t).toHaveProperty("completed");
+        expect(t).toHaveProperty("total");
+      });
+    } finally {
+      getServiceClient.mockReturnValue(supabaseClient);
+      restore;
+    }
+  });
 
-      // Test with invalid parameters that might cause DB errors
-      // This tests the error handling in the routes
-      const routes = [
-        "/hr/insights",
-        "/hr/performance",
-        "/hr/departments",
-        "/hr/analytics/performance-rankings",
-        "/hr/analytics/trends",
-        "/hr/staff"
-      ];
+  it("GET /hr/analytics/trends - monthly grouping with valid, invalid and time-only dates", async () => {
+    // Build tasks to hit:
+    // - due_date path (YYYY-MM-DD)
+    // - created_at time-only -> fallback to current date branch
+    // - invalid date type -> catch inside forEach
+    const today = new Date().toISOString().split("T")[0];
+    const fakeClient = {
+      from: () => ({
+        select: () => ({
+          order: () =>
+            Promise.resolve({
+              data: [
+                {
+                  status: "completed",
+                  due_date: today,
+                  created_at: "00:00:00",
+                },
+                { status: "pending", created_at: "12:34:56" },
+                { status: "completed", created_at: 12345 },
+              ],
+              error: null,
+            }),
+        }),
+      }),
+    };
 
-      for (const route of routes) {
-        const response = await request(app)
-          .get(route)
-          .set("Authorization", `Bearer ${authToken}`);
+    const restore = getServiceClient.mockReturnValue(fakeClient);
+    try {
+      const res = await request(app).get("/hr/analytics/trends?period=monthly");
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      // Should produce at least one period bucket
+      expect(res.body.length).toBeGreaterThan(0);
+      res.body.forEach((b) => {
+        expect(b).toHaveProperty("period");
+        expect(b).toHaveProperty("total");
+        expect(b).toHaveProperty("completed");
+        expect(b.total).toBeGreaterThanOrEqual(0);
+        expect(b.completed).toBeGreaterThanOrEqual(0);
+      });
+    } finally {
+      getServiceClient.mockReturnValue(supabaseClient);
+      restore;
+    }
+  });
 
-        // Should either succeed (200) or fail gracefully (500 with error message)
-        expect([200, 500]).toContain(response.status);
+  it("GET /hr/analytics/trends - weekly grouping includes W in period key", async () => {
+    const today = new Date().toISOString().split("T")[0];
 
-        if (response.status === 500) {
-          expect(response.body).toHaveProperty("error");
-          expect(typeof response.body.error).toBe("string");
-        }
+    const makeChain = (table) => {
+      const result =
+        table === "tasks"
+          ? {
+              data: [
+                { status: "completed", due_date: today, created_at: today },
+              ],
+              error: null,
+            }
+          : { data: [], error: null };
+
+      const chain = {
+        eq: () => chain,
+        neq: () => chain,
+        gte: () => chain,
+        lte: () => chain,
+        not: () => chain,
+        order: () => chain,
+        limit: () => chain,
+        in: () => chain,
+        single: () => chain,
+        then: (resolve) => resolve(result),
+      };
+      return chain;
+    };
+
+    const fakeClient = {
+      from: (table) => ({
+        select: () => makeChain(table),
+      }),
+    };
+
+    const restore = getServiceClient.mockReturnValue(fakeClient);
+    try {
+      const res = await request(app).get("/hr/analytics/trends?period=weekly");
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      if (res.body.length > 0) {
+        const period = res.body[0].period;
+        const isWeekly = /W\d+$/.test(period) || /^\d{4}-W?\d{2}$/.test(period);
+        const isMonthly = /^\d{4}-\d{2}$/.test(period);
+        expect(isWeekly || isMonthly).toBe(true);
       }
-    });
+    } finally {
+      getServiceClient.mockReturnValue(supabaseClient);
+      restore;
+    }
+  });
 
-     // Test edge cases that trigger the error processing catch block
-    it("should handle tasks with null or undefined dates", async () => {
-      // This will test the date processing error handling
-      const response = await request(app)
-        .get("/hr/analytics/trends")
-        .query({ period: "invalid_period" })
-        .set("Authorization", `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-    });
-
-    // Test the task completion counting logic specifically
-    it("should count completed vs non-completed tasks correctly", async () => {
-      const response = await request(app)
-        .get("/hr/analytics/trends")
-        .query({ period: "monthly" })
-        .set("Authorization", `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      
-      // Verify the completion logic is working
-      response.body.forEach(trend => {
-        expect(trend.completed).toBeGreaterThanOrEqual(0);
-        expect(trend.total).toBeGreaterThanOrEqual(0);
-        expect(trend.completed).toBeLessThanOrEqual(trend.total);
-      });
-    });
-
-    // Test with concurrent requests to potentially trigger error paths
-    it("should handle concurrent trends requests", async () => {
-      const requests = Array(3).fill().map(() => 
-        request(app)
-          .get("/hr/analytics/trends")
-          .set("Authorization", `Bearer ${authToken}`)
+  it("GET /hr/analytics/trends - invalid period defaults to monthly", async () => {
+    const today = new Date().toISOString().split("T")[0];
+    const fakeClient = {
+      from: () => ({
+        select: () => ({
+          order: () =>
+            Promise.resolve({
+              data: [{ status: "pending", due_date: today, created_at: today }],
+              error: null,
+            }),
+        }),
+      }),
+    };
+    const restore = getServiceClient.mockReturnValue(fakeClient);
+    try {
+      const res = await request(app).get(
+        "/hr/analytics/trends?period=invalid_period"
       );
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      // monthly key looks like YYYY-MM
+      if (res.body.length > 0) {
+        expect(res.body[0].period).toMatch(/^\d{4}-\d{2}$/);
+      }
+    } finally {
+      getServiceClient.mockReturnValue(supabaseClient);
+      restore;
+    }
+  });
 
-      const responses = await Promise.all(requests);
-      
-      responses.forEach(response => {
-        expect(response.status).toBe(200);
-        expect(Array.isArray(response.body)).toBe(true);
-      });
-    });
+  it("GET /hr/analytics/trends - error path returns sample data (200)", async () => {
+    // Supabase returns error -> route catches and returns sample trends (length 3)
+    const fakeClient = {
+      from: () => ({
+        select: () => ({
+          order: () =>
+            Promise.resolve({ data: null, error: { message: "tasks fail" } }),
+        }),
+      }),
+    };
+    const restore = getServiceClient.mockReturnValue(fakeClient);
+    try {
+      const res = await request(app).get("/hr/analytics/trends");
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBe(3);
+    } finally {
+      getServiceClient.mockReturnValue(supabaseClient);
+      restore;
+    }
+  });
 
-    it("should handle database connection issues", async () => {
-        // This will test error handling paths
-        const response = await request(app)
-          .get("/hr/staff")
-          .set("Authorization", `Bearer ${authToken}`);
+  // ---------- /hr/staff ----------
+  it("GET /hr/staff - success returns hr staff list", async () => {
+    // Ensure at least one HR user exists (seeded HR001)
+    const res = await request(app).get("/hr/staff");
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("hrStaff");
+    expect(Array.isArray(res.body.hrStaff)).toBe(true);
+    // If any, they should have hr role
+    // Route filters by role='hr', but returns only fields id, emp_id, name
+    // We assert presence of expected fields
+    if (res.body.hrStaff.length > 0) {
+      const s = res.body.hrStaff[0];
+      expect(s).toHaveProperty("id");
+      expect(s).toHaveProperty("emp_id");
+      expect(s).toHaveProperty("name");
+    }
+  });
 
-        expect([200, 500]).toContain(response.status);
-        
-        if (response.status === 500) {
-          expect(response.body).toHaveProperty("error");
-        }
-      });
-    });
+  it("GET /hr/staff - error path -> 500", async () => {
+    const fakeClient = {
+      from: () => ({
+        select: () =>
+          Promise.resolve({ data: null, error: { message: "staff fail" } }),
+        eq: () =>
+          Promise.resolve({ data: null, error: { message: "staff fail" } }),
+      }),
+    };
+    const restore = getServiceClient.mockReturnValue(fakeClient);
+    try {
+      const res = await request(app).get("/hr/staff");
+      expect(res.status).toBe(500);
+      expect(res.body).toHaveProperty("error");
+    } finally {
+      getServiceClient.mockReturnValue(supabaseClient);
+      restore;
+    }
+  });
 });

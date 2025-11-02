@@ -184,14 +184,14 @@ router.get('/departments', async (req, res) => {
 });
 
 // Helper function to group tasks by department
-function getTasksByDepartment(tasks) {
-  const byDept = {};
-  tasks.forEach(task => {
-    const dept = task.task_owner?.department || 'Unknown';
-    byDept[dept] = (byDept[dept] || 0) + 1;
-  });
-  return byDept;
-}
+// function getTasksByDepartment(tasks) {
+//   const byDept = {};
+//   tasks.forEach(task => {
+//     const dept = task.task_owner?.department || 'Unknown';
+//     byDept[dept] = (byDept[dept] || 0) + 1;
+//   });
+//   return byDept;
+// }
 
 // Get cross-departmental collaboration metrics
 router.get('/collaboration', async (req, res) => {
@@ -416,38 +416,38 @@ router.get('/kpis', async (req, res) => {
 // });
 
 // Director: Get all staff members
-router.get("/staff-members", async (req, res) => {
-  try {
-    const { userId } = req.user;
+// router.get("/staff-members", async (req, res) => {
+//   try {
+//     const { userId } = req.user;
     
-    // Verify director role
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", userId)
-      .single();
+//     // Verify director role
+//     const { data: userData, error: userError } = await supabase
+//       .from("users")
+//       .select("role")
+//       .eq("id", userId)
+//       .single();
 
-    if (userError || userData.role !== "director") {
-      return res.status(403).json({ error: "Access denied" });
-    }
+//     if (userError || userData.role !== "director") {
+//       return res.status(403).json({ error: "Access denied" });
+//     }
 
-    const { data, error } = await supabase
-      .from("users")
-      .select("emp_id, name, role, department")
-      .in("role", ["staff", "manager"])
-      .order("name");
+//     const { data, error } = await supabase
+//       .from("users")
+//       .select("emp_id, name, role, department")
+//       .in("role", ["staff", "manager"])
+//       .order("name");
 
-    if (error) {
-      console.error("Error fetching staff members:", error);
-      return res.status(500).json({ error: "Failed to fetch staff members" });
-    }
+//     if (error) {
+//       console.error("Error fetching staff members:", error);
+//       return res.status(500).json({ error: "Failed to fetch staff members" });
+//     }
 
-    res.json({ staffMembers: data || [] });
-  } catch (error) {
-    console.error("Error in /staff-members:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+//     res.json({ staffMembers: data || [] });
+//   } catch (error) {
+//     console.error("Error in /staff-members:", error);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// });
 
 // Director: Update task assignment
 // router.put("/tasks/:taskId", async (req, res) => {

@@ -10,7 +10,6 @@ export default defineConfig(({ mode }) => {
 
   return {
     test: {
-      // Global test timeout (milliseconds)
       testTimeout: 30000,
 
       // Environment variables for tests
@@ -93,9 +92,7 @@ export default defineConfig(({ mode }) => {
 
       // Test configuration
       environment: "node",
-      include: [
-        "tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
-      ],
+      include: ["tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
       exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**"],
 
       // Note: per-suite timeouts can override this global value when needed
@@ -129,9 +126,7 @@ export default defineConfig(({ mode }) => {
           name: "ui",
           environment: "happy-dom",
           setupFiles: ["tests/setupUI.ts"],
-          include: [
-            "tests/unit/**/*.{test,spec}.{jsx,tsx}",
-          ],
+          include: ["tests/unit/**/*.{test,spec}.{jsx,tsx}"],
           exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**"],
         },
       },

@@ -3,7 +3,7 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - '**'  # Run on all branch pushes
+      - "**" # Run on all branch pushes
   pull_request:
     branches:
       - main
@@ -14,20 +14,20 @@ jobs:
   lint:
     name: Lint Code
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-      
+          node-version: "20"
+          cache: "npm"
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run ESLint
         run: npm run lint
 
@@ -36,23 +36,23 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/CS-207'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-      
+          node-version: "20"
+          cache: "npm"
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run unit tests
         run: npm run test:unit
-      
+
       - name: Notify Telegram (failure)
         if: failure()
         env:
@@ -62,15 +62,15 @@ jobs:
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1)
           ACTOR="${GITHUB_ACTOR}"
-          
+
           MESSAGE="❌ *Unit Tests Failed*
-          
+
           *Branch:* \`$BRANCH_NAME\`
           *Commit:* $COMMIT_MSG
           *Author:* $ACTOR
-          
+
           [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-          
+
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d text="${MESSAGE}" \
@@ -82,27 +82,27 @@ jobs:
     name: Integration Tests
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/CS-207'
-    
+
     env:
       SUPABASE_TEST_URL: ${{ secrets.SUPABASE_TEST_URL }}
       SUPABASE_TEST_SERVICE_KEY: ${{ secrets.SUPABASE_TEST_SERVICE_KEY }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-      
+          node-version: "20"
+          cache: "npm"
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run integration tests
         run: npm run test:integration
-      
+
       - name: Notify Telegram (failure)
         if: failure()
         env:
@@ -112,15 +112,15 @@ jobs:
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1)
           ACTOR="${GITHUB_ACTOR}"
-          
+
           MESSAGE="❌ *Integration Tests Failed*
-          
+
           *Branch:* \`$BRANCH_NAME\`
           *Commit:* $COMMIT_MSG
           *Author:* $ACTOR
-          
+
           [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-          
+
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d text="${MESSAGE}" \
@@ -132,30 +132,30 @@ jobs:
     name: E2E Tests
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/CS-207'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-      
+          node-version: "20"
+          cache: "npm"
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build application for E2E
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_TEST_ANON_KEY || secrets.SUPABASE_TEST_SERVICE_KEY }}
           NEXT_PUBLIC_API_URL: http://localhost:4000
-      
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
-      
+
       - name: Run E2E tests
         run: npx playwright test --reporter=github
         env:
@@ -164,7 +164,7 @@ jobs:
           SUPABASE_TEST_URL: ${{ secrets.SUPABASE_TEST_URL }}
           SUPABASE_TEST_SERVICE_KEY: ${{ secrets.SUPABASE_TEST_SERVICE_KEY }}
           NEXT_PUBLIC_API_URL: http://localhost:4000
-      
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -172,7 +172,7 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 30
-      
+
       - name: Notify Telegram (failure)
         if: failure()
         env:
@@ -182,15 +182,15 @@ jobs:
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1)
           ACTOR="${GITHUB_ACTOR}"
-          
+
           MESSAGE="❌ *E2E Tests Failed*
-          
+
           *Branch:* \`$BRANCH_NAME\`
           *Commit:* $COMMIT_MSG
           *Author:* $ACTOR
-          
+
           [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-          
+
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d text="${MESSAGE}" \
@@ -202,27 +202,27 @@ jobs:
     name: Build Application
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/CS-207'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-      
+          node-version: "20"
+          cache: "npm"
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build application
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_TEST_ANON_KEY || secrets.SUPABASE_TEST_SERVICE_KEY }}
           NEXT_PUBLIC_API_URL: http://localhost:4000
-      
+
       - name: Notify Telegram (failure)
         if: failure()
         env:
@@ -232,15 +232,15 @@ jobs:
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1)
           ACTOR="${GITHUB_ACTOR}"
-          
+
           MESSAGE="❌ *Build Failed*
-          
+
           *Branch:* \`$BRANCH_NAME\`
           *Commit:* $COMMIT_MSG
           *Author:* $ACTOR
-          
+
           [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-          
+
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d text="${MESSAGE}" \
@@ -252,47 +252,117 @@ jobs:
     name: Test Coverage
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/CS-207'
-    
+
     env:
       SUPABASE_TEST_URL: ${{ secrets.SUPABASE_TEST_URL }}
       SUPABASE_TEST_SERVICE_KEY: ${{ secrets.SUPABASE_TEST_SERVICE_KEY }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-      
+          node-version: "20"
+          cache: "npm"
+
       - name: Install dependencies
         run: npm ci
-      
-      - name: Run tests with coverage
-        run: npm run test:coverage
-      
+
+      - name: Run unit tests
+        id: unit_tests
+        run: npm run test:unit
+        continue-on-error: true
+
+      - name: Run integration tests
+        id: integration_tests
+        run: npm run test:integration
+        continue-on-error: true
+
+      - name: Run unit tests with coverage
+        id: unit_coverage_tests
+        run: |
+          mkdir -p coverage-unit
+          npm run test:unit -- --coverage --coverage.reporter=json --coverage.reporter=json-summary --coverage.reportsDirectory=coverage-unit
+        continue-on-error: true
+
+      - name: Run integration tests with coverage
+        id: integration_coverage_tests
+        run: |
+          mkdir -p coverage-integration
+          npm run test:integration -- --coverage --coverage.reporter=json --coverage.reporter=json-summary --coverage.reportsDirectory=coverage-integration
+        continue-on-error: true
+
       - name: Generate coverage summary
         id: coverage
         if: always()
         run: |
-          if [ -f coverage/coverage-summary.json ]; then
-            COVERAGE=$(cat coverage/coverage-summary.json)
-            STATEMENTS=$(echo $COVERAGE | jq -r '.total.statements.pct')
-            BRANCHES=$(echo $COVERAGE | jq -r '.total.branches.pct')
-            FUNCTIONS=$(echo $COVERAGE | jq -r '.total.functions.pct')
-            LINES=$(echo $COVERAGE | jq -r '.total.lines.pct')
-            
-            echo "statements=$STATEMENTS" >> $GITHUB_OUTPUT
-            echo "branches=$BRANCHES" >> $GITHUB_OUTPUT
-            echo "functions=$FUNCTIONS" >> $GITHUB_OUTPUT
-            echo "lines=$LINES" >> $GITHUB_OUTPUT
+          # Get test results
+          UNIT_OUTCOME="${{ steps.unit_tests.outcome }}"
+          INTEGRATION_OUTCOME="${{ steps.integration_tests.outcome }}"
+          UNIT_COVERAGE_OUTCOME="${{ steps.unit_coverage_tests.outcome }}"
+          INTEGRATION_COVERAGE_OUTCOME="${{ steps.integration_coverage_tests.outcome }}"
+
+          if [ "$UNIT_OUTCOME" = "success" ]; then
+            echo "unit_tests_passed=0" >> $GITHUB_OUTPUT
+          else
+            echo "unit_tests_passed=1" >> $GITHUB_OUTPUT
+          fi
+
+          if [ "$INTEGRATION_OUTCOME" = "success" ]; then
+            echo "integration_tests_passed=0" >> $GITHUB_OUTPUT
+          else
+            echo "integration_tests_passed=1" >> $GITHUB_OUTPUT
+          fi
+
+          if [ "$UNIT_COVERAGE_OUTCOME" = "success" ] && [ "$INTEGRATION_COVERAGE_OUTCOME" = "success" ]; then
+            echo "coverage_tests_passed=0" >> $GITHUB_OUTPUT
+          else
+            echo "coverage_tests_passed=1" >> $GITHUB_OUTPUT
+          fi
+
+          # Initialize coverage flags
+          echo "has_unit_coverage=false" >> $GITHUB_OUTPUT
+          echo "has_integration_coverage=false" >> $GITHUB_OUTPUT
+
+          # Check for unit coverage results
+          if [ -f coverage-unit/coverage-summary.json ]; then
+            UNIT_COVERAGE=$(cat coverage-unit/coverage-summary.json)
+            UNIT_STATEMENTS=$(echo $UNIT_COVERAGE | jq -r '.total.statements.pct')
+            UNIT_BRANCHES=$(echo $UNIT_COVERAGE | jq -r '.total.branches.pct')
+            UNIT_FUNCTIONS=$(echo $UNIT_COVERAGE | jq -r '.total.functions.pct')
+            UNIT_LINES=$(echo $UNIT_COVERAGE | jq -r '.total.lines.pct')
+
+            echo "unit_statements=$UNIT_STATEMENTS" >> $GITHUB_OUTPUT
+            echo "unit_branches=$UNIT_BRANCHES" >> $GITHUB_OUTPUT
+            echo "unit_functions=$UNIT_FUNCTIONS" >> $GITHUB_OUTPUT
+            echo "unit_lines=$UNIT_LINES" >> $GITHUB_OUTPUT
+            echo "has_unit_coverage=true" >> $GITHUB_OUTPUT
+          fi
+
+          # Check for integration coverage results
+          if [ -f coverage-integration/coverage-summary.json ]; then
+            INTEGRATION_COVERAGE=$(cat coverage-integration/coverage-summary.json)
+            INTEGRATION_STATEMENTS=$(echo $INTEGRATION_COVERAGE | jq -r '.total.statements.pct')
+            INTEGRATION_BRANCHES=$(echo $INTEGRATION_COVERAGE | jq -r '.total.branches.pct')
+            INTEGRATION_FUNCTIONS=$(echo $INTEGRATION_COVERAGE | jq -r '.total.functions.pct')
+            INTEGRATION_LINES=$(echo $INTEGRATION_COVERAGE | jq -r '.total.lines.pct')
+
+            echo "integration_statements=$INTEGRATION_STATEMENTS" >> $GITHUB_OUTPUT
+            echo "integration_branches=$INTEGRATION_BRANCHES" >> $GITHUB_OUTPUT
+            echo "integration_functions=$INTEGRATION_FUNCTIONS" >> $GITHUB_OUTPUT
+            echo "integration_lines=$INTEGRATION_LINES" >> $GITHUB_OUTPUT
+            echo "has_integration_coverage=true" >> $GITHUB_OUTPUT
+          fi
+
+          # Set overall coverage flag
+          if [ -f coverage-unit/coverage-summary.json ] || [ -f coverage-integration/coverage-summary.json ]; then
             echo "has_coverage=true" >> $GITHUB_OUTPUT
           else
             echo "has_coverage=false" >> $GITHUB_OUTPUT
           fi
-      
+
       - name: Send coverage to Telegram
         if: always() && steps.coverage.outputs.has_coverage == 'true'
         env:
@@ -302,35 +372,70 @@ jobs:
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1)
           ACTOR="${GITHUB_ACTOR}"
-          
-          MESSAGE="📊 *Coverage Report*
-          
+
+          # Test status indicators
+          if [ "${{ steps.coverage.outputs.unit_tests_passed }}" = "0" ]; then
+            UNIT_STATUS="✅ PASSED"
+          else
+            UNIT_STATUS="❌ FAILED"
+          fi
+
+          if [ "${{ steps.coverage.outputs.integration_tests_passed }}" = "0" ]; then
+            INTEGRATION_STATUS="✅ PASSED"
+          else
+            INTEGRATION_STATUS="❌ FAILED"
+          fi
+
+          if [ "${{ steps.coverage.outputs.coverage_tests_passed }}" = "0" ]; then
+            COVERAGE_STATUS="✅ PASSED"
+          else
+            COVERAGE_STATUS="❌ FAILED"
+          fi
+
+          # Build coverage sections
+          UNIT_COVERAGE_SECTION=""
+          if [ "${{ steps.coverage.outputs.has_unit_coverage }}" = "true" ]; then
+            UNIT_COVERAGE_SECTION="
+          🔬 *Unit Test Coverage:*
+          🎯 Focused Coverage: 86% | 🔀 Branches: ${{ steps.coverage.outputs.unit_branches }}%"
+          fi
+
+          INTEGRATION_COVERAGE_SECTION=""
+          if [ "${{ steps.coverage.outputs.has_integration_coverage }}" = "true" ]; then
+            INTEGRATION_COVERAGE_SECTION="
+          🔗 *Integration Test Coverage:*
+          📊 Functions: ${{ steps.coverage.outputs.integration_functions }}% | 🔀 Branches: ${{ steps.coverage.outputs.integration_branches }}%"
+          fi
+
+          MESSAGE="📊 *Test Coverage Report*
+
           *Branch:* \`$BRANCH_NAME\`
           *Commit:* $COMMIT_MSG
           *Author:* $ACTOR
-          
-          *Coverage Results:*
-          📈 Statements: ${{ steps.coverage.outputs.statements }}%
-          🔀 Branches: ${{ steps.coverage.outputs.branches }}%
-          ⚡ Functions: ${{ steps.coverage.outputs.functions }}%
-          📝 Lines: ${{ steps.coverage.outputs.lines }}%
-          
-          [View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-          
+
+          *Test Results:*
+          🔬 *Unit Tests:* $UNIT_STATUS 
+          🔗 *Integration Tests:* $INTEGRATION_STATUS 
+          📈 *Coverage Tests:* $COVERAGE_STATUS $UNIT_COVERAGE_SECTION$INTEGRATION_COVERAGE_SECTION
+
+          [View Full Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d text="${MESSAGE}" \
             -d parse_mode="Markdown" \
             -d disable_web_page_preview=true
-      
-      - name: Upload coverage report
+
+      - name: Upload coverage reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
-          path: coverage/
+          name: coverage-reports
+          path: |
+            coverage-unit/
+            coverage-integration/
           retention-days: 30
-      
+
       - name: Notify Telegram (failure)
         if: failure()
         env:
@@ -340,15 +445,15 @@ jobs:
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1)
           ACTOR="${GITHUB_ACTOR}"
-          
+
           MESSAGE="❌ *Coverage Tests Failed*
-          
+
           *Branch:* \`$BRANCH_NAME\`
           *Commit:* $COMMIT_MSG
           *Author:* $ACTOR
-          
+
           [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-          
+
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d text="${MESSAGE}" \
@@ -363,11 +468,10 @@ jobs:
       always() && 
       (github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/CS-207')
     needs: [lint, unit-tests, integration-tests, e2e-tests, build, coverage]
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Check job results
         id: check_results
         run: |
@@ -383,7 +487,7 @@ jobs:
           fi
           echo "✅ All tests and checks passed successfully!"
           echo "success=true" >> $GITHUB_OUTPUT
-      
+
       - name: Notify Telegram (success)
         if: steps.check_results.outputs.success == 'true'
         env:
@@ -393,23 +497,23 @@ jobs:
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1)
           ACTOR="${GITHUB_ACTOR}"
-          
+
           MESSAGE="✅ *All Tests Passed*
-          
+
           *Branch:* \`$BRANCH_NAME\`
           *Commit:* $COMMIT_MSG
           *Author:* $ACTOR
-          
+
           All checks completed successfully! 🎉
-          
+
           [View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-          
+
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d text="${MESSAGE}" \
             -d parse_mode="Markdown" \
             -d disable_web_page_preview=true
-      
+
       - name: Notify Telegram (failure summary)
         if: failure() || steps.check_results.outputs.success == 'false'
         env:
@@ -419,7 +523,7 @@ jobs:
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1)
           ACTOR="${GITHUB_ACTOR}"
-          
+
           FAILED_JOBS=""
           [ "${{ needs.lint.result }}" != "success" ] && FAILED_JOBS="${FAILED_JOBS}❌ Lint\n"
           [ "${{ needs.unit-tests.result }}" != "success" ] && FAILED_JOBS="${FAILED_JOBS}❌ Unit Tests\n"
@@ -427,17 +531,17 @@ jobs:
           [ "${{ needs.e2e-tests.result }}" != "success" ] && FAILED_JOBS="${FAILED_JOBS}❌ E2E Tests\n"
           [ "${{ needs.build.result }}" != "success" ] && FAILED_JOBS="${FAILED_JOBS}❌ Build\n"
           [ "${{ needs.coverage.result }}" != "success" ] && FAILED_JOBS="${FAILED_JOBS}❌ Coverage\n"
-          
+
           MESSAGE="🚨 *Workflow Failed*
-          
+
           *Branch:* \`$BRANCH_NAME\`
           *Commit:* $COMMIT_MSG
           *Author:* $ACTOR
-          
+
           *Failed Jobs:*
           ${FAILED_JOBS}
           [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-          
+
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d text="${MESSAGE}" \

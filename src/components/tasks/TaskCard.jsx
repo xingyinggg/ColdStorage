@@ -8,6 +8,9 @@ import { useProjects } from "@/utils/hooks/useProjects";
 import SubtaskEditModal from "@/components/tasks/SubtaskEditModal";
 import Toast from "@/components/ui/Toast";
 import RecurrenceStatus from "@/components/tasks/RecurrenceStatus";
+import { useAuth } from "@/utils/hooks/useAuth";
+import { useUsers } from "@/utils/hooks/useUsers";
+import { useDepartmentTeams } from "@/utils/hooks/useDepartmentTeams";
 
 // Helper function to get priority color based on numeric value (1-10)
 const getPriorityColor = (priority) => {
@@ -121,6 +124,9 @@ export default function TaskCard({
 }) {
 
   const { projects, loading: projectsLoading } = useProjects();
+  const { userProfile } = useAuth();
+  const { fetchUsers, getAssignableUsers, getUserByEmpId } = useUsers();
+  const {fetchMyTeam} = useDepartmentTeams()
 
   const hookProjectNames = useMemo(() => {
     const namesMap = {};
@@ -163,6 +169,16 @@ export default function TaskCard({
   const [loadingSubtaskCount, setLoadingSubtaskCount] = useState(false);
   const [hasFetchedSubtasks, setHasFetchedSubtasks] = useState(false);
 
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [loadingTeam, setLoadingTeam] = useState(false);
+  const [availableStaff, setAvailableStaff] = useState([]);
+
+  // Role permissions
+  const canAssignTasks = userProfile?.role === "manager" || userProfile?.role === "director" || userProfile?.role === "hr";
+  const isHR = userProfile?.role === "hr";
+  const isManager = userProfile?.role === "manager";
+  const isDirector = userProfile?.role === "director";
+
   const openEditModal = (e) => {
     e.stopPropagation();
     setEditModalOpen(true);
@@ -194,6 +210,65 @@ export default function TaskCard({
   const closeDetailsModal = () => {
     setDetailsModalOpen(false);
   };
+
+  // Fetch assignment data when modal opens
+  useEffect(() => {
+    const fetchAssignmentData = async () => {
+      if (!editModalOpen || !canAssignTasks || !userProfile?.emp_id) return;
+
+      try {
+        // Fetch all staff for standalone tasks
+        const allUsersResult = await fetchUsers({ excludeSelf: true });
+        if (allUsersResult.success) {
+          // If user is HR, filter to only show HR staff
+          if (isHR) {
+            setAvailableStaff(
+              allUsersResult.users.filter((user) => user.role === "hr")
+            );
+          } else {
+            setAvailableStaff(allUsersResult.users);
+          }
+        }
+
+        // For managers, fetch their team members
+        if (isManager) {
+          setLoadingTeam(true);
+          try {
+            const myTeams = await fetchMyTeam();
+            console.log("Manager's teams:", myTeams);
+            
+            // Flatten all team members from all teams this manager manages
+            const allTeamMembers = myTeams.reduce((acc, team) => {
+              console.log("Processing team:", team.team_name, "Members:", team.members);
+              return [...acc, ...(team.members || [])];
+            }, []);
+            
+            // Remove duplicates based on emp_id
+            const uniqueTeamMembers = allTeamMembers.filter((member, index, self) => 
+              index === self.findIndex(m => m.emp_id === member.emp_id)
+            );
+            
+            console.log("Manager's team members:", uniqueTeamMembers);
+            setTeamMembers(uniqueTeamMembers);
+          } catch (teamError) {
+            console.error("Error fetching team members:", teamError);
+          } finally {
+            setLoadingTeam(false);
+          }
+        } else if (isDirector) {
+          // For directors, use the existing assignable users logic
+          const assignableResult = await getAssignableUsers(userProfile.role);
+          if (assignableResult.success) {
+            setAvailableStaff(assignableResult.users);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load assignment data:", error);
+      }
+    };
+
+    fetchAssignmentData();
+  }, [editModalOpen, canAssignTasks, userProfile?.emp_id, userProfile?.role, isManager]);
 
   // NEW: Fetch subtask count on component mount
   useEffect(() => {
@@ -651,6 +726,10 @@ export default function TaskCard({
             console.log("TaskEditModal onSave called with:", id, updates);
             return handleEditTask(id, updates);
           }}
+          canAssignTasks={userProfile?.role == "manager" ||userProfile?.role === "director"}
+          availableStaff={availableStaff || []} // Pass available staff
+          teamMembers={teamMembers || []} // Pass team members for managers
+          userProfile={userProfile} // Pass user profile
         />
       )}
 

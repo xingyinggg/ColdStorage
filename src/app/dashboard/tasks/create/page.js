@@ -8,11 +8,13 @@ import { useNotification } from "@/utils/hooks/useNotification";
 import { useProjects } from "@/utils/hooks/useProjects";
 import { useAuth } from "@/utils/hooks/useAuth";
 import { useUsers } from "@/utils/hooks/useUsers";
+import { useDepartmentTeams } from "@/utils/hooks/useDepartmentTeams";
 import TaskForm from "@/components/tasks/TaskForm";
 import SidebarLayout from "@/components/layout/SidebarLayout";
 import HeaderBar from "@/components/layout/HeaderBar";
+import dynamic from "next/dynamic";
 
-export default function CreateTaskPage() {
+function CreateTaskPage() {
   const router = useRouter();
   const { user, userProfile, signOut } = useAuth();
   const { createTask } = useTasks(user);
@@ -23,6 +25,7 @@ export default function CreateTaskPage() {
     getProjectMembers,
   } = useProjects(user);
   const { fetchUsers, getAssignableUsers, getUserByEmpId } = useUsers();
+  const {fetchMyTeam} = useDepartmentTeams()
 
   // States
   const [selectedProject, setSelectedProject] = useState("");
@@ -33,12 +36,16 @@ export default function CreateTaskPage() {
   const [file, setFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [loadingTeam, setLoadingTeam] = useState(false);
 
   // Role permissions
   const canAssignTasks =
     userProfile?.role === "manager" || userProfile?.role === "director";
 
   const isHR = userProfile?.role === "hr";
+  const isManager = userProfile?.role === "manager";
+  const isDirector = userProfile?.role === "director"
 
   // Fetch data on mount
   useEffect(() => {
@@ -59,8 +66,38 @@ export default function CreateTaskPage() {
           }
         }
 
-        // Fetch assignable staff for managers/directors
-        if (canAssignTasks && userProfile?.role) {
+        // For managers, fetch their team members
+        if (isManager) {
+          setLoadingTeam(true);
+          try {
+            const myTeams = await fetchMyTeam();
+            console.log("Manager's teams:", myTeams);
+            console.log("Raw team data:", JSON.stringify(myTeams, null, 2));
+            
+            // Flatten all team members from all teams this manager manages
+            const allTeamMembers = myTeams.reduce((acc, team) => {
+              console.log("Processing team:", team.team_name, "Members:", team.members);
+              return [...acc, ...(team.members || [])];
+            }, []);
+            
+            // Remove duplicates based on emp_id
+            const uniqueTeamMembers = allTeamMembers.filter((member, index, self) => 
+              index === self.findIndex(m => m.emp_id === member.emp_id)
+            );
+            
+            console.log("Manager's team members:", uniqueTeamMembers);
+            console.log("Team members count:", uniqueTeamMembers.length);
+            
+            setTeamMembers(uniqueTeamMembers);
+            setAvailableStaff(uniqueTeamMembers); // Managers can only assign to team members
+          } catch (teamError) {
+            console.error("Error fetching team members:", teamError);
+            setError("Failed to load team members");
+          } finally {
+            setLoadingTeam(false);
+          }
+        } else if (isDirector) {
+          // For directors, use the existing assignable users logic
           const assignableResult = await getAssignableUsers(userProfile.role);
           if (assignableResult.success) {
             setAvailableStaff(assignableResult.users);
@@ -72,7 +109,7 @@ export default function CreateTaskPage() {
     };
 
     fetchData();
-  }, [userProfile?.emp_id, userProfile?.role, canAssignTasks]);
+  }, [userProfile?.emp_id, userProfile?.role, canAssignTasks, isManager]);
 
   // Fetch project members when project changes
   useEffect(() => {
@@ -142,6 +179,16 @@ export default function CreateTaskPage() {
       // Handle assignment logic
       if (canAssignTasks) {
         if (taskData.assignTo && taskData.assignTo !== "") {
+          // For managers, validate that the assignee is in their team
+          if (isManager) {
+            const isTeamMember = teamMembers.some(member => 
+              member.emp_id === taskData.assignTo
+            );
+            if (!isTeamMember) {
+              throw new Error("You can only assign tasks to members of your team");
+            }
+          }
+
           formData.append("status", "ongoing");
           formData.append("owner_id", taskData.assignTo);
         } else if (taskData.status === "unassigned") {
@@ -319,7 +366,7 @@ export default function CreateTaskPage() {
               canAssignTasks={canAssignTasks}
               availableStaff={availableStaff}
               availableCollaborators={getCollaboratorOptions()}
-              loading={submitting}
+              loading={submitting || loadingTeam}
               error={error}
               selectedProject={selectedProject}
               projects={projects}
@@ -336,3 +383,5 @@ export default function CreateTaskPage() {
     </SidebarLayout>
   );
 }
+
+export default dynamic(() => Promise.resolve(CreateTaskPage), { ssr: false });

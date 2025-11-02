@@ -111,11 +111,17 @@ describe("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
     }
 
       // Wait a bit to ensure user is fully created in the system
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 3000));
 
-    // Instead of using the login endpoint, use service client to sign in directly
-    // This bypasses email confirmation requirements
-    const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
+    // Create a separate anon client for authentication (not service role)
+    const { createClient } = await import('@supabase/supabase-js');
+    const anonClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY
+    );
+
+    // Now sign in with the anon client
+    const { data: signInData, error: signInError } = await anonClient.auth.signInWithPassword({
       email: registrationData.email,
       password: registrationData.password,
     });
@@ -135,23 +141,6 @@ describe("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
     testUserToken = signInData.session.access_token;
     
     console.log("✅ Test user authenticated successfully");
-
-    // // Login to get the token
-    // const loginResponse = await request(app)
-    //   .post("/auth/login")
-    //   .send({
-    //     email: registrationData.email,
-    //     password: registrationData.password,
-    //   });
-
-    // if (loginResponse.status !== 200) {
-    //   console.error('❌ Failed to login:', loginResponse.body);
-    // }
-    
-    // expect(loginResponse.status).toBe(200);
-    // testUserToken = loginResponse.body.access_token;
-
-
 
     // Create a test project
     const { data: project, error: projectError } = await supabaseClient

@@ -10,7 +10,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     test: {
+      // Global per-test timeout. Some Vitest versions accept `testTimeout`, others read `timeout`.
+      // Set both to be compatible with different Vitest releases.
       testTimeout: 30000,
+      timeout: 30000,
 
       // Environment variables for tests
       env: {

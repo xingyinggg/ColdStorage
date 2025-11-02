@@ -363,3 +363,9 @@ router.get("/deadline-status", async (req, res) => {
 /* istanbul ignore next */
 export default router;
 
+// Testing helper: allow tests to override the deadline checks function when needed.
+/* istanbul ignore next */
+export function __setRunDeadlineChecksForTest(val) {
+  runDeadlineChecks = val;
+}
+

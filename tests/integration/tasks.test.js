@@ -52,10 +52,10 @@ import request from "supertest";
 import express from "express";
 import { createClient } from '@supabase/supabase-js';
 import taskRoutes from "../../server/routes/tasks.js";
-import { 
-  getServiceClient, 
-  getUserFromToken, 
-  getEmpIdForUserId, 
+import {
+  getServiceClient,
+  getUserFromToken,
+  getEmpIdForUserId,
   getUserRole,
   getNumericIdFromEmpId
 } from "../../server/lib/supabase.js";
@@ -88,13 +88,13 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
   beforeAll(async () => {
     // Create test database client
     supabaseClient = getTestSupabaseClient();
-    
+
     // Set up mock implementations AFTER environment is loaded
     const testSupabaseClient = supabaseClient;
-    
+
     // Override getServiceClient to return our test client
     vi.mocked(getServiceClient).mockReturnValue(testSupabaseClient);
-    
+
     // Set up auth mocks
     vi.mocked(getUserFromToken).mockImplementation(async (token) => {
       if (!token || token.includes("invalid")) {
@@ -111,39 +111,39 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
         email: "test1@example.com",
       };
     });
-    
+
     vi.mocked(getEmpIdForUserId).mockImplementation(async (userId) => {
       if (userId === "550e8400-e29b-41d4-a716-446655440002") {
         return "TEST002"; // Manager from seeded data
       }
       return "TEST001"; // Staff from seeded data
     });
-    
+
     vi.mocked(getUserRole).mockImplementation(async (empId) => {
       if (empId === "TEST002") {
         return "manager";
       }
       return "staff";
     });
-    
+
     staffToken = "test-staff-token";
     managerToken = "test-manager-token";
-    
+
     console.log("✅ Using existing test database");
     console.log("Test DB URL:", process.env.SUPABASE_TEST_URL?.substring(0, 50) + "...");
-    
+
     // Verify connection to test database
     try {
       const { data: testUsers, error } = await supabaseClient
         .from("users")
         .select("*")
         .in("emp_id", ["TEST001", "TEST002"]);
-      
+
       if (error) {
         console.error("❌ Failed to connect to test database:", error);
         throw new Error("Test database connection failed");
       }
-      
+
       console.log(`✅ Found ${testUsers?.length || 0} test users in database`);
       console.log("Test users:", testUsers?.map(u => u.emp_id));
     } catch (error) {
@@ -203,12 +203,12 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
         .from("users")
         .select("*")
         .in("emp_id", ["TEST001", "TEST002"]);
-      
+
       expect(error).toBeNull();
       expect(testUsers.length).toBeGreaterThan(0);
       expect(testUsers.some(u => u.emp_id === "TEST001")).toBe(true);
       expect(testUsers.some(u => u.emp_id === "TEST002")).toBe(true);
-      
+
       console.log("✅ Confirmed using test database with seeded users");
     });
 
@@ -218,44 +218,44 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
         .from("projects")
         .select("*")
         .limit(5);
-      
+
       expect(fetchError).toBeNull();
-      
+
       // If no projects exist, seed them for the test
       if (!existingProjects || existingProjects.length === 0) {
         console.log("⚠️ No projects found - seeding test projects...");
-        
+
         const { data: seededProjects, error: seedError } = await supabaseClient
           .from("projects")
           .insert([
-            { 
-              title: 'Test Project 1', 
-              description: 'Test project description', 
-              owner_id: 'TEST001', 
-              status: 'active' 
+            {
+              title: 'Test Project 1',
+              description: 'Test project description',
+              owner_id: 'TEST001',
+              status: 'active'
             },
-            { 
-              title: 'Test Project 2', 
-              description: 'Another test project', 
-              owner_id: 'TEST002', 
-              status: 'active' 
+            {
+              title: 'Test Project 2',
+              description: 'Another test project',
+              owner_id: 'TEST002',
+              status: 'active'
             }
           ])
           .select();
-        
+
         expect(seedError).toBeNull();
         expect(seededProjects.length).toBeGreaterThan(0);
         console.log(`✅ Seeded ${seededProjects.length} test projects`);
       } else {
         console.log(`✅ Found ${existingProjects.length} existing test projects`);
       }
-      
+
       // Verify projects now exist
       const { data: projects, error } = await supabaseClient
         .from("projects")
         .select("*")
         .limit(5);
-      
+
       expect(error).toBeNull();
       expect(projects.length).toBeGreaterThan(0);
     });
@@ -266,24 +266,24 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
       // Test getUserFromToken mock
       const staffUser = await getUserFromToken("test-staff-token");
       expect(staffUser.id).toBe("550e8400-e29b-41d4-a716-446655440001");
-      
+
       const managerUser = await getUserFromToken("test-manager-token");
       expect(managerUser.id).toBe("550e8400-e29b-41d4-a716-446655440002");
-      
+
       // Test getEmpIdForUserId mock
       const staffEmpId = await getEmpIdForUserId("550e8400-e29b-41d4-a716-446655440001");
       expect(staffEmpId).toBe("TEST001");
-      
+
       const managerEmpId = await getEmpIdForUserId("550e8400-e29b-41d4-a716-446655440002");
       expect(managerEmpId).toBe("TEST002");
-      
+
       // Test getUserRole mock
       const staffRole = await getUserRole("TEST001");
       expect(staffRole).toBe("staff");
-      
+
       const managerRole = await getUserRole("TEST002");
       expect(managerRole).toBe("manager");
-      
+
       console.log("✅ All auth mocks working correctly");
     });
 
@@ -298,15 +298,15 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
   describe("Supabase Database Functions - Integration", () => {
     it("should get user ID from emp_id via database query", async () => {
       const { getUserIdFromEmpId } = await import("../../server/lib/supabase.js");
-      
+
       // This makes a real database call - integration test
       const result = await getUserIdFromEmpId("TEST001");
       expect(typeof result === 'string' || result === null).toBe(true);
     });
-    
+
     it("should get user from token via Supabase auth", async () => {
       const { getUserFromToken } = await import("../../server/lib/supabase.js");
-      
+
       // This calls Supabase auth service - integration test
       try {
         await getUserFromToken("invalid-token");
@@ -317,7 +317,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
 
     it("should get emp_id for user ID via database query", async () => {
       const { getEmpIdForUserId } = await import("../../server/lib/supabase.js");
-      
+
       // This makes a real database call - integration test
       try {
         const result = await getEmpIdForUserId("550e8400-e29b-41d4-a716-446655440001");
@@ -350,7 +350,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
       expect(response.body).toHaveProperty("id");
       expect(response.body.title).toBe(taskData.title);
       expect(response.body.owner_id).toBe("TEST001"); // From seeded test user
-      
+
       createdTaskIds.push(response.body.id);
 
       // Verify in actual test database
@@ -399,21 +399,21 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
       console.log('Task with subtasks response:', response.status, response.body);
 
       expect([200, 201]).toContain(response.status);
-      
+
       if (response.body && response.body.id) {
         createdTaskIds.push(response.body.id);
-        
+
         expect(response.body.title).toBe(taskData.title);
         expect(response.body.owner_id).toBe("TEST001");
-        
+
         // Check for subtasks in the correct table
         console.log("🔍 Checking for subtasks in sub_task table...");
-        
+
         const { data: dbSubtasks, error: subtaskError } = await supabaseClient
           .from("sub_task")  // Use the confirmed table name directly
           .select("*")
           .eq("parent_task_id", response.body.id);
-        
+
         if (subtaskError) {
           console.log("❌ Error accessing sub_task table:", subtaskError.message);
           // For now, let's just check if the subtasks were included in the main task response
@@ -428,20 +428,20 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
         } else {
           expect(Array.isArray(dbSubtasks)).toBe(true);
           console.log(`Found ${dbSubtasks.length} subtasks in sub_task table`);
-          
+
           if (dbSubtasks.length > 0) {
             expect(dbSubtasks.length).toBe(2);
-            
+
             // Track subtasks for cleanup
             createdSubtaskIds.push(...dbSubtasks.map(st => st.id));
-            
+
             const formatSubtask = dbSubtasks.find(st => st.title === "Format documentation");
             expect(formatSubtask).toBeTruthy();
             expect(formatSubtask.description).toBe("Check for alignment and format");
             // owner_id is stored as numeric ID in sub_task table
             // We expect it to be 1 (extracted from "TEST001")
             expect(formatSubtask.owner_id).toBe(1); // Inherits from parent (numeric format)
-            
+
             console.log("✅ Task with subtasks created and verified in database");
           } else {
             console.log("⚠️ Subtasks were not created - checking task.js implementation");
@@ -463,99 +463,99 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
         .send(taskData);
 
       expect([200, 201]).toContain(response.status);
-      
+
       if (response.body && response.body.id) {
         createdTaskIds.push(response.body.id);
-        
+
         // Verify no subtasks were created
         const { data: dbSubtasks } = await supabaseClient
           .from("sub_task")
           .select("*")
           .eq("parent_task_id", response.body.id);
-        
+
         expect(dbSubtasks).toEqual([]);
         console.log("✅ Empty subtasks handled correctly");
       }
     });
 
     describe("Due Date Assignment Integration", () => {
-    it("should create task with future due date in database (CS-US11-TC-1)", async () => {
-      const futureDate = "2025-12-12";
-      const taskData = {
-        title: "Review project documentation",
-        description: "Task with due date",
-        priority: 5,
-        due_date: futureDate
-      };
+      it("should create task with future due date in database (CS-US11-TC-1)", async () => {
+        const futureDate = "2025-12-12";
+        const taskData = {
+          title: "Review project documentation",
+          description: "Task with due date",
+          priority: 5,
+          due_date: futureDate
+        };
 
-      const response = await request(app)
-        .post('/tasks')
-        .set('Authorization', `Bearer ${staffToken}`)
-        .send(taskData);
-
-      expect([200, 201]).toContain(response.status);
-      
-      if (response.body && response.body.id) {
-        createdTaskIds.push(response.body.id);
-        
-        expect(response.body.due_date).toBe(futureDate);
-        
-        // Verify in database
-        const { data: dbTask, error } = await supabaseClient
-          .from("tasks")
-          .select("due_date")
-          .eq("id", response.body.id)
-          .single();
-        
-        expect(error).toBeNull();
-        expect(dbTask.due_date).toBe(futureDate);
-        console.log("✅ Future due date saved correctly");
-      }
-    });
-
-    it("should update task due date in database", async () => {
-      // First create a task
-      const taskData = {
-        title: "Task for due date update",
-        priority: 3
-      };
-
-      const createResponse = await request(app)
-        .post('/tasks')
-        .set('Authorization', `Bearer ${staffToken}`)
-        .send(taskData);
-
-      if (createResponse.body && createResponse.body.id) {
-        createdTaskIds.push(createResponse.body.id);
-        
-        // Update the due date
-        const newDueDate = "2025-12-25";
-        const updateResponse = await request(app)
-          .put(`/tasks/${createResponse.body.id}`)
+        const response = await request(app)
+          .post('/tasks')
           .set('Authorization', `Bearer ${staffToken}`)
-          .send({ due_date: newDueDate });
+          .send(taskData);
 
-        expect(updateResponse.status).toBe(200);
-        expect(updateResponse.body.due_date).toBe(newDueDate);
-        
-        // Verify in database
-        const { data: dbTask, error } = await supabaseClient
-          .from("tasks")
-          .select("due_date")
-          .eq("id", createResponse.body.id)
-          .single();
-        
-        expect(error).toBeNull();
-        expect(dbTask.due_date).toBe(newDueDate);
-        console.log("✅ Due date update verified in database");
-      }
-    });
+        expect([200, 201]).toContain(response.status);
+
+        if (response.body && response.body.id) {
+          createdTaskIds.push(response.body.id);
+
+          expect(response.body.due_date).toBe(futureDate);
+
+          // Verify in database
+          const { data: dbTask, error } = await supabaseClient
+            .from("tasks")
+            .select("due_date")
+            .eq("id", response.body.id)
+            .single();
+
+          expect(error).toBeNull();
+          expect(dbTask.due_date).toBe(futureDate);
+          console.log("✅ Future due date saved correctly");
+        }
+      });
+
+      it("should update task due date in database", async () => {
+        // First create a task
+        const taskData = {
+          title: "Task for due date update",
+          priority: 3
+        };
+
+        const createResponse = await request(app)
+          .post('/tasks')
+          .set('Authorization', `Bearer ${staffToken}`)
+          .send(taskData);
+
+        if (createResponse.body && createResponse.body.id) {
+          createdTaskIds.push(createResponse.body.id);
+
+          // Update the due date
+          const newDueDate = "2025-12-25";
+          const updateResponse = await request(app)
+            .put(`/tasks/${createResponse.body.id}`)
+            .set('Authorization', `Bearer ${staffToken}`)
+            .send({ due_date: newDueDate });
+
+          expect(updateResponse.status).toBe(200);
+          expect(updateResponse.body.due_date).toBe(newDueDate);
+
+          // Verify in database
+          const { data: dbTask, error } = await supabaseClient
+            .from("tasks")
+            .select("due_date")
+            .eq("id", createResponse.body.id)
+            .single();
+
+          expect(error).toBeNull();
+          expect(dbTask.due_date).toBe(newDueDate);
+          console.log("✅ Due date update verified in database");
+        }
+      });
     });
 
     it("should require authentication", async () => {
       const response = await request(app)
         .get("/tasks");
-        // No Authorization header
+      // No Authorization header
 
       expect(response.status).toBe(401);
       console.log("✅ Authentication requirement verified");
@@ -566,7 +566,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
   describe("Project Association Integration", () => {
     it("should create task attached to a project (CS-US3-TC-3)", async () => {
       const taskData = {
-        title: "Review project documentation", 
+        title: "Review project documentation",
         description: "Review and update project docs for Q4",
         priority: 5,
         project_id: 1, // Using seeded test project
@@ -579,13 +579,13 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
         .send(taskData);
 
       expect([200, 201]).toContain(response.status);
-      
+
       if (response.body && response.body.id) {
         createdTaskIds.push(response.body.id);
-        
+
         expect(response.body.project_id).toBe(1);
         expect(response.body.owner_id).toBe("TEST001");
-        
+
         // Verify task appears in project-specific endpoint
         const projectResponse = await request(app)
           .get('/tasks/project/1')
@@ -606,7 +606,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
 
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body)).toBe(true);
-      
+
       // All returned tasks should belong to project 1
       if (response.body.length > 0) {
         response.body.forEach(task => {
@@ -634,13 +634,13 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
         .send(taskData);
 
       expect([200, 201]).toContain(response.status);
-      
+
       if (response.body && response.body.id) {
         createdTaskIds.push(response.body.id);
-        
+
         expect(Array.isArray(response.body.collaborators)).toBe(true);
         expect(response.body.collaborators).toEqual(expect.arrayContaining(collaborators));
-        
+
         // Verify collaborators can see the task
         const collaboratorResponse = await request(app)
           .get('/tasks')
@@ -658,7 +658,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
       const collaborators = ["TEST001", "TEST002"];
       const taskData = {
         title: "Review project documentation",
-        description: "Review and update project docs for Q4", 
+        description: "Review and update project docs for Q4",
         priority: 5,
         project_id: 1,
         collaborators: JSON.stringify(collaborators),
@@ -671,14 +671,14 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
         .send(taskData);
 
       expect([200, 201]).toContain(response.status);
-      
+
       if (response.body && response.body.id) {
         createdTaskIds.push(response.body.id);
-        
+
         expect(response.body.project_id).toBe(1);
         expect(Array.isArray(response.body.collaborators)).toBe(true);
         expect(response.body.collaborators).toEqual(expect.arrayContaining(collaborators));
-        
+
         // Verify task appears in both regular tasks and project tasks
         const projectResponse = await request(app)
           .get('/tasks/project/1')
@@ -712,21 +712,21 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
       console.log('Manager task assignment response:', response.status, response.body);
 
       expect([200, 201]).toContain(response.status);
-      
+
       if (response.body && response.body.id) {
         createdTaskIds.push(response.body.id);
-        
+
         // Verify task was created with assigned owner
         expect(response.body.title).toBe(taskData.title);
         expect(response.body.owner_id).toBe("TEST001");
-        
+
         // Verify in database
         const { data: dbTask, error } = await supabaseClient
           .from("tasks")
           .select("*")
           .eq("id", response.body.id)
           .single();
-        
+
         expect(error).toBeNull();
         expect(dbTask.owner_id).toBe("TEST001");
         console.log("✅ Manager assignment verified in database");
@@ -749,21 +749,21 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
       console.log('Staff assignment attempt response:', response.status, response.body);
 
       expect([200, 201]).toContain(response.status);
-      
+
       if (response.body && response.body.id) {
         createdTaskIds.push(response.body.id);
-        
+
         // Task should be assigned to creating user (TEST001), not requested owner
         expect(response.body.owner_id).toBe("TEST001");
         expect(response.body.status).toBe("ongoing");
-        
+
         // Verify in database
         const { data: dbTask, error } = await supabaseClient
           .from("tasks")
           .select("*")
           .eq("id", response.body.id)
           .single();
-        
+
         expect(error).toBeNull();
         expect(dbTask.owner_id).toBe("TEST001"); // Should be staff user, not requested
         console.log("✅ Staff assignment restriction verified");
@@ -807,20 +807,20 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
       console.log('Collaborators task response:', response.status, response.body);
 
       expect([200, 201]).toContain(response.status);
-      
+
       if (response.body && response.body.id) {
         createdTaskIds.push(response.body.id);
-        
+
         expect(Array.isArray(response.body.collaborators)).toBe(true);
         expect(response.body.collaborators).toEqual(expect.arrayContaining(collaborators));
-        
+
         // Verify in database
         const { data: dbTask, error } = await supabaseClient
           .from("tasks")
           .select("*")
           .eq("id", response.body.id)
           .single();
-        
+
         expect(error).toBeNull();
         expect(Array.isArray(dbTask.collaborators)).toBe(true);
         console.log("✅ Collaborators saved correctly in database");
@@ -851,16 +851,16 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
       console.log('Tasks with assignee names response:', response.status);
 
       expect(response.status).toBe(200);
-      
+
       const tasks = response.body.tasks || response.body;
       expect(Array.isArray(tasks)).toBe(true);
-      
+
       // Look for our created task
       const taskWithCollaborators = tasks.find(t => t.title === taskData.title);
       if (taskWithCollaborators) {
         expect(Array.isArray(taskWithCollaborators.collaborators)).toBe(true);
         console.log("✅ Task with collaborators found");
-        
+
         // If assignee_names field exists, verify it
         if (taskWithCollaborators.assignee_names) {
           expect(Array.isArray(taskWithCollaborators.assignee_names)).toBe(true);
@@ -883,10 +883,10 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
         .send(taskData);
 
       expect([200, 201]).toContain(response.status);
-      
+
       if (response.body && response.body.id) {
         createdTaskIds.push(response.body.id);
-        
+
         expect(Array.isArray(response.body.collaborators)).toBe(true);
         expect(response.body.collaborators.length).toBe(0);
         console.log("✅ Empty collaborators handled correctly");
@@ -906,10 +906,10 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
         .send(taskData);
 
       expect([200, 201]).toContain(response.status);
-      
+
       if (response.body && response.body.id) {
         createdTaskIds.push(response.body.id);
-        
+
         // Should default to empty array or handle gracefully
         if (response.body.collaborators !== undefined) {
           expect(Array.isArray(response.body.collaborators)).toBe(true);
@@ -933,10 +933,10 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
         .send(taskData);
 
       expect([200, 201]).toContain(response.status);
-      
+
       if (response.body && response.body.id) {
         createdTaskIds.push(response.body.id);
-        
+
         expect(response.body.owner_id).toBe("TEST001");
         console.log("✅ Manager/Director assignment verified");
       }
@@ -957,7 +957,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
 
       if (response.body && response.body.id) {
         createdTaskIds.push(response.body.id);
-        
+
         // Check history was created
         const historyResponse = await request(app)
           .get(`/tasks/${response.body.id}/history`)
@@ -966,7 +966,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
         expect(historyResponse.status).toBe(200);
         expect(historyResponse.body).toHaveProperty('history');
         expect(Array.isArray(historyResponse.body.history)).toBe(true);
-        
+
         if (historyResponse.body.history.length > 0) {
           const createHistory = historyResponse.body.history.find(h => h.action === 'create');
           expect(createHistory).toBeTruthy();
@@ -986,7 +986,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
 
       if (createResponse.body && createResponse.body.id) {
         createdTaskIds.push(createResponse.body.id);
-        
+
         // Update the task
         const updateResponse = await request(app)
           .put(`/tasks/${createResponse.body.id}`)
@@ -994,7 +994,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
           .send({ title: "Updated task title", priority: 7 });
 
         expect(updateResponse.status).toBe(200);
-        
+
         // Check history includes update
         const historyResponse = await request(app)
           .get(`/tasks/${createResponse.body.id}/history`)
@@ -1022,7 +1022,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
 
       if (response.status === 201 && response.body.id) {
         createdTaskIds.push(response.body.id);
-        
+
         // Priority should be null or within valid range
         expect(response.body.priority === null || (response.body.priority >= 1 && response.body.priority <= 10)).toBe(true);
         console.log("✅ Priority validation works");
@@ -1085,22 +1085,22 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
 
     it("should successfully update task status as task owner (CS-US6-TC-1)", async () => {
       console.log("🧪 Testing task owner status update...");
-      
+
       // Get current task status
       const getResponse = await request(app)
         .get('/tasks')
         .set('Authorization', `Bearer ${staffToken}`);
 
       expect(getResponse.status).toBe(200);
-      
+
       const tasks = getResponse.body.tasks || getResponse.body;
       const currentTask = tasks.find(t => t.id === taskWithCollaborators.id);
       expect(currentTask).toBeTruthy();
-      
+
       console.log("Current task status:", currentTask.status);
-      
+
       const updateData = {
-        status: "ongoing" 
+        status: "ongoing"
       };
 
       console.log("Sending update request with data:", updateData);
@@ -1114,7 +1114,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
 
       expect(updateResponse.status).toBe(200);
       expect(updateResponse.body.status).toBe("ongoing");
-      
+
       // Verify in database
       const { data: dbTask, error } = await supabaseClient
         .from("tasks")
@@ -1124,9 +1124,9 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
 
       expect(error).toBeNull();
       expect(dbTask.status).toBe("ongoing");
-      
+
       console.log("✅ Task owner successfully updated task status");
-    });
+    }, 15000);
 
     it("should successfully update subtask status as collaborator (CS-US6-TC-2)", async () => {
       if (!subtaskId) {
@@ -1156,7 +1156,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
       // Handle different possible response structures
       if (updateResponse.status === 404) {
         console.log("⚠️ Subtask update endpoint not found - testing alternative approach");
-        
+
         // Try direct database update to simulate the functionality
         const { data: updatedSubtask, error } = await supabaseClient
           .from("sub_task")
@@ -1170,7 +1170,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
         console.log("✅ Subtask status updated via direct database operation");
       } else {
         expect([200, 201]).toContain(updateResponse.status);
-        
+
         if (updateResponse.body) {
           expect(updateResponse.body.status).toBe("Completed");
         }
@@ -1184,14 +1184,14 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
 
         expect(error).toBeNull();
         expect(dbSubtask.status).toBe("Completed");
-        
+
         console.log("✅ Collaborator successfully updated subtask status");
       }
     });
 
     it("should prevent status update without permission (CS-US6-TC-3)", async () => {
       console.log("🧪 Testing unauthorized status update prevention...");
-      
+
       // Create a task that TEST002 is NOT a collaborator on
       const restrictedTaskData = {
         title: "Restricted Task - No Collaborators",
@@ -1209,7 +1209,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
 
       if (createResponse.body && createResponse.body.id) {
         createdTaskIds.push(createResponse.body.id);
-        
+
         const updateData = {
           status: "Ongoing"
         };
@@ -1266,7 +1266,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
     it("should handle collaborator permissions correctly", async () => {
       // Additional test to verify collaborator can update their assigned tasks
       console.log("🧪 Testing collaborator permissions validation...");
-      
+
       // Verify collaborator (TEST002) can update the collaborative task
       const updateData = {
         status: "Under Review",
@@ -1284,14 +1284,14 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
       if (updateResponse.status === 403) {
         console.log("⚠️ Collaborator access denied - this may indicate authorization logic needs adjustment");
         console.log("Error message:", updateResponse.body?.error);
-        
+
         // accept that collaborator access might be restricted
         expect(updateResponse.status).toBe(403);
         expect(updateResponse.body).toHaveProperty("error");
       } else {
         // Should succeed since TEST002 is a collaborator
         expect([200, 201]).toContain(updateResponse.status);
-        
+
         if (updateResponse.body) {
           expect(updateResponse.body.status).toBe("Under Review");
         }
@@ -1305,7 +1305,7 @@ describe.skipIf(skipIntegrationTests)("Integration Tests - Real Test Database", 
 
         expect(error).toBeNull();
         expect(dbTask.status).toBe("Under Review");
-        
+
         console.log("✅ Collaborator permissions working correctly");
       }
     });

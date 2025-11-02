@@ -5,17 +5,9 @@ import path from "path";
 // Load test environment from tests/.env.test
 dotenv.config({ path: path.join(process.cwd(), "tests", ".env.test") });
 
-// Determine if we should skip due to missing env
-const hasTestEnv = !!process.env.SUPABASE_TEST_URL && !!process.env.SUPABASE_TEST_SERVICE_KEY;
-const skipIntegrationTests = !hasTestEnv;
-
-if (hasTestEnv) {
-  // Override environment to force test database usage
-  process.env.SUPABASE_URL = process.env.SUPABASE_TEST_URL;
-  process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_TEST_SERVICE_KEY;
-} else {
-  console.log("⚠️  Skipping notifications integration tests - Supabase test env not configured");
-}
+// Override environment to force test database usage
+process.env.SUPABASE_URL = process.env.SUPABASE_TEST_URL;
+process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_TEST_SERVICE_KEY;
 
 import {
   describe,
@@ -61,8 +53,7 @@ function getTestSupabaseClient() {
     }
   );
 }
-
-describe.skipIf(skipIntegrationTests)("CS-US165: Upcoming deadline notification - Integration Tests", () => {
+describe("Notifications Integration Tests Setup", () => {
   let supabaseClient;
   let createdTaskIds = [];
   let createdNotificationIds = [];
@@ -139,17 +130,15 @@ describe.skipIf(skipIntegrationTests)("CS-US165: Upcoming deadline notification 
 
   afterAll(async () => {
     // Final cleanup
-    if (supabaseClient) {
-      await supabaseClient
-        .from("notifications")
-        .delete()
-        .ilike("title", "%Integration Test%");
+    await supabaseClient
+      .from("notifications")
+      .delete()
+      .ilike("title", "%Integration Test%");
 
-      await supabaseClient
-        .from("tasks")
-        .delete()
-        .ilike("title", "%Integration Test%");
-    }
+    await supabaseClient
+      .from("tasks")
+      .delete()
+      .ilike("title", "%Integration Test%");
   });
 
   describe("CS-US165: Upcoming deadline notification - Integration Tests", () => {

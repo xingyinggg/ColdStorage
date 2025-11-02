@@ -178,29 +178,55 @@ router.patch("/:id/read", async (req, res) => {
       return res.status(401).json({ error: "Employee ID not found for user" });
     }
 
-    // Update notification as read
+    // Update notification as read. Some test DBs / deployments may not have the
+    // optional `read_at` column; if updating with `read_at` fails due to a
+    // missing column in the schema cache, retry updating only the `read` flag.
     const supabase = getServiceClient();
-    const { data, error } = await supabase
-      .from("notifications")
-      .update({
-        read: true,
-        read_at: new Date().toISOString(),
-      })
-      .eq("id", notificationId)
-      .eq("emp_id", getNumericIdFromEmpId(empId)) // Convert emp_id to numeric ID for notifications table
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from("notifications")
+        .update({
+          read: true,
+          read_at: new Date().toISOString(),
+        })
+        .eq("id", notificationId)
+        .eq("emp_id", getNumericIdFromEmpId(empId)) // Convert emp_id to numeric ID for notifications table
+        .select()
+        .single();
 
-    if (error) {
-      console.error("Error updating notification:", error);
-      return res.status(500).json({ error: "Failed to update notification" });
+      if (error) {
+        // If the error is about missing `read_at` column in the schema cache,
+        // attempt a fallback update without `read_at`.
+        if (error.code === 'PGRST204' || (error.message && error.message.includes('read_at'))) {
+          console.warn('read_at column missing, retrying update without read_at');
+          const { data: fallback, error: fbErr } = await supabase
+            .from('notifications')
+            .update({ read: true })
+            .eq('id', notificationId)
+            .eq('emp_id', getNumericIdFromEmpId(empId))
+            .select()
+            .single();
+          if (fbErr) {
+            console.error('Fallback update failed:', fbErr);
+            return res.status(500).json({ error: 'Failed to update notification' });
+          }
+          if (!fallback) return res.status(404).json({ error: 'Notification not found' });
+          return res.json(fallback);
+        }
+
+        console.error('Error updating notification:', error);
+        return res.status(500).json({ error: 'Failed to update notification' });
+      }
+
+      if (!data) {
+        return res.status(404).json({ error: 'Notification not found' });
+      }
+
+      return res.json(data);
+    } catch (err) {
+      console.error('Unexpected error updating notification:', err);
+      return res.status(500).json({ error: 'Failed to update notification' });
     }
-
-    if (!data) {
-      return res.status(404).json({ error: "Notification not found" });
-    }
-
-    res.json(data);
   } catch (error) {
     console.error("Error in PATCH /notification/:id/read:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -222,28 +248,44 @@ router.patch("/mark-all-read", async (req, res) => {
       return res.status(401).json({ error: "Employee ID not found for user" });
     }
 
-    // Update all unread notifications as read
+    // Update all unread notifications as read. Some DBs may not have `read_at`.
     const supabase = getServiceClient();
-    const { data, error } = await supabase
-      .from("notifications")
-      .update({
-        read: true,
-        read_at: new Date().toISOString(),
-      })
-      .eq("emp_id", getNumericIdFromEmpId(empId)) // Convert emp_id to numeric ID for notifications table
-      .eq("read", false)
-      .select();
+    try {
+      const { data, error } = await supabase
+        .from("notifications")
+        .update({
+          read: true,
+          read_at: new Date().toISOString(),
+        })
+        .eq("emp_id", getNumericIdFromEmpId(empId)) // Convert emp_id to numeric ID for notifications table
+        .eq("read", false)
+        .select();
 
-    if (error) {
-      console.error("Error updating notifications:", error);
-      return res.status(500).json({ error: "Failed to update notifications" });
+      if (error) {
+        if (error.code === 'PGRST204' || (error.message && error.message.includes('read_at'))) {
+          console.warn('read_at column missing, retrying bulk update without read_at');
+          const { data: fallback, error: fbErr } = await supabase
+            .from('notifications')
+            .update({ read: true })
+            .eq('emp_id', getNumericIdFromEmpId(empId))
+            .eq('read', false)
+            .select();
+          if (fbErr) {
+            console.error('Fallback bulk update failed:', fbErr);
+            return res.status(500).json({ error: 'Failed to update notifications' });
+          }
+          return res.json({ message: 'All notifications marked as read', updated_count: fallback?.length || 0, data: fallback || [] });
+        }
+
+        console.error('Error updating notifications:', error);
+        return res.status(500).json({ error: 'Failed to update notifications' });
+      }
+
+      return res.json({ message: 'All notifications marked as read', updated_count: data?.length || 0, data: data || [] });
+    } catch (err) {
+      console.error('Unexpected error updating notifications:', err);
+      return res.status(500).json({ error: 'Failed to update notifications' });
     }
-
-    res.json({
-      message: "All notifications marked as read",
-      updated_count: data?.length || 0,
-      data: data || [],
-    });
   } catch (error) {
     console.error("Error in PATCH /notification/mark-all-read:", error);
     res.status(500).json({ error: "Internal server error" });

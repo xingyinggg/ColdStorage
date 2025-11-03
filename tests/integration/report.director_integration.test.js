@@ -124,6 +124,16 @@ describeIf(hasTestEnv)('Director Report Integration Tests', () => {
 
       // Create test users with unique IDs to avoid conflicts
       const uniqueId = Date.now().toString();
+
+      // --- Pre-clean any leftover test rows from previous runs (idempotent) ---
+      try {
+        await supabaseClient.from('users').delete().ilike('emp_id', `%${uniqueId}%`);
+        await supabaseClient.from('projects').delete().ilike('title', `%${uniqueId}%`);
+        await supabaseClient.from('tasks').delete().ilike('title', `%${uniqueId}%`);
+      } catch (e) {
+            // best-effort cleanup; ignore errors
+      };
+
       const users = [
         { emp_id: `TEST${uniqueId}001`, name: 'John Doe', department: 'Engineering', role: 'staff' },
         { emp_id: `TEST${uniqueId}002`, name: 'Jane Smith', department: 'Engineering', role: 'manager' },
@@ -189,12 +199,28 @@ describeIf(hasTestEnv)('Director Report Integration Tests', () => {
       expect(overviewResponse.body).toHaveProperty('projectPortfolio');
       expect(overviewResponse.body).toHaveProperty('taskMetrics');
 
-      // Verify organization-wide metrics increased from baseline
+      // Destructure BEFORE using companyKPIs in assertions
       const { companyKPIs, projectPortfolio, taskMetrics } = overviewResponse.body;
 
+      // Verify organization-wide metrics increased from baseline
       expect(companyKPIs.totalEmployees).toBeGreaterThanOrEqual(baselineKPIs.totalEmployees);
       expect(companyKPIs.totalProjects).toBeGreaterThanOrEqual(baselineKPIs.totalProjects);
       expect(companyKPIs.totalTasks).toBeGreaterThanOrEqual(baselineKPIs.totalTasks);
+
+      // Basic shape checks (robust to prior test runs). Also assert our created projects exist.
+      expect(companyKPIs).toBeDefined();
+      expect(projectPortfolio).toBeDefined();
+      expect(taskMetrics).toBeDefined();
+      for (const p of projects) {
+        const { data: found } = await supabaseClient
+          .from('projects')
+          .select('id,title')
+          .ilike('title', p.title)
+          .limit(1)
+          .maybeSingle();
+        expect(found).toBeTruthy();
+        expect(found.title).toContain(uniqueId);
+      }
 
       // Verify project portfolio metrics are reasonable
       expect(typeof projectPortfolio.active).toBe('number');

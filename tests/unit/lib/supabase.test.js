@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getNumericIdFromEmpId } from '../../../server/lib/supabase.js';
+import { getNumericIdFromEmpId, getAnonClient, getServiceClient } from '../../../server/lib/supabase.js';
 
 describe('Supabase Library - Unit Tests', () => {
   describe('getNumericIdFromEmpId', () => {
@@ -58,4 +58,28 @@ describe('Supabase Library - Unit Tests', () => {
       expect(getNumericIdFromEmpId('C0')).toBe(0);
     });
   });
+  describe('Pure Utility Functions', () => {
+    describe('getAnonClient', () => {
+      it('should create anon client with environment variables', () => {
+        
+        // Mock environment variables for unit test
+        process.env.SUPABASE_URL = 'https://test.supabase.co';
+        process.env.SUPABASE_ANON_KEY = 'test-anon-key';
+        
+        const client = getAnonClient();
+        expect(client).toBeDefined();
+      });
+    });
+
+    describe('getServiceClient', () => {
+      it('should create service client with environment variables', () => {
+        
+        process.env.SUPABASE_URL = 'https://test.supabase.co';
+        process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
+        
+        const client = getServiceClient();
+        expect(client).toBeDefined();
+      });
+    });
+  }); 
 });

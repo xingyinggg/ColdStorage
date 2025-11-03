@@ -274,8 +274,10 @@ export function useNotification() {
       const text = await res.text();
       const body = text ? JSON.parse(text) : { unread_count: 0 };
 
-      if (!res.ok)
+      if (!res.ok) {
+        console.error(`API error ${res.status}:`, body?.error || res.statusText);
         throw new Error(body?.error || `Request failed: ${res.status}`);
+      }
 
       const newCount = body.unread_count || 0;
       setUnreadCount(newCount);

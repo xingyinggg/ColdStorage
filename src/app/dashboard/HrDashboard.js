@@ -495,7 +495,7 @@ function AnalyticsTab({ performanceRankings, trends, departments }) {
               >
                 <div className="text-2xl mb-2">{medals[index]}</div>
                 <h4 className="font-medium text-gray-900">{emp.name}</h4>
-                <p className="text-sm text-gray-600">{emp.department}</p>
+                <p className="text-sm text-gray-600">{emp.department || "Executive Management"}</p>
                 <p className="text-lg font-bold text-blue-600">
                   {Math.round(emp.performanceScore)}% Score
                 </p>
@@ -545,7 +545,7 @@ function AnalyticsTab({ performanceRankings, trends, departments }) {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {emp.department}
+                      {emp.department || "Executive Management"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
                       {emp.completedTasks}/{emp.totalTasks}

@@ -107,7 +107,7 @@ describe.skipIf(skipIntegrationTests)(
       testUserId = authData.user.id;
       testEmpId = registrationData.emp_id;
 
-    // Upsert user into users table (in case it was auto-created)
+    // Upsert user into users table
     const { error: userError } = await supabaseClient
       .from("users")
       .upsert({
@@ -119,18 +119,53 @@ describe.skipIf(skipIntegrationTests)(
         role: registrationData.role,
       }, { onConflict: 'id' });
 
-    if (userError) throw userError;
+    if (userError) {
+      console.error('❌ Failed to insert user into users table:', userError);
+      throw userError;
+    }
 
-    // Login to get the token
-    const loginResponse = await request(app)
-      .post("/auth/login")
-      .send({
-        email: registrationData.email,
-        password: registrationData.password,
-      });
+      // Wait a bit to ensure user is fully created in the system
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    expect(loginResponse.status).toBe(200);
-    testUserToken = loginResponse.body.access_token;
+    // Instead of using the login endpoint, use service client to sign in directly
+    // This bypasses email confirmation requirements
+    const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
+      email: registrationData.email,
+      password: registrationData.password,
+    });
+
+    if (signInError) {
+      console.error('❌ Failed to sign in test user:', signInError);
+      console.error('Sign in error details:', JSON.stringify(signInError, null, 2));
+      
+      // Try to get more info about the user
+      const { data: userData, error: userFetchError } = await supabaseClient.auth.admin.getUserById(testUserId);
+      console.error('User data:', userData);
+      console.error('User fetch error:', userFetchError);
+      
+      throw signInError;
+    }
+
+    testUserToken = signInData.session.access_token;
+    
+    console.log("✅ Test user authenticated successfully");
+
+    // // Login to get the token
+    // const loginResponse = await request(app)
+    //   .post("/auth/login")
+    //   .send({
+    //     email: registrationData.email,
+    //     password: registrationData.password,
+    //   });
+
+    // if (loginResponse.status !== 200) {
+    //   console.error('❌ Failed to login:', loginResponse.body);
+    // }
+    
+    // expect(loginResponse.status).toBe(200);
+    // testUserToken = loginResponse.body.access_token;
+
+
 
       // Create a test project
       const { data: project, error: projectError } = await supabaseClient
@@ -233,7 +268,7 @@ describe.skipIf(skipIntegrationTests)(
       expect(firstTask.recurrence_max_count).toBe(5);
       expect(firstTask.recurrence_series_id).toBeDefined();
 
-    // Step 4: Mark task as completed
+    // Mark task as completed
     const updateResponse = await request(app)
       .put(`/api/tasks/${firstTask.id}`)
       .set("Authorization", `Bearer ${testUserToken}`)

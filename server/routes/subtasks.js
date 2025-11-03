@@ -4,6 +4,7 @@ import {
   getUserFromToken,
   getEmpIdForUserId,
   getNumericIdFromEmpId,
+  getEmpIdFromNumericId,
 } from "../lib/supabase.js";
 
 const router = Router();

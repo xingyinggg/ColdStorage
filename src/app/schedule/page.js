@@ -10,15 +10,34 @@ import { useUsers } from "@/utils/hooks/useUsers";
 import TaskDetailsModal from "@/components/tasks/TaskDetailsModal";
 import { useAuth } from "@/utils/hooks/useAuth";
 import { useManagerTasks } from "@/utils/hooks/useManagerTasks";
-import {
-  startOfDay,
-  addDays,
-  isSameDay,
-  getMonthGrid,
-  getWeekGrid,
-  groupTasksByDate,
-  applyFilters,
-} from "@/utils/calendarUtils";
+
+// Utilities for calendar calculations
+const startOfDay = (date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const addDays = (date, days) => {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+};
+
+const isSameDay = (a, b) => startOfDay(a).getTime() === startOfDay(b).getTime();
+
+const getMonthGrid = (cursor) => {
+  const firstOfMonth = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+  const startWeekDay = firstOfMonth.getDay(); // 0=Sun
+  const gridStart = addDays(firstOfMonth, -startWeekDay);
+  const cells = Array.from({ length: 42 }).map((_, i) => addDays(gridStart, i));
+  return cells;
+};
+
+const getWeekGrid = (cursor) => {
+  const start = addDays(cursor, -cursor.getDay());
+  return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
+};
 
 export default function SchedulePage() {
   const [view, setView] = useState("month"); // month | week | day
@@ -131,12 +150,37 @@ export default function SchedulePage() {
 
   // Normalize and filter tasks: must have due_date
   const schedulableTasks = useMemo(() => {
-    return applyFilters(roleTasks || [], {
-      projectId: projectFilter,
-      status: statusFilter,
-      assigneeId: assigneeFilter,
-      requireDueDate: true,
-    });
+    return (roleTasks || [])
+      .filter((t) => !!t.due_date)
+      .filter((t) =>
+        projectFilter
+          ? String(t.project_id || "") === String(projectFilter)
+          : true
+      )
+      .filter((t) =>
+        statusFilter ? String(t.status || "") === String(statusFilter) : true
+      )
+      .filter((t) => {
+        if (!assigneeFilter) return true;
+        // Owner or collaborators or assignees
+        if (String(t.owner_id || "") === String(assigneeFilter)) return true;
+        if (
+          Array.isArray(t.collaborators) &&
+          t.collaborators.map(String).includes(String(assigneeFilter))
+        )
+          return true;
+        if (Array.isArray(t.assignees)) {
+          const ids = t.assignees
+            .map((u) => String(u?.emp_id || u?.id || ""))
+            .filter(Boolean);
+          if (ids.includes(String(assigneeFilter))) return true;
+        }
+        return false;
+      })
+      .map((t) => ({
+        ...t,
+        due: startOfDay(new Date(t.due_date)),
+      }));
   }, [roleTasks, projectFilter, statusFilter, assigneeFilter]);
 
   const daysGrid = useMemo(() => {
@@ -146,7 +190,13 @@ export default function SchedulePage() {
   }, [view, cursorDate]);
 
   const tasksByDay = useMemo(() => {
-    return groupTasksByDate(schedulableTasks, daysGrid);
+    const map = new Map();
+    daysGrid.forEach((d) => map.set(startOfDay(d).getTime(), []));
+    schedulableTasks.forEach((t) => {
+      const key = startOfDay(t.due).getTime();
+      if (map.has(key)) map.get(key).push(t);
+    });
+    return map;
   }, [daysGrid, schedulableTasks]);
 
   const goPrev = () => {

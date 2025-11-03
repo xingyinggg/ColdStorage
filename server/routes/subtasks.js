@@ -4,6 +4,7 @@ import {
   getUserFromToken,
   getEmpIdForUserId,
   getNumericIdFromEmpId,
+  getEmpIdFromNumericId,
 } from "../lib/supabase.js";
 
 const router = Router();
@@ -411,8 +412,6 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-/* istanbul ignore next */
 export default router;
-
 
 

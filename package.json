@@ -15,8 +15,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:coverage:unit": "vitest run tests/unit --coverage --coverage.reporter=json --coverage.reporter=json-summary --coverage.reportsDirectory=coverage-unit",
-    "test:coverage:integration": "vitest run tests/integration --coverage --coverage.reporter=json --coverage.reporter=json-summary --coverage.reportsDirectory=coverage-integration",
     "test:unit": "vitest run tests/unit",
     "test:unit:ci": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",

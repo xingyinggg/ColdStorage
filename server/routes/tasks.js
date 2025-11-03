@@ -821,28 +821,11 @@ router.put("/:id", upload.single("file"), async (req, res) => {
     if (updates.due_date) {
       cleanUpdates.due_date = updates.due_date;
     }
-    
-    // Handle collaborators update
-    if (updates.collaborators !== undefined) {
-      let collaborators = updates.collaborators;
-      if (typeof collaborators === 'string') {
-        try {
-          collaborators = JSON.parse(collaborators);
-        } catch (e) {
-          collaborators = [];
-        }
-      }
-      if (Array.isArray(collaborators)) {
-        cleanUpdates.collaborators = collaborators;
-      } else {
-        cleanUpdates.collaborators = [];
-      }
-    }
 
     // Get current task to check existing file and ownership (including collaborators)
     const { data: currentTask, error: fetchError } = await supabase
       .from("tasks")
-      .select("file, owner_id, collaborators, title")
+      .select("file, owner_id, collaborators")
       .eq("id", Number(id))
       .single();
 
@@ -1139,52 +1122,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
         });
       }
 
-      // Handle new collaborators added to existing task
-      if (cleanUpdates.collaborators !== undefined) {
-        try {
-          const oldCollaborators = currentTask.collaborators || [];
-          let oldCollabArray = [];
-          if (typeof oldCollaborators === 'string') {
-            try {
-              oldCollabArray = JSON.parse(oldCollaborators);
-            } catch (e) {
-              oldCollabArray = [];
-            }
-          } else if (Array.isArray(oldCollaborators)) {
-            oldCollabArray = oldCollaborators.map(c => String(c));
-          }
-
-          const newCollabArray = (updatedTask.collaborators || []).map(c => String(c));
-          
-          // Find newly added collaborators
-          const newCollaborators = newCollabArray.filter(
-            collabId => !oldCollabArray.includes(String(collabId))
-          );
-
-          // Notify newly added collaborators
-          if (newCollaborators.length > 0) {
-            for (const newCollabId of newCollaborators) {
-              if (!newCollabId) continue;
-              if (String(newCollabId) === String(empId)) continue; // don't notify the editor
-              if (updatedTask.owner_id && String(newCollabId) === String(updatedTask.owner_id)) continue; // owner already notified
-              
-              notificationsToInsert.push({
-                emp_id: getNumericIdFromEmpId(newCollabId),
-                task_id: updatedTask.id,
-                title: `Added as collaborator for "${updatedTask.title}"`,
-                description: `${editorName} has added you as a collaborator for the shared task: "${updatedTask.title}".`,
-                type: "Shared Task",
-                created_at: new Date().toISOString(),
-                read: false,
-              });
-            }
-          }
-        } catch (newCollabErr) {
-          console.error('Error preparing new collaborator notifications:', newCollabErr);
-        }
-      }
-
-      // Notify existing collaborators (if any) except the editor - only if task was updated (not just collaborators added)
+      // Notify collaborators (if any) except the editor
       try {
         let collaborators = updatedTask.collaborators || [];
         if (typeof collaborators === 'string') {
@@ -1195,34 +1133,20 @@ router.put("/:id", upload.single("file"), async (req, res) => {
           }
         }
         if (Array.isArray(collaborators) && collaborators.length > 0) {
-          // Only notify existing collaborators if task fields were updated (not just collaborators)
-          const hasTaskUpdates = Object.keys(cleanUpdates).some(
-            key => key !== 'collaborators'
-          );
-          
-          if (hasTaskUpdates) {
-            collaborators.forEach((collabId) => {
-              if (!collabId) return;
-              if (String(collabId) === String(empId)) return; // don't notify the editor twice
-              if (updatedTask.owner_id && String(collabId) === String(updatedTask.owner_id)) return; // owner already notified
-              
-              // Skip if this collaborator was just added (already notified above)
-              if (cleanUpdates.collaborators && Array.isArray(cleanUpdates.collaborators)) {
-                const wasJustAdded = cleanUpdates.collaborators.map(c => String(c)).includes(String(collabId));
-                if (wasJustAdded) return;
-              }
-              
-              notificationsToInsert.push({
-                emp_id: getNumericIdFromEmpId(collabId), // Convert emp_id to numeric ID for notifications table
-                task_id: updatedTask.id,
-                title: `Task Updated (${updatedTask.title})`,
-                description: `${editorName} updated a task you're collaborating on: "${updatedTask.title}."`,
-                type: "Task Update",
-                created_at: new Date().toISOString(),
-                read: false,
-              });
+          collaborators.forEach((collabId) => {
+            if (!collabId) return;
+            if (String(collabId) === String(empId)) return; // don't notify the editor twice
+            if (updatedTask.owner_id && String(collabId) === String(updatedTask.owner_id)) return; // owner already notified
+            notificationsToInsert.push({
+              emp_id: getNumericIdFromEmpId(collabId), // Convert emp_id to numeric ID for notifications table
+              task_id: updatedTask.id,
+              title: `Task Updated (${updatedTask.title})`,
+              description: `${editorName} updated a task you're collaborating on: "${updatedTask.title}."`,
+              type: "Task Update",
+              created_at: new Date().toISOString(),
+              read: false,
             });
-          }
+          });
         }
       } catch (collabErr) {
         console.error('Error preparing collaborator notifications:', collabErr);
@@ -1255,31 +1179,31 @@ router.put("/:id", upload.single("file"), async (req, res) => {
 });
 
 // Delete task
-// router.delete("/:id", async (req, res) => {
-//   try {
-//     const supabase = getServiceClient();
-//     const authHeader = req.headers.authorization || "";
-//     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-//     if (!token) return res.status(401).json({ error: "Missing access token" });
+router.delete("/:id", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: "Missing access token" });
 
-//     const user = await getUserFromToken(token);
-//     if (!user) return res.status(401).json({ error: "Invalid token" });
-//     const empId = await getEmpIdForUserId(user.id);
-//     if (!empId) return res.status(400).json({ error: "emp_id not found" });
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: "Invalid token" });
+    const empId = await getEmpIdForUserId(user.id);
+    if (!empId) return res.status(400).json({ error: "emp_id not found" });
 
-//     const { id } = req.params;
-//     const { error } = await supabase
-//       .from("tasks")
-//       .delete()
-//       .eq("id", Number(id))
-//       .eq("owner_id", empId);
-//     if (error) return res.status(400).json({ error: error.message });
+    const { id } = req.params;
+    const { error } = await supabase
+      .from("tasks")
+      .delete()
+      .eq("id", Number(id))
+      .eq("owner_id", empId);
+    if (error) return res.status(400).json({ error: error.message });
 
-//     res.json({ ok: true });
-//   } catch (e) {
-//     res.status(500).json({ error: e.message });
-//   }
-// });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // Get tasks for multiple projects (needed for your frontend)
 router.post("/bulk", async (req, res) => {
@@ -1517,106 +1441,108 @@ router.put("/:id/recurrence", async (req, res) => {
 });
 
 // Delete a recurring task series
-// router.delete("/:id/recurrence", async (req, res) => {
-//   try {
-//     const supabase = getServiceClient();
-//     const authHeader = req.headers.authorization || "";
-//     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+router.delete("/:id/recurrence", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
-//     if (!token) return res.status(401).json({ error: "Missing access token" });
+    if (!token) return res.status(401).json({ error: "Missing access token" });
 
-//     const user = await getUserFromToken(token);
-//     if (!user) return res.status(401).json({ error: "Invalid token" });
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: "Invalid token" });
 
-//     const empId = await getEmpIdForUserId(user.id);
-//     if (!empId) return res.status(400).json({ error: "emp_id not found" });
+    const empId = await getEmpIdForUserId(user.id);
+    if (!empId) return res.status(400).json({ error: "emp_id not found" });
 
-//     const { id } = req.params;
-//     const { delete_all } = req.query; // Query param: true to delete all instances, false to delete only future
+    const { id } = req.params;
+    const { delete_all } = req.query; // Query param: true to delete all instances, false to delete only future
 
-//     // Get the task to verify ownership
-//     const { data: task, error: taskError } = await supabase
-//       .from("tasks")
-//       .select("owner_id, is_recurring, parent_recurrence_id")
-//       .eq("id", Number(id))
-//       .single();
+    // Get the task to verify ownership
+    const { data: task, error: taskError } = await supabase
+      .from("tasks")
+      .select("owner_id, is_recurring, parent_recurrence_id")
+      .eq("id", Number(id))
+      .single();
 
-//     if (taskError || !task) {
-//       return res.status(404).json({ error: "Task not found" });
-//     }
+    if (taskError || !task) {
+      return res.status(404).json({ error: "Task not found" });
+    }
 
-//     // Check if user owns the task
-//     if (task.owner_id !== empId) {
-//       return res.status(403).json({ error: "You can only delete your own tasks" });
-//     }
+    // Check if user owns the task
+    if (task.owner_id !== empId) {
+      return res.status(403).json({ error: "You can only delete your own tasks" });
+    }
 
-//     // Check if task is part of a recurring series
-//     if (!task.is_recurring && !task.parent_recurrence_id) {
-//       return res.status(400).json({ error: "This task is not part of a recurring series" });
-//     }
+    // Check if task is part of a recurring series
+    if (!task.is_recurring && !task.parent_recurrence_id) {
+      return res.status(400).json({ error: "This task is not part of a recurring series" });
+    }
 
-//     // Delete recurring task series
-//     const deleteAllInstances = delete_all === "true";
-//     const result = await recurrenceService.deleteRecurringTask(supabase, Number(id), deleteAllInstances);
+    // Delete recurring task series
+    const deleteAllInstances = delete_all === "true";
+    const result = await recurrenceService.deleteRecurringTask(supabase, Number(id), deleteAllInstances);
 
-//     if (!result.success) {
-//       return res.status(500).json({ error: result.error || "Failed to delete recurring task" });
-//     }
+    if (!result.success) {
+      return res.status(500).json({ error: result.error || "Failed to delete recurring task" });
+    }
 
-//     res.json({
-//       success: true,
-//       deletedCount: result.deletedCount,
-//       message: deleteAllInstances
-//         ? "Recurring task series and all instances deleted successfully"
-//         : "Recurring task template and future instances deleted successfully",
-//     });
-//   } catch (e) {
-//     console.error("Error deleting recurring task:", e);
-//     res.status(500).json({ error: e.message });
-//   }
-// });
+    res.json({
+      success: true,
+      deletedCount: result.deletedCount,
+      message: deleteAllInstances
+        ? "Recurring task series and all instances deleted successfully"
+        : "Recurring task template and future instances deleted successfully",
+    });
+  } catch (e) {
+    console.error("Error deleting recurring task:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
 
-// // Get all active recurring tasks (for managers/directors)
-// router.get("/recurring/active", async (req, res) => {
-//   try {
-//     const supabase = getServiceClient();
-//     const authHeader = req.headers.authorization || "";
-//     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+// Get all active recurring tasks (for managers/directors)
+router.get("/recurring/active", async (req, res) => {
+  try {
+    const supabase = getServiceClient();
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
-//     if (!token) return res.status(401).json({ error: "Missing access token" });
+    if (!token) return res.status(401).json({ error: "Missing access token" });
 
-//     const user = await getUserFromToken(token);
-//     if (!user) return res.status(401).json({ error: "Invalid token" });
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: "Invalid token" });
 
-//     const empId = await getEmpIdForUserId(user.id);
-//     if (!empId) return res.status(400).json({ error: "emp_id not found" });
+    const empId = await getEmpIdForUserId(user.id);
+    if (!empId) return res.status(400).json({ error: "emp_id not found" });
 
-//     // Get user role to check permissions
-//     const userRole = await getUserRole(empId);
-//     const canViewAll = userRole === "manager" || userRole === "director";
+    // Get user role to check permissions
+    const userRole = await getUserRole(empId);
+    const canViewAll = userRole === "manager" || userRole === "director";
 
-//     if (!canViewAll) {
-//       return res.status(403).json({ error: "Only managers and directors can view all recurring tasks" });
-//     }
+    if (!canViewAll) {
+      return res.status(403).json({ error: "Only managers and directors can view all recurring tasks" });
+    }
 
-//     // Get all active recurring tasks
-//     const result = await recurrenceService.getActiveRecurringTasks(supabase);
+    // Get all active recurring tasks
+    const result = await recurrenceService.getActiveRecurringTasks(supabase);
 
-//     if (!result.success) {
-//       return res.status(500).json({ error: result.error || "Failed to fetch active recurring tasks" });
-//     }
+    if (!result.success) {
+      return res.status(500).json({ error: result.error || "Failed to fetch active recurring tasks" });
+    }
 
-//     res.json({
-//       success: true,
-//       tasks: result.tasks,
-//       count: result.tasks.length,
-//     });
-//   } catch (e) {
-//     console.error("Error fetching active recurring tasks:", e);
-//     res.status(500).json({ error: e.message });
-//   }
-// });
+    res.json({
+      success: true,
+      tasks: result.tasks,
+      count: result.tasks.length,
+    });
+  } catch (e) {
+    console.error("Error fetching active recurring tasks:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
 
-/* istanbul ignore file */
+// New endpoint: GET /tasks/team/workload
+// Returns tasks owned by team members + collaboration tasks
+// Includes workload analysis (due in 3 days)
+
 export default router;
-

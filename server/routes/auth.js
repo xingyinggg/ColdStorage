@@ -98,9 +98,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-/* istanbul ignore next */
-/* istanbul ignore next */
 export default router;
-
 
 

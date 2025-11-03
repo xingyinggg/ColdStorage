@@ -174,4 +174,3 @@ export const useDeadlineNotifications = () => {
     isReadyForCheck,
   };
 };
-/* istanbul ignore file */

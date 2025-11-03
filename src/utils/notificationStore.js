@@ -1,5 +1,4 @@
 // utils/notificationStore.js
-/* istanbul ignore file */
 "use client";
 
 class NotificationStore {

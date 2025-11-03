@@ -1,5 +1,4 @@
 // app/dashboard/page.js
-/* istanbul ignore file */
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";

@@ -152,9 +152,6 @@ export default function NotificationPage() {
       "Task Creation": isRead
         ? "bg-purple-50 text-purple-600 border-purple-200"
         : "bg-purple-100 text-purple-700 border-purple-300",
-      "Shared Task": isRead
-        ? "bg-indigo-50 text-indigo-600 border-indigo-200"
-        : "bg-indigo-100 text-indigo-700 border-indigo-300",
       "Project Update": isRead
         ? "bg-orange-50 text-orange-600 border-orange-200"
         : "bg-orange-100 text-orange-700 border-orange-300",

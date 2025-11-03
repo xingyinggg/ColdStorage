@@ -13,21 +13,11 @@ const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     ignores: [
-      'playwright-report/**/*',
-      'coverage/**/*',
-      'dist/**/*',
-      'build/**/*',
-      '**/*.bundle.js',
-      '**/node_modules/**',
-
-      // ✅ ADD THESE - Next.js generated files
-      '.next/**/*',
-      'next-env.d.ts',
-      
-      // Optional: Other common generated files
-      'out/**/*',
-      '.vercel/**/*',
-      '.turbo/**/*'
+      "node_modules/**",
+      ".next/**",
+      "out/**",
+      "build/**",
+      "next-env.d.ts",
     ],
   },
   {
@@ -39,5 +29,4 @@ const eslintConfig = [
   },
 ];
 
-/* istanbul ignore next */
 export default eslintConfig;

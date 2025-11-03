@@ -495,6 +495,4 @@ router.get("/complete", async (req, res) => {
   }
 });
 
-/* istanbul ignore next */
 export default router;
-

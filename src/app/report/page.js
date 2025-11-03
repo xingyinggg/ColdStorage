@@ -178,7 +178,10 @@ function DirectorReports() {
   };
 
   // Get unique departments for filter
-  const departments = departmentPerformance?.map((dept) => dept.name) || [];
+  const departments = departmentPerformance?.map((dept) => {
+    // Ensure department names are properly handled, converting null/undefined to "Executive Management"
+    return dept.name || "Executive Management";
+  }) || [];
 
   // Filter projects based on department selection
   const filteredProjects =
@@ -195,7 +198,7 @@ function DirectorReports() {
       departmentFilter === "all"
         ? departmentPerformance
         : departmentPerformance.filter(
-            (dept) => dept.name === departmentFilter
+            (dept) => (dept.name || "Executive Management") === departmentFilter
           );
 
     return {
@@ -243,7 +246,10 @@ function DirectorReports() {
   // Filter options for department selector
   const departmentOptions = [
     { value: "all", label: "All Departments" },
-    ...departments.map((dept) => ({ value: dept, label: dept })),
+    ...departments.map((dept) => ({ 
+      value: dept, 
+      label: dept || "Executive Management" // Additional safety check
+    })),
   ];
 
   return (

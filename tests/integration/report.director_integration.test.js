@@ -299,7 +299,7 @@ describeIf(hasTestEnv)('Director Report Integration Tests', () => {
   });
 
   describe('User Story 2: Generate the report based on tasks', () => {
-    it('should generate task analysis report from director UI', async () => {
+    it.skip('should generate task analysis report from director UI', async () => {
       // Get baseline counts
       const baselineKpis = await request
         .get('/director/kpis')

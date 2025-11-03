@@ -280,12 +280,15 @@ describeIf(hasTestEnv)('Project Report Integration Tests', () => {
           title: 'Valid Project',
           description: 'Test',
           status: 'active',
-          owner_id: 1,
-          members: [1],
+          owner_id: '1',
+          members: ['1'],
         })
         .select()
         .single();
-      createdProjectIds.push(project.id);
+
+      if (project && project.id) {
+        createdProjectIds.push(project.id);
+      }
 
       // Get the max project ID to use a non-existent ID that's within smallint range
       const { data: maxProject } = await supabaseClient

@@ -103,8 +103,8 @@ export default function TeamWorkloadReportContent({
                         {info?.name || `Employee ${empId}`}
                       </p>
                       <p className="text-xs sm:text-sm text-gray-500">
-                        {info?.department || "Unknown"} •{" "}
-                        {info?.role || "Unknown"}
+                        {info?.role === "director" ? "Executive" : (info?.department || "Unknown")} •{" "}
+                        {info?.role ? info.role.charAt(0).toUpperCase() + info.role.slice(1) : "Unknown"}
                       </p>
                     </div>
                   </div>

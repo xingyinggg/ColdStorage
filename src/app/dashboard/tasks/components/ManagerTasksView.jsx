@@ -320,7 +320,7 @@ function TeamWorkloadTab({ departmentTeams = [], teamWorkload = {}, loading, err
                         {member?.name || `Employee ${empId}`}
                       </h4>
                       <p className="text-xs text-gray-500 truncate">
-                        {member?.department || 'Unknown'} • {member?.role || 'Unknown'}
+                        {member?.role === 'director' ? 'Executive' : (member?.department || 'Unknown')} • {member?.role ? member.role.charAt(0).toUpperCase() + member.role.slice(1) : 'Unknown'}
                       </p>
                     </div>
                   </div>

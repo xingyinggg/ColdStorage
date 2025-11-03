@@ -72,11 +72,12 @@ router.get('/my-team', async (req, res) => {
     
     console.log('All users in database:', allUsers?.map(u => ({ emp_id: u.emp_id, name: u.name })));
     
-    // Get detailed member information with better error handling
+    // Get detailed member information with better error handling (exclude directors)
     const { data: members, error: membersError } = await supabase
       .from('users')
       .select('emp_id, name, email, department, role')
       .in('emp_id', memberIdsAsStrings)
+      .neq('role', 'director')
       .order('name');
 
     console.log('Query result - members found:', members?.length || 0);
@@ -170,11 +171,12 @@ router.get('/workload', async (req, res) => {
       });
     }
 
-    // Get member details
+    // Get member details (exclude directors as they don't have departments)
     const { data: members, error: membersError } = await supabase
       .from('users')
       .select('emp_id, name, email, department, role')
-      .in('emp_id', uniqueMemberIds);
+      .in('emp_id', uniqueMemberIds)
+      .neq('role', 'director');
 
     if (membersError) {
       console.error('Error fetching members:', membersError);

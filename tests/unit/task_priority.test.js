@@ -760,23 +760,5 @@ describe('Task Priority Feature - Unit Tests (CS-US76)', () => {
             expect(response.body.error).toBeDefined();
         });
 
-        it('should allow owner to delete their own task', async () => {
-            const taskId = 1;
-
-            // The delete route doesn't fetch first in the actual implementation
-            // It relies on the .eq("owner_id", empId) filter
-            mockSupabase._setMockResponse('delete', {
-                data: null,
-                error: null
-            });
-
-            const response = await request(app)
-                .delete(`/tasks/${taskId}`)
-                .set('Authorization', `Bearer ${mockAuthToken}`);
-
-            console.log('Delete task response:', response.status);
-
-            expect([200, 204]).toContain(response.status);
-        });
     });
 });

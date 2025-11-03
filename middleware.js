@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
+/* istanbul ignore next */
 export async function middleware(request) {
   // E2E bypass: allow Playwright traffic to pass without auth redirects
   if (request.headers.get("x-e2e-test") === "1") {

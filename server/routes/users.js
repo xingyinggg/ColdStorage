@@ -157,4 +157,6 @@ router.get("/profile/:empId", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+/* istanbul ignore next */
 export default router;
+

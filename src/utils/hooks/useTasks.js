@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
 

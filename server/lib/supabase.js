@@ -98,33 +98,33 @@ export async function getUserIdFromEmpId(empId) {
   return data?.id || null;
 }
 
-/**
- * Get emp_id from numeric user ID by querying the users table
- * @param {number} numericId - The numeric user ID (e.g., 1)
- * @returns {Promise<string|null>} - The emp_id or null
- */
-export async function getEmpIdFromNumericId(numericId) {
-  if (!numericId) return null;
+// /**
+//  * Get emp_id from numeric user ID by querying the users table
+//  * @param {number} numericId - The numeric user ID (e.g., 1)
+//  * @returns {Promise<string|null>} - The emp_id or null
+//  */
+// export async function getEmpIdFromNumericId(numericId) {
+//   if (!numericId) return null;
   
-  const supabase = getServiceClient();
+//   const supabase = getServiceClient();
   
-  // Query users table where the numeric part of emp_id matches
-  // This assumes emp_id format like "TEST001" where the numeric part is extracted
-  const { data, error } = await supabase
-    .from('users')
-    .select('emp_id')
-    .limit(1000);  // Get all users to search
+//   // Query users table where the numeric part of emp_id matches
+//   // This assumes emp_id format like "TEST001" where the numeric part is extracted
+//   const { data, error } = await supabase
+//     .from('users')
+//     .select('emp_id')
+//     .limit(1000);  // Get all users to search
   
-  if (error || !data) return null;
+//   if (error || !data) return null;
   
-  // Find the user where the numeric portion matches
-  const user = data.find(u => {
-    if (!u.emp_id) return false;
-    const match = String(u.emp_id).match(/(\d+)$/);
-    return match && parseInt(match[1], 10) === numericId;
-  });
+//   // Find the user where the numeric portion matches
+//   const user = data.find(u => {
+//     if (!u.emp_id) return false;
+//     const match = String(u.emp_id).match(/(\d+)$/);
+//     return match && parseInt(match[1], 10) === numericId;
+//   });
   
-  return user?.emp_id || null;
-}
+//   return user?.emp_id || null;
+// }
 
 

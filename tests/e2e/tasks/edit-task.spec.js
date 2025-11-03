@@ -21,8 +21,8 @@ test.describe("Task Editing Flow", () => {
     // Create fresh mock task for each test
     mockTask = createMockTask();
 
-    // Mock GET tasks - return our test task
-    await page.route(/\/tasks(\?.*)?$/, async (route) => {
+    // Mock GET tasks - return our test task (backend on port 4000)
+    await page.route("**/tasks*", async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({
           status: 200,
@@ -35,7 +35,7 @@ test.describe("Task Editing Flow", () => {
     });
 
     // Mock PUT /tasks/:id - task update
-    await page.route(/\/tasks\/[^/]+$/, async (route) => {
+    await page.route("**/tasks/*", async (route) => {
       if (route.request().method() === "PUT") {
         const taskId = route.request().url().split("/").pop();
         const updates = JSON.parse(route.request().postData());
@@ -54,7 +54,8 @@ test.describe("Task Editing Flow", () => {
       }
     });
 
-    await page.route(/\/users\/bulk$/, async (route) => {
+    // Mock GET /users/bulk
+    await page.route("**/users/bulk*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -64,11 +65,21 @@ test.describe("Task Editing Flow", () => {
       });
     });
 
-    await page.route(/\/projects(\?.*)?$/, async (route) => {
+    // Mock GET /projects
+    await page.route("**/projects*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ projects: [] }),
+      });
+    });
+
+    // Mock notification endpoints that might be called
+    await page.route("**/notifications*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ notifications: [] }),
       });
     });
   });

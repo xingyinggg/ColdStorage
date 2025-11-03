@@ -320,4 +320,5 @@ router.get('/workload', async (req, res) => {
   }
 });
 
+/* istanbul ignore next */
 export default router;

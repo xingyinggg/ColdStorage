@@ -498,6 +498,120 @@ describe('[UNIT] Recurring Tasks - Integration Scenarios', () => {
     mockSupabase = createMockSupabase();
   });
 
+  describe('calculateNextOccurrence - Additional Edge Cases', () => {
+    it('should handle leap year February correctly', () => {
+      const leapYearDate = new Date('2024-02-28');
+      const result = calculateNextOccurrence(leapYearDate, 'monthly');
+      expect(result.toISOString().split('T')[0]).toBe('2024-03-28'); // Should handle leap year
+    });
+
+    it('should handle non-leap year February correctly', () => {
+      const nonLeapYearDate = new Date('2025-02-28');
+      const result = calculateNextOccurrence(nonLeapYearDate, 'monthly');
+      expect(result.toISOString().split('T')[0]).toBe('2025-03-28'); // Normal February
+    });
+
+    it('should handle December to January year transition', () => {
+      const decDate = new Date('2024-12-15');
+      const result = calculateNextOccurrence(decDate, 'monthly');
+      expect(result.toISOString().split('T')[0]).toBe('2025-01-15'); // Year transition
+    });
+
+    it('should handle invalid pattern gracefully', () => {
+      const testDate = new Date('2024-01-15');
+      expect(() => calculateNextOccurrence(testDate, 'invalid')).toThrow('Invalid recurrence pattern: invalid');
+    });
+
+    it('should handle null weekday for weekly pattern', () => {
+      const testDate = new Date('2024-01-15'); // Monday
+      const result = calculateNextOccurrence(testDate, 'weekly', 1, null);
+      expect(result.toISOString().split('T')[0]).toBe('2024-01-22'); // Just add 7 days
+    });
+
+    it('should handle biweekly with null weekday', () => {
+      const testDate = new Date('2024-01-15');
+      const result = calculateNextOccurrence(testDate, 'biweekly', 1, null);
+      expect(result.toISOString().split('T')[0]).toBe('2024-01-29'); // Just add 14 days
+    });
+
+    it('should handle custom interval for yearly pattern', () => {
+      const testDate = new Date('2024-01-15');
+      const result = calculateNextOccurrence(testDate, 'yearly', 2); // Every 2 years
+      expect(result.toISOString().split('T')[0]).toBe('2026-01-15');
+    });
+
+    it('should handle quarterly pattern correctly', () => {
+      const testDate = new Date('2024-01-15');
+      const result = calculateNextOccurrence(testDate, 'quarterly');
+      expect(result.toISOString().split('T')[0]).toBe('2024-04-15'); // Jan -> Apr
+
+      const result2 = calculateNextOccurrence(result, 'quarterly');
+      expect(result2.toISOString().split('T')[0]).toBe('2024-07-15'); // Apr -> Jul
+    });
+  });
+
+  describe('shouldContinueRecurrence - Additional Edge Cases', () => {
+    it('should continue when no end date or max count set', () => {
+      const nextDate = new Date('2024-02-15');
+      const result = shouldContinueRecurrence(nextDate, null, null, 1);
+      expect(result).toBe(true);
+    });
+
+    it('should stop when next date is past end date', () => {
+      const nextDate = new Date('2024-02-15');
+      const endDate = new Date('2024-02-10');
+      const result = shouldContinueRecurrence(nextDate, endDate, null, 1);
+      expect(result).toBe(false);
+    });
+
+    it('should continue when next date is before end date', () => {
+      const nextDate = new Date('2024-02-15');
+      const endDate = new Date('2024-02-20');
+      const result = shouldContinueRecurrence(nextDate, endDate, null, 1);
+      expect(result).toBe(true);
+    });
+
+    it('should continue when next date equals end date', () => {
+      const nextDate = new Date('2024-02-15');
+      const endDate = new Date('2024-02-15');
+      const result = shouldContinueRecurrence(nextDate, endDate, null, 1);
+      expect(result).toBe(true); // Should allow the end date occurrence
+    });
+
+    it('should stop when current count exceeds max count', () => {
+      const nextDate = new Date('2024-02-15');
+      const result = shouldContinueRecurrence(nextDate, null, 3, 3);
+      expect(result).toBe(false); // At max count, should stop
+    });
+
+    it('should continue when current count is below max count', () => {
+      const nextDate = new Date('2024-02-15');
+      const result = shouldContinueRecurrence(nextDate, null, 3, 2);
+      expect(result).toBe(true); // Below max count, should continue
+    });
+
+    it('should handle both end date and max count constraints', () => {
+      const nextDate = new Date('2024-02-15');
+      const endDate = new Date('2024-02-20');
+      const result = shouldContinueRecurrence(nextDate, endDate, 5, 2);
+      expect(result).toBe(true); // Both constraints allow continuation
+    });
+
+    it('should stop when end date constraint fails even if count allows', () => {
+      const nextDate = new Date('2024-02-15');
+      const endDate = new Date('2024-02-10');
+      const result = shouldContinueRecurrence(nextDate, endDate, 5, 2);
+      expect(result).toBe(false); // End date constraint fails
+    });
+
+    it('should stop when count constraint fails even if end date allows', () => {
+      const nextDate = new Date('2024-02-15');
+      const endDate = new Date('2024-02-20');
+      const result = shouldContinueRecurrence(nextDate, endDate, 2, 2);
+      expect(result).toBe(false); // Count constraint fails
+    });
+  });
+
   it('should handle complete workflow: create -> complete 3 times', async () => {
     // This is a simplified integration-style test using mocks
     // It verifies the basic flow works correctly

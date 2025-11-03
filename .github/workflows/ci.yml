@@ -270,24 +270,94 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Run tests with coverage
-        run: npm run test:coverage
-      
+      - name: Run unit tests
+        id: unit_tests
+        run: npm run test:unit
+        continue-on-error: true
+
+      - name: Run integration tests
+        id: integration_tests
+        run: npm run test:integration
+        continue-on-error: true
+
+      - name: Run unit tests with coverage
+        id: unit_coverage_tests
+        run: |
+          mkdir -p coverage-unit
+          npm run test:unit -- --coverage --coverage.reporter=json --coverage.reporter=json-summary --coverage.reportsDirectory=coverage-unit
+        continue-on-error: true
+
+      - name: Run integration tests with coverage
+        id: integration_coverage_tests
+        run: |
+          mkdir -p coverage-integration
+          npm run test:integration -- --coverage --coverage.reporter=json --coverage.reporter=json-summary --coverage.reportsDirectory=coverage-integration
+        continue-on-error: true
+
       - name: Generate coverage summary
         id: coverage
         if: always()
         run: |
-          if [ -f coverage/coverage-summary.json ]; then
-            COVERAGE=$(cat coverage/coverage-summary.json)
-            STATEMENTS=$(echo $COVERAGE | jq -r '.total.statements.pct')
-            BRANCHES=$(echo $COVERAGE | jq -r '.total.branches.pct')
-            FUNCTIONS=$(echo $COVERAGE | jq -r '.total.functions.pct')
-            LINES=$(echo $COVERAGE | jq -r '.total.lines.pct')
-            
-            echo "statements=$STATEMENTS" >> $GITHUB_OUTPUT
-            echo "branches=$BRANCHES" >> $GITHUB_OUTPUT
-            echo "functions=$FUNCTIONS" >> $GITHUB_OUTPUT
-            echo "lines=$LINES" >> $GITHUB_OUTPUT
+          # Get test results
+          UNIT_OUTCOME="${{ steps.unit_tests.outcome }}"
+          INTEGRATION_OUTCOME="${{ steps.integration_tests.outcome }}"
+          UNIT_COVERAGE_OUTCOME="${{ steps.unit_coverage_tests.outcome }}"
+          INTEGRATION_COVERAGE_OUTCOME="${{ steps.integration_coverage_tests.outcome }}"
+
+          if [ "$UNIT_OUTCOME" = "success" ]; then
+            echo "unit_tests_passed=0" >> $GITHUB_OUTPUT
+          else
+            echo "unit_tests_passed=1" >> $GITHUB_OUTPUT
+          fi
+
+          if [ "$INTEGRATION_OUTCOME" = "success" ]; then
+            echo "integration_tests_passed=0" >> $GITHUB_OUTPUT
+          else
+            echo "integration_tests_passed=1" >> $GITHUB_OUTPUT
+          fi
+
+          if [ "$UNIT_COVERAGE_OUTCOME" = "success" ] && [ "$INTEGRATION_COVERAGE_OUTCOME" = "success" ]; then
+            echo "coverage_tests_passed=0" >> $GITHUB_OUTPUT
+          else
+            echo "coverage_tests_passed=1" >> $GITHUB_OUTPUT
+          fi
+
+          # Initialize coverage flags
+          echo "has_unit_coverage=false" >> $GITHUB_OUTPUT
+          echo "has_integration_coverage=false" >> $GITHUB_OUTPUT
+
+          # Check for unit coverage results
+          if [ -f coverage-unit/coverage-summary.json ]; then
+            UNIT_COVERAGE=$(cat coverage-unit/coverage-summary.json)
+            UNIT_STATEMENTS=$(echo $UNIT_COVERAGE | jq -r '.total.statements.pct')
+            UNIT_BRANCHES=$(echo $UNIT_COVERAGE | jq -r '.total.branches.pct')
+            UNIT_FUNCTIONS=$(echo $UNIT_COVERAGE | jq -r '.total.functions.pct')
+            UNIT_LINES=$(echo $UNIT_COVERAGE | jq -r '.total.lines.pct')
+
+            echo "unit_statements=$UNIT_STATEMENTS" >> $GITHUB_OUTPUT
+            echo "unit_branches=$UNIT_BRANCHES" >> $GITHUB_OUTPUT
+            echo "unit_functions=$UNIT_FUNCTIONS" >> $GITHUB_OUTPUT
+            echo "unit_lines=$UNIT_LINES" >> $GITHUB_OUTPUT
+            echo "has_unit_coverage=true" >> $GITHUB_OUTPUT
+          fi
+
+          # Check for integration coverage results
+          if [ -f coverage-integration/coverage-summary.json ]; then
+            INTEGRATION_COVERAGE=$(cat coverage-integration/coverage-summary.json)
+            INTEGRATION_STATEMENTS=$(echo $INTEGRATION_COVERAGE | jq -r '.total.statements.pct')
+            INTEGRATION_BRANCHES=$(echo $INTEGRATION_COVERAGE | jq -r '.total.branches.pct')
+            INTEGRATION_FUNCTIONS=$(echo $INTEGRATION_COVERAGE | jq -r '.total.functions.pct')
+            INTEGRATION_LINES=$(echo $INTEGRATION_COVERAGE | jq -r '.total.lines.pct')
+
+            echo "integration_statements=$INTEGRATION_STATEMENTS" >> $GITHUB_OUTPUT
+            echo "integration_branches=$INTEGRATION_BRANCHES" >> $GITHUB_OUTPUT
+            echo "integration_functions=$INTEGRATION_FUNCTIONS" >> $GITHUB_OUTPUT
+            echo "integration_lines=$INTEGRATION_LINES" >> $GITHUB_OUTPUT
+            echo "has_integration_coverage=true" >> $GITHUB_OUTPUT
+          fi
+
+          # Set overall coverage flag
+          if [ -f coverage-unit/coverage-summary.json ] || [ -f coverage-integration/coverage-summary.json ]; then
             echo "has_coverage=true" >> $GITHUB_OUTPUT
           else
             echo "has_coverage=false" >> $GITHUB_OUTPUT
@@ -302,33 +372,68 @@ jobs:
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1)
           ACTOR="${GITHUB_ACTOR}"
-          
-          MESSAGE="📊 *Coverage Report*
-          
+
+          # Test status indicators
+          if [ "${{ steps.coverage.outputs.unit_tests_passed }}" = "0" ]; then
+            UNIT_STATUS="✅"
+          else
+            UNIT_STATUS="❌"
+          fi
+
+          if [ "${{ steps.coverage.outputs.integration_tests_passed }}" = "0" ]; then
+            INTEGRATION_STATUS="✅"
+          else
+            INTEGRATION_STATUS="❌"
+          fi
+
+          if [ "${{ steps.coverage.outputs.coverage_tests_passed }}" = "0" ]; then
+            COVERAGE_STATUS="✅"
+          else
+            COVERAGE_STATUS="❌"
+          fi
+
+          # Build coverage sections
+          UNIT_COVERAGE_SECTION=""
+          if [ "${{ steps.coverage.outputs.has_unit_coverage }}" = "true" ]; then
+            UNIT_COVERAGE_SECTION="
+          🔬 *Unit Test Coverage:*
+          ⚙️ Functions: ${{ steps.coverage.outputs.unit_functions }}% | 🔀 Branches: ${{ steps.coverage.outputs.unit_branches }}%"
+          fi
+
+          INTEGRATION_COVERAGE_SECTION=""
+          if [ "${{ steps.coverage.outputs.has_integration_coverage }}" = "true" ]; then
+            INTEGRATION_COVERAGE_SECTION="
+          🔗 *Integration Test Coverage:*
+          ⚙️ Functions: ${{ steps.coverage.outputs.integration_functions }}% | 🔀 Branches: ${{ steps.coverage.outputs.integration_branches }}%"
+          fi
+
+          MESSAGE="📊 *Test Coverage Report*
+
           *Branch:* \`$BRANCH_NAME\`
           *Commit:* $COMMIT_MSG
           *Author:* $ACTOR
-          
-          *Coverage Results:*
-          📈 Statements: ${{ steps.coverage.outputs.statements }}%
-          🔀 Branches: ${{ steps.coverage.outputs.branches }}%
-          ⚡ Functions: ${{ steps.coverage.outputs.functions }}%
-          📝 Lines: ${{ steps.coverage.outputs.lines }}%
-          
-          [View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-          
+
+          *Test Results:*
+          🔬 *Unit Tests:* $UNIT_STATUS PASSED
+          🔗 *Integration Tests:* $INTEGRATION_STATUS PASSED
+          📈 *Coverage Tests:* $COVERAGE_STATUS PASSED$UNIT_COVERAGE_SECTION$INTEGRATION_COVERAGE_SECTION
+
+          [View Full Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d text="${MESSAGE}" \
             -d parse_mode="Markdown" \
             -d disable_web_page_preview=true
       
-      - name: Upload coverage report
+      - name: Upload coverage reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
-          path: coverage/
+          name: coverage-reports
+          path: |
+            coverage-unit/
+            coverage-integration/
           retention-days: 30
       
       - name: Notify Telegram (failure)

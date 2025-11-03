@@ -3,9 +3,10 @@ import { defineConfig } from "@playwright/test";
 
 const isCI = !!process.env.CI;
 
+// E2E tests use mocked API responses and don't need a real server
 export default defineConfig({
   testDir: "tests/e2e",
-  reporter: [["html", { open: "never" }], ["list"]],
+  reporter: [["html", { open: "never" }], ["github"], ["list"]],
   use: {
     baseURL: "http://localhost:3000",
     headless: true,
@@ -13,7 +14,7 @@ export default defineConfig({
     screenshot: "on",
     trace: "on",
   },
-  // start your Next.js dev or prod server
+  // Start Next.js and backend server before running tests
   webServer: {
     command: isCI ? "npm run start:all" : "npm run dev:all",
     url: "http://localhost:3000",

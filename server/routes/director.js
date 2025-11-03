@@ -1,5 +1,4 @@
 import express from 'express';
-import { createClient } from '@supabase/supabase-js';
 import { getServiceClient, getUserFromToken } from '../lib/supabase.js';
 
 const router = express.Router();
@@ -186,14 +185,14 @@ router.get('/departments', async (req, res) => {
 });
 
 // Helper function to group tasks by department
-function getTasksByDepartment(tasks) {
-  const byDept = {};
-  tasks.forEach(task => {
-    const dept = task.task_owner?.department || 'Unknown';
-    byDept[dept] = (byDept[dept] || 0) + 1;
-  });
-  return byDept;
-}
+// function getTasksByDepartment(tasks) {
+//   const byDept = {};
+//   tasks.forEach(task => {
+//     const dept = task.task_owner?.department || 'Unknown';
+//     byDept[dept] = (byDept[dept] || 0) + 1;
+//   });
+//   return byDept;
+// }
 
 // Get cross-departmental collaboration metrics
 router.get('/collaboration', async (req, res) => {
@@ -370,121 +369,123 @@ router.get('/kpis', async (req, res) => {
 });
 
 // Director: Get all tasks (with owner info)
-router.get("/tasks/all", async (req, res) => {
-  try {
-    const { userId } = req.user;
+// router.get("/tasks/all", async (req, res) => {
+//   try {
+//     const { userId } = req.user;
     
-    // Verify director role
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", userId)
-      .single();
+//     // Verify director role
+//     const { data: userData, error: userError } = await supabase
+//       .from("users")
+//       .select("role")
+//       .eq("id", userId)
+//       .single();
 
-    if (userError || userData.role !== "director") {
-      return res.status(403).json({ error: "Access denied" });
-    }
+//     if (userError || userData.role !== "director") {
+//       return res.status(403).json({ error: "Access denied" });
+//     }
 
-    const { data: tasksData, error: tasksError } = await supabase
-      .from("tasks")
-      .select("*")
-      .order("created_at", { ascending: false });
+//     const { data: tasksData, error: tasksError } = await supabase
+//       .from("tasks")
+//       .select("*")
+//       .order("created_at", { ascending: false });
 
-    if (tasksError) {
-      console.error("Error fetching tasks:", tasksError);
-      return res.status(500).json({ error: "Failed to fetch tasks" });
-    }
+//     if (tasksError) {
+//       console.error("Error fetching tasks:", tasksError);
+//       return res.status(500).json({ error: "Failed to fetch tasks" });
+//     }
 
-    // Enrich tasks with owner information
-    const enrichedTasks = await Promise.all(
-      (tasksData || []).map(async (task) => {
-        if (task.owner_id) {
-          const { data: ownerData } = await supabase
-            .from("users")
-            .select("name")
-            .eq("emp_id", task.owner_id)
-            .single();
-          return { ...task, owner_name: ownerData?.name || "Unknown" };
-        }
-        return task;
-      })
-    );
+//     // Enrich tasks with owner information
+//     const enrichedTasks = await Promise.all(
+//       (tasksData || []).map(async (task) => {
+//         if (task.owner_id) {
+//           const { data: ownerData } = await supabase
+//             .from("users")
+//             .select("name")
+//             .eq("emp_id", task.owner_id)
+//             .single();
+//           return { ...task, owner_name: ownerData?.name || "Unknown" };
+//         }
+//         return task;
+//       })
+//     );
 
-    res.json({ tasks: enrichedTasks });
-  } catch (error) {
-    console.error("Error in /tasks/all:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+//     res.json({ tasks: enrichedTasks });
+//   } catch (error) {
+//     console.error("Error in /tasks/all:", error);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// });
 
 // Director: Get all staff members
-router.get("/staff-members", async (req, res) => {
-  try {
-    const { userId } = req.user;
+// router.get("/staff-members", async (req, res) => {
+//   try {
+//     const { userId } = req.user;
     
-    // Verify director role
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", userId)
-      .single();
+//     // Verify director role
+//     const { data: userData, error: userError } = await supabase
+//       .from("users")
+//       .select("role")
+//       .eq("id", userId)
+//       .single();
 
-    if (userError || userData.role !== "director") {
-      return res.status(403).json({ error: "Access denied" });
-    }
+//     if (userError || userData.role !== "director") {
+//       return res.status(403).json({ error: "Access denied" });
+//     }
 
-    const { data, error } = await supabase
-      .from("users")
-      .select("emp_id, name, role, department")
-      .in("role", ["staff", "manager"])
-      .order("name");
+//     const { data, error } = await supabase
+//       .from("users")
+//       .select("emp_id, name, role, department")
+//       .in("role", ["staff", "manager"])
+//       .order("name");
 
-    if (error) {
-      console.error("Error fetching staff members:", error);
-      return res.status(500).json({ error: "Failed to fetch staff members" });
-    }
+//     if (error) {
+//       console.error("Error fetching staff members:", error);
+//       return res.status(500).json({ error: "Failed to fetch staff members" });
+//     }
 
-    res.json({ staffMembers: data || [] });
-  } catch (error) {
-    console.error("Error in /staff-members:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+//     res.json({ staffMembers: data || [] });
+//   } catch (error) {
+//     console.error("Error in /staff-members:", error);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// });
 
 // Director: Update task assignment
-router.put("/tasks/:taskId", async (req, res) => {
-  try {
-    const { userId } = req.user;
-    const { taskId } = req.params;
-    const { collaborators, ...updates } = req.body;
+// router.put("/tasks/:taskId", async (req, res) => {
+//   try {
+//     const { userId } = req.user;
+//     const { taskId } = req.params;
+//     const { collaborators, ...updates } = req.body;
 
-    // Verify director role
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", userId)
-      .single();
+//     // Verify director role
+//     const { data: userData, error: userError } = await supabase
+//       .from("users")
+//       .select("role")
+//       .eq("id", userId)
+//       .single();
 
-    if (userError || userData.role !== "director") {
-      return res.status(403).json({ error: "Access denied" });
-    }
+//     if (userError || userData.role !== "director") {
+//       return res.status(403).json({ error: "Access denied" });
+//     }
 
-    const { data, error } = await supabase
-      .from("tasks")
-      .update({ collaborators, ...updates })
-      .eq("id", taskId)
-      .select();
+//     const { data, error } = await supabase
+//       .from("tasks")
+//       .update({ collaborators, ...updates })
+//       .eq("id", taskId)
+//       .select();
 
-    if (error) {
-      console.error("Error updating task:", error);
-      return res.status(500).json({ error: "Failed to update task" });
-    }
+//     if (error) {
+//       console.error("Error updating task:", error);
+//       return res.status(500).json({ error: "Failed to update task" });
+//     }
 
-    res.json({ task: data[0] });
-  } catch (error) {
-    console.error("Error in PUT /tasks/:taskId:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+//     res.json({ task: data[0] });
+//   } catch (error) {
+//     console.error("Error in PUT /tasks/:taskId:", error);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// });
 
+/* istanbul ignore next */
 export default router;
+

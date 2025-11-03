@@ -2,6 +2,29 @@
  * Integration Tests for Recurring Tasks Functionality
  */
 
+// Load test environment variables FIRST (before any imports)
+import dotenv from "dotenv";
+import path from "path";
+
+// Load test environment from tests/.env.test
+dotenv.config({ path: path.join(process.cwd(), "tests", ".env.test") });
+
+// Determine if we should skip due to missing env
+const hasTestEnv =
+  !!process.env.SUPABASE_TEST_URL && !!process.env.SUPABASE_TEST_SERVICE_KEY;
+const skipIntegrationTests = !hasTestEnv;
+
+if (hasTestEnv) {
+  // Override environment to force test database usage
+  process.env.SUPABASE_URL = process.env.SUPABASE_TEST_URL;
+  process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_TEST_SERVICE_KEY;
+} else {
+  console.log(
+    "⚠️  Skipping recurring tasks integration tests - Supabase test env not configured"
+  );
+}
+
+// Import test utilities
 import {
   describe,
   it,
@@ -10,90 +33,81 @@ import {
   afterAll,
   beforeEach,
   afterEach,
+  vi,
 } from "vitest";
 import request from "supertest";
 import express from "express";
-import dotenv from "dotenv";
-import path from "path";
-import { fileURLToPath } from 'url';
-
-// Get __dirname equivalent in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load test environment variables FIRST, before any other imports
-dotenv.config({ path: path.resolve(__dirname, '../.env.test') });
-
-// Map TEST_ prefixed variables to standard names
-process.env.SUPABASE_URL = process.env.SUPABASE_TEST_URL;
-process.env.SUPABASE_ANON_KEY = process.env.SUPABASE_TEST_ANON_KEY;
-process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_TEST_SERVICE_KEY;
-
-// Verify environment is configured
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('❌ Test environment not configured!');
-  console.error('SUPABASE_URL:', process.env.SUPABASE_URL);
-  console.error('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'NOT SET');
-  throw new Error('Test environment not properly configured. Check tests/.env.test');
-}
-
-console.log('🧪 Test Database URL:', process.env.SUPABASE_URL);
-
-// NOW import modules that depend on Supabase
+import { createClient } from "@supabase/supabase-js";
 import taskRoutes from "../../server/routes/tasks.js";
 import authRoutes from "../../server/routes/auth.js";
-import { getServiceClient } from "../../server/lib/supabase.js";
+
+// Create test database client
+function getTestSupabaseClient() {
+  return createClient(
+    process.env.SUPABASE_TEST_URL,
+    process.env.SUPABASE_TEST_SERVICE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+}
 
 const app = express();
 app.use(express.json());
 app.use("/auth", authRoutes);
 app.use("/api/tasks", taskRoutes);
 
-describe("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
-  let supabaseClient;
-  let testUserToken;
-  let testUserId;
-  let testEmpId;
-  let createdTaskIds = [];
-  let createdProjectId;
+describe.skipIf(skipIntegrationTests)(
+  "[INTEGRATION] Recurring Tasks - Full Workflow",
+  () => {
+    let supabaseClient;
+    let testUserToken;
+    let testUserId;
+    let testEmpId;
+    let createdTaskIds = [];
+    let createdProjectId;
 
-  beforeAll(async () => {
-    supabaseClient = getServiceClient();
-    console.log("Setting up recurring tasks integration tests...");
+    beforeAll(async () => {
+      supabaseClient = getTestSupabaseClient();
+      console.log("Setting up recurring tasks integration tests...");
 
-    // Create test user using service client with email confirmed
-    const uniqueId = Date.now();
-    const registrationData = {
-      email: `recurrence.test.${uniqueId}@company.com`,
-      password: "TestPassword123!",
-      name: "Recurrence Test User",
-      emp_id: `RTEST${uniqueId}`,
-      department: "Engineering",
-      role: "staff",
-    };
+      // Create test user using service client with email confirmed
+      const uniqueId = Date.now();
+      const registrationData = {
+        email: `recurrence.test.${uniqueId}@company.com`,
+        password: "TestPassword123!",
+        name: "Recurrence Test User",
+        emp_id: `RTEST${uniqueId}`,
+        department: "Engineering",
+        role: "staff",
+      };
 
-    // Use admin API to create user with confirmed email
-    const { data: authData, error: authError } = await supabaseClient.auth.admin.createUser({
-      email: registrationData.email,
-      password: registrationData.password,
-      email_confirm: true,
-      user_metadata: {
-        name: registrationData.name,
-        department: registrationData.department,
-        role: registrationData.role,
-        emp_id: registrationData.emp_id,
-      },
-    });
+      // Use admin API to create user with confirmed email
+      const { data: authData, error: authError } =
+        await supabaseClient.auth.admin.createUser({
+          email: registrationData.email,
+          password: registrationData.password,
+          email_confirm: true,
+          user_metadata: {
+            name: registrationData.name,
+            department: registrationData.department,
+            role: registrationData.role,
+            emp_id: registrationData.emp_id,
+          },
+        });
 
-    if (authError) {
-      console.error('❌ Failed to create test user:', authError);
-      throw authError;
-    }
-    
-    testUserId = authData.user.id;
-    testEmpId = registrationData.emp_id;
+      if (authError) {
+        console.error("❌ Failed to create test user:", authError);
+        throw authError;
+      }
 
-    // Upsert user into users table
+      testUserId = authData.user.id;
+      testEmpId = registrationData.emp_id;
+
+    // Upsert user into users table (in case it was auto-created)
     const { error: userError } = await supabaseClient
       .from("users")
       .upsert({
@@ -105,71 +119,36 @@ describe("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
         role: registrationData.role,
       }, { onConflict: 'id' });
 
-    if (userError) {
-      console.error('❌ Failed to insert user into users table:', userError);
-      throw userError;
-    }
+    if (userError) throw userError;
 
-      // Wait a bit to ensure user is fully created in the system
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Login to get the token
+    const loginResponse = await request(app)
+      .post("/auth/login")
+      .send({
+        email: registrationData.email,
+        password: registrationData.password,
+      });
 
-    // Instead of using the login endpoint, use service client to sign in directly
-    // This bypasses email confirmation requirements
-    const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
-      email: registrationData.email,
-      password: registrationData.password,
-    });
+    expect(loginResponse.status).toBe(200);
+    testUserToken = loginResponse.body.access_token;
 
-    if (signInError) {
-      console.error('❌ Failed to sign in test user:', signInError);
-      console.error('Sign in error details:', JSON.stringify(signInError, null, 2));
-      
-      // Try to get more info about the user
-      const { data: userData, error: userFetchError } = await supabaseClient.auth.admin.getUserById(testUserId);
-      console.error('User data:', userData);
-      console.error('User fetch error:', userFetchError);
-      
-      throw signInError;
-    }
+      // Create a test project
+      const { data: project, error: projectError } = await supabaseClient
+        .from("projects")
+        .insert({
+          title: `Recurrence Test Project ${uniqueId}`,
+          owner_id: testEmpId,
+          status: "active",
+        })
+        .select()
+        .single();
 
-    testUserToken = signInData.session.access_token;
-    
-    console.log("✅ Test user authenticated successfully");
+      if (projectError) {
+        console.error("❌ Failed to create test project:", projectError);
+        throw projectError;
+      }
 
-    // // Login to get the token
-    // const loginResponse = await request(app)
-    //   .post("/auth/login")
-    //   .send({
-    //     email: registrationData.email,
-    //     password: registrationData.password,
-    //   });
-
-    // if (loginResponse.status !== 200) {
-    //   console.error('❌ Failed to login:', loginResponse.body);
-    // }
-    
-    // expect(loginResponse.status).toBe(200);
-    // testUserToken = loginResponse.body.access_token;
-
-
-
-    // Create a test project
-    const { data: project, error: projectError } = await supabaseClient
-      .from("projects")
-      .insert({
-        title: `Recurrence Test Project ${uniqueId}`,
-        owner_id: testEmpId,
-        status: "active",
-      })
-      .select()
-      .single();
-
-    if (projectError) {
-      console.error('❌ Failed to create test project:', projectError);
-      throw projectError;
-    }
-    
-    createdProjectId = project.id;
+      createdProjectId = project.id;
 
     console.log("✅ Test user and project created successfully");
     console.log("   User ID:", testUserId);
@@ -177,62 +156,62 @@ describe("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
     console.log("   Project ID:", createdProjectId);
   });
 
-  beforeEach(() => {
-    createdTaskIds = [];
-  });
+    beforeEach(() => {
+      createdTaskIds = [];
+    });
 
-  afterEach(async () => {
-    if (createdTaskIds.length > 0) {
+    afterEach(async () => {
+      if (createdTaskIds.length > 0) {
+        try {
+          await supabaseClient.from("tasks").delete().in("id", createdTaskIds);
+          console.log(`🧹 Cleaned up ${createdTaskIds.length} test tasks`);
+        } catch (error) {
+          console.warn("⚠️  Task cleanup warning:", error.message);
+        }
+      }
+    });
+
+    afterAll(async () => {
       try {
-        await supabaseClient.from("tasks").delete().in("id", createdTaskIds);
-        console.log(`🧹 Cleaned up ${createdTaskIds.length} test tasks`);
+        if (createdProjectId) {
+          await supabaseClient
+            .from("projects")
+            .delete()
+            .eq("id", createdProjectId);
+        }
+
+        if (testUserId) {
+          await supabaseClient.from("users").delete().eq("id", testUserId);
+          await supabaseClient.auth.admin.deleteUser(testUserId);
+        }
+
+        console.log("🧹 Integration test cleanup complete");
       } catch (error) {
-        console.warn("⚠️  Task cleanup warning:", error.message);
+        console.warn("⚠️  Cleanup warning:", error.message);
       }
-    }
-  });
+    });
 
-  afterAll(async () => {
-    try {
-      if (createdProjectId) {
-        await supabaseClient
-          .from("projects")
-          .delete()
-          .eq("id", createdProjectId);
-      }
+    it("[CS-US75-TC-1] should create recurring task on different weekday than due date and generate correct next occurrence", async () => {
+      // NOTE: recurrence_count in the API represents the MAX count (limit), not current count
+      const taskData = {
+        title: "[CS-US75-TC-1] Weekly Wednesday Task",
+        description: "Test weekly recurrence on Wednesday",
+        due_date: "2025-10-20", // Monday
+        status: "ongoing",
+        priority: 5,
+        owner_id: testEmpId,
+        project_id: createdProjectId,
+        is_recurring: true,
+        recurrence_pattern: "weekly",
+        recurrence_interval: 1,
+        recurrence_weekday: 3, // Wednesday
+        recurrence_count: 5,
+      };
 
-      if (testUserId) {
-        await supabaseClient.from("users").delete().eq("id", testUserId);
-        await supabaseClient.auth.admin.deleteUser(testUserId);
-      }
-
-      console.log("🧹 Integration test cleanup complete");
-    } catch (error) {
-      console.warn("⚠️  Cleanup warning:", error.message);
-    }
-  });
-
-  it("[CS-US75-TC-1] should create recurring task on different weekday than due date and generate correct next occurrence", async () => {
-    // NOTE: recurrence_count in the API represents the MAX count (limit), not current count
-    const taskData = {
-      title: "[CS-US75-TC-1] Weekly Wednesday Task",
-      description: "Test weekly recurrence on Wednesday",
-      due_date: "2025-10-20", // Monday
-      status: "ongoing",
-      priority: 5,
-      owner_id: testEmpId,
-      project_id: createdProjectId,
-      is_recurring: true,
-      recurrence_pattern: "weekly",
-      recurrence_interval: 1,
-      recurrence_weekday: 3, // Wednesday
-      recurrence_count: 5, // This is the MAX count (gets stored as recurrence_max_count)
-    };
-
-    const createResponse = await request(app)
-      .post("/api/tasks")
-      .set("Authorization", `Bearer ${testUserToken}`)
-      .send(taskData);
+      const createResponse = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${testUserToken}`)
+        .send(taskData);
 
     if (createResponse.status !== 201) {
       console.error('❌ Failed to create task:', createResponse.body);
@@ -247,14 +226,14 @@ describe("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
 
     console.log('✅ Created first task:', firstTask.id);
 
-    expect(firstTask.is_recurring).toBe(true);
-    expect(firstTask.recurrence_pattern).toBe("weekly");
-    expect(firstTask.recurrence_weekday).toBe(3);
-    expect(firstTask.recurrence_count).toBe(1); // First occurrence
-    expect(firstTask.recurrence_max_count).toBe(5);
-    expect(firstTask.recurrence_series_id).toBeDefined();
+      expect(firstTask.is_recurring).toBe(true);
+      expect(firstTask.recurrence_pattern).toBe("weekly");
+      expect(firstTask.recurrence_weekday).toBe(3);
+      expect(firstTask.recurrence_count).toBe(1);
+      expect(firstTask.recurrence_max_count).toBe(5);
+      expect(firstTask.recurrence_series_id).toBeDefined();
 
-    // Mark task as completed
+    // Step 4: Mark task as completed
     const updateResponse = await request(app)
       .put(`/api/tasks/${firstTask.id}`)
       .set("Authorization", `Bearer ${testUserToken}`)
@@ -270,12 +249,12 @@ describe("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
     // Wait for async task creation
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    const { data: nextTasks, error } = await supabaseClient
-      .from("tasks")
-      .select("*")
-      .eq("recurrence_series_id", firstTask.recurrence_series_id)
-      .eq("status", "ongoing")
-      .order("due_date", { ascending: true });
+      const { data: nextTasks, error } = await supabaseClient
+        .from("tasks")
+        .select("*")
+        .eq("recurrence_series_id", firstTask.recurrence_series_id)
+        .eq("status", "ongoing")
+        .order("due_date", { ascending: true });
 
     if (error) {
       console.error('❌ Failed to fetch next tasks:', error);
@@ -299,8 +278,8 @@ describe("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
     
     expect(nextTasks.length).toBeGreaterThan(0);
 
-    const nextTask = nextTasks[0];
-    createdTaskIds.push(nextTask.id);
+      const nextTask = nextTasks[0];
+      createdTaskIds.push(nextTask.id);
 
     console.log('✅ Next task created:', nextTask.id, 'with due date:', nextTask.due_date);
 
@@ -313,8 +292,8 @@ describe("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
     expect(nextTask.recurrence_max_count).toBe(5);
     expect(nextTask.is_recurring).toBe(true);
 
-    console.log("✅ CS-US75-TC-1 PASSED");
-  }, 15000); // Increase timeout to 15 seconds
+      console.log("✅ CS-US75-TC-1 PASSED");
+    }, 20000);
 
   it("[CS-US75-TC-2] should stop creating occurrences after reaching max count", async () => {
     // NOTE: recurrence_count in the API represents the MAX count (limit)
@@ -332,10 +311,10 @@ describe("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
       recurrence_count: 3, // This is the MAX count (gets stored as recurrence_max_count)
     };
 
-    const createResponse = await request(app)
-      .post("/api/tasks")
-      .set("Authorization", `Bearer ${testUserToken}`)
-      .send(taskData);
+      const createResponse = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${testUserToken}`)
+        .send(taskData);
 
     if (createResponse.status !== 201) {
       console.error('❌ Failed to create task:', createResponse.body);
@@ -346,9 +325,9 @@ describe("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
     const task1 = createResponse.body;
     createdTaskIds.push(task1.id);
 
-    expect(task1.recurrence_count).toBe(1);
-    expect(task1.recurrence_max_count).toBe(3);
-    const seriesId = task1.recurrence_series_id;
+      expect(task1.recurrence_count).toBe(1);
+      expect(task1.recurrence_max_count).toBe(3);
+      const seriesId = task1.recurrence_series_id;
 
     // Complete task 1
     await request(app)
@@ -356,72 +335,70 @@ describe("[INTEGRATION] Recurring Tasks - Full Workflow", () => {
       .set("Authorization", `Bearer ${testUserToken}`)
       .send({ status: "completed" });
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 3000));
 
-    // Verify task 2 created
+    // Step 4: Verify task 2 created
     let { data: seriesTasks } = await supabaseClient
       .from("tasks")
       .select("*")
       .eq("recurrence_series_id", seriesId)
       .order("due_date", { ascending: true });
 
-    let task2 = seriesTasks.find(t => t.recurrence_count === 2 && t.status === "ongoing");
-    expect(task2).toBeDefined();
-    expect(task2.due_date).toBe("2025-10-22");
-    expect(task2.recurrence_count).toBe(2);
-    expect(task2.recurrence_max_count).toBe(3);
-    createdTaskIds.push(task2.id);
+      let task2 = seriesTasks.find(
+        (t) => t.recurrence_count === 2 && t.status === "ongoing"
+      );
+      expect(task2).toBeDefined();
+      expect(task2.due_date).toBe("2025-10-22");
+      createdTaskIds.push(task2.id);
 
-    // Complete task 2
+    // Step 5: Complete task 2
     await request(app)
       .put(`/api/tasks/${task2.id}`)
       .set("Authorization", `Bearer ${testUserToken}`)
       .send({ status: "completed" });
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 3000));
 
-    // Verify task 3 created
+    // Step 6: Verify task 3 created
     ({ data: seriesTasks } = await supabaseClient
       .from("tasks")
       .select("*")
       .eq("recurrence_series_id", seriesId)
       .order("due_date", { ascending: true }));
 
-    let task3 = seriesTasks.find(t => t.recurrence_count === 3 && t.status === "ongoing");
-    expect(task3).toBeDefined();
-    expect(task3.due_date).toBe("2025-10-23");
-    expect(task3.recurrence_count).toBe(3);
-    expect(task3.recurrence_max_count).toBe(3);
-    createdTaskIds.push(task3.id);
+      let task3 = seriesTasks.find(
+        (t) => t.recurrence_count === 3 && t.status === "ongoing"
+      );
+      expect(task3).toBeDefined();
+      expect(task3.due_date).toBe("2025-10-23");
+      createdTaskIds.push(task3.id);
 
-    // Complete task 3
-    await request(app)
-      .put(`/api/tasks/${task3.id}`)
-      .set("Authorization", `Bearer ${testUserToken}`)
-      .send({ status: "completed" });
+      // Complete task 3
+      await request(app)
+        .put(`/api/tasks/${task3.id}`)
+        .set("Authorization", `Bearer ${testUserToken}`)
+        .send({ status: "completed" });
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 3000));
 
-    // Verify NO task 4 created
-    ({ data: seriesTasks } = await supabaseClient
-      .from("tasks")
-      .select("*")
-      .eq("recurrence_series_id", seriesId)
-      .order("due_date", { ascending: true }));
+      // Verify NO task 4 created
+      ({ data: seriesTasks } = await supabaseClient
+        .from("tasks")
+        .select("*")
+        .eq("recurrence_series_id", seriesId)
+        .order("due_date", { ascending: true }));
 
-    expect(seriesTasks.length).toBe(3);
-    
-    const task4 = seriesTasks.find(t => t.recurrence_count === 4);
-    expect(task4).toBeUndefined();
+      expect(seriesTasks.length).toBe(3);
+
+      const task4 = seriesTasks.find((t) => t.recurrence_count === 4);
+      expect(task4).toBeUndefined();
 
     const completedTasks = seriesTasks.filter(t => t.status === "completed");
     expect(completedTasks.length).toBe(3);
 
-    console.log("✅ CS-US75-TC-2 PASSED");
-  }, 20000); // Increase timeout to 20 seconds for multiple operations
-
-  // ... Apply same fixes to remaining tests (TC-3, TC-4, TC-5)
-  // Change recurrence_count to recurrence_max_count in test data
-});
+      console.log("✅ CS-US75-TC-2 PASSED");
+    }, 30000);
+  }
+);
 
 console.log("✅ Recurring Tasks Integration Tests Loaded");

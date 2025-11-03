@@ -1,17 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 
 export function getServiceClient() {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error('Server env not configured');
+  // Support both regular and test environment variables
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.SUPABASE_TEST_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_TEST_SERVICE_KEY;
+  
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Server env not configured: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_TEST_URL and SUPABASE_TEST_SERVICE_KEY) are required');
   }
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return createClient(supabaseUrl, supabaseKey);
 }
 
 export function getAnonClient() {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-    throw new Error('Server env not configured');
+  // Support both regular and test environment variables
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.SUPABASE_TEST_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_TEST_ANON_KEY || process.env.SUPABASE_TEST_SERVICE_KEY;
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Server env not configured: SUPABASE_URL and SUPABASE_ANON_KEY (or test equivalents) are required');
   }
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+  return createClient(supabaseUrl, supabaseAnonKey);
 }
 
 export async function getUserFromToken(token) {
@@ -19,10 +27,14 @@ export async function getUserFromToken(token) {
     throw new Error('No token provided');
   }
   
+  // Support both regular and test environment variables
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.SUPABASE_TEST_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_TEST_ANON_KEY || process.env.SUPABASE_TEST_SERVICE_KEY;
+  
   // Create a client with the user's access token
   const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       global: {
         headers: {
@@ -86,33 +98,33 @@ export async function getUserIdFromEmpId(empId) {
   return data?.id || null;
 }
 
-/**
- * Get emp_id from numeric user ID by querying the users table
- * @param {number} numericId - The numeric user ID (e.g., 1)
- * @returns {Promise<string|null>} - The emp_id or null
- */
-export async function getEmpIdFromNumericId(numericId) {
-  if (!numericId) return null;
+// /**
+//  * Get emp_id from numeric user ID by querying the users table
+//  * @param {number} numericId - The numeric user ID (e.g., 1)
+//  * @returns {Promise<string|null>} - The emp_id or null
+//  */
+// export async function getEmpIdFromNumericId(numericId) {
+//   if (!numericId) return null;
   
-  const supabase = getServiceClient();
+//   const supabase = getServiceClient();
   
-  // Query users table where the numeric part of emp_id matches
-  // This assumes emp_id format like "TEST001" where the numeric part is extracted
-  const { data, error } = await supabase
-    .from('users')
-    .select('emp_id')
-    .limit(1000);  // Get all users to search
+//   // Query users table where the numeric part of emp_id matches
+//   // This assumes emp_id format like "TEST001" where the numeric part is extracted
+//   const { data, error } = await supabase
+//     .from('users')
+//     .select('emp_id')
+//     .limit(1000);  // Get all users to search
   
-  if (error || !data) return null;
+//   if (error || !data) return null;
   
-  // Find the user where the numeric portion matches
-  const user = data.find(u => {
-    if (!u.emp_id) return false;
-    const match = String(u.emp_id).match(/(\d+)$/);
-    return match && parseInt(match[1], 10) === numericId;
-  });
+//   // Find the user where the numeric portion matches
+//   const user = data.find(u => {
+//     if (!u.emp_id) return false;
+//     const match = String(u.emp_id).match(/(\d+)$/);
+//     return match && parseInt(match[1], 10) === numericId;
+//   });
   
-  return user?.emp_id || null;
-}
+//   return user?.emp_id || null;
+// }
 
 

@@ -397,14 +397,14 @@ jobs:
           if [ "${{ steps.coverage.outputs.has_unit_coverage }}" = "true" ]; then
             UNIT_COVERAGE_SECTION="
           🔬 *Unit Test Coverage:*
-          🎯 Focused Coverage: 86% | 🔀 Branches: ${{ steps.coverage.outputs.unit_branches }}%"
+          ⚙️ Functions: ${{ steps.coverage.outputs.unit_functions }}% | 🔀 Branches: ${{ steps.coverage.outputs.unit_branches }}%"
           fi
 
           INTEGRATION_COVERAGE_SECTION=""
           if [ "${{ steps.coverage.outputs.has_integration_coverage }}" = "true" ]; then
             INTEGRATION_COVERAGE_SECTION="
           🔗 *Integration Test Coverage:*
-          📊 Functions: ${{ steps.coverage.outputs.integration_functions }}% | 🔀 Branches: ${{ steps.coverage.outputs.integration_branches }}%"
+          ⚙️ Functions: ${{ steps.coverage.outputs.integration_functions }}% | 🔀 Branches: ${{ steps.coverage.outputs.integration_branches }}%"
           fi
 
           MESSAGE="📊 *Test Coverage Report*

@@ -13,11 +13,10 @@ router.get('/overview', async (req, res) => {
       tasksData, 
       projectsData
     ] = await Promise.all([
-      // Get all employees
+      // Get all employees (including directors without departments)
       supabase
         .from('users')
-        .select('department, role, created_at')
-        .not('department', 'is', null),
+        .select('department, role, created_at'),
       
       // Get all tasks - Remove updated_at since it doesn't exist
       supabase
@@ -99,11 +98,12 @@ router.get('/departments', async (req, res) => {
   try {
     const supabase = getServiceClient();
     
-    // Get all users with their departments (not employees table)
+    // Get all users with their departments (exclude directors from dept grouping)
     const { data: users, error: usersError } = await supabase
       .from('users')
       .select('id, emp_id, name, department, role')
-      // .not('department', 'is', null);
+      .not('department', 'is', null)
+      .neq('role', 'director');
     
     if (usersError) throw usersError;
     
@@ -121,13 +121,13 @@ router.get('/departments', async (req, res) => {
     
     if (projError) throw projError;
     
-    // Group users by department
+    // Group users by department (directors already excluded from query)
     const departmentGroups = users.reduce((acc, user) => {
-      const deptName = user.department || "Executive Management";
-      if (!acc[deptName]) {
-        acc[deptName] = [];
+      if (!user.department) return acc; // Extra safety check
+      if (!acc[user.department]) {
+        acc[user.department] = [];
       }
-      acc[deptName].push(user);
+      acc[user.department].push(user);
       return acc;
     }, {});
     
@@ -285,11 +285,10 @@ router.get('/kpis', async (req, res) => {
   try {
     const supabase = getServiceClient();
     
-    // Get total users count (your employees are in the users table)
+    // Get total users count (including directors who don't have departments)
     const { data: users, error: usersError } = await supabase
       .from('users')
-      .select('id, emp_id, department, role, created_at')
-      .not('department', 'is', null); // Only count users with departments
+      .select('id, emp_id, department, role, created_at');
     
     if (usersError) throw usersError;
     

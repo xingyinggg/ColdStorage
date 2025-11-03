@@ -1062,5 +1062,160 @@ describe.skipIf(skipIntegrationTests)(
         expect(successCount).toBeGreaterThan(0);
       });
     });
+
+    describe("Integration: member assignment, empty description, list visibility", () => {
+      it("should allow creating a project with an empty description", async () => {
+        const title = `Empty Description Project ${Date.now()}`;
+        const response = await request(app)
+          .post("/projects")
+          .set("Authorization", `Bearer ${staffToken}`)
+          .send({
+            title,
+            description: "",
+            members: ["TEST001"],
+          });
+
+        // Expect creation to succeed
+        expect(response.status).toBe(201);
+        expect(response.body).toHaveProperty("id");
+        createdProjectIds.push(response.body.id);
+
+        // Verify stored value for description is either null or empty string
+        const { data: dbProject, error } = await supabaseClient
+          .from("projects")
+          .select("description")
+          .eq("id", response.body.id)
+          .single();
+
+        expect(error).toBeNull();
+        expect(
+          dbProject.description === null || dbProject.description === ""
+        ).toBeTruthy();
+      });
+
+      it("should persist provided members (string emp_ids) on creation", async () => {
+        const title = `Members Persist ${Date.now()}`;
+        const response = await request(app)
+          .post("/projects")
+          .set("Authorization", `Bearer ${staffToken}`)
+          .send({
+            title,
+            description: "Members persistence test",
+            members: ["TEST002"],
+          });
+
+        expect(response.status).toBe(201);
+        expect(response.body).toHaveProperty("id");
+        createdProjectIds.push(response.body.id);
+
+        // Verify DB stored members array contains TEST002
+        const { data: dbProject, error } = await supabaseClient
+          .from("projects")
+          .select("members")
+          .eq("id", response.body.id)
+          .single();
+
+        expect(error).toBeNull();
+        expect(Array.isArray(dbProject.members)).toBe(true);
+        expect(dbProject.members).toContain("TEST002");
+      });
+
+      it("should show newly created project in GET /projects for both owner and member", async () => {
+        const unique = Date.now();
+        const title = `Visibility Project ${unique}`;
+        // Create project as staff with manager as a member
+        const createResp = await request(app)
+          .post("/projects")
+          .set("Authorization", `Bearer ${staffToken}`)
+          .send({
+            title,
+            description: "Visibility test",
+            members: ["TEST002"],
+          });
+
+        expect(createResp.status).toBe(201);
+        const projectId = createResp.body.id;
+        createdProjectIds.push(projectId);
+
+        // Owner (staff) should see it
+        const ownerList = await request(app)
+          .get("/projects")
+          .set("Authorization", `Bearer ${staffToken}`);
+
+        expect(ownerList.status).toBe(200);
+        const foundByOwner = ownerList.body.find((p) => p.id === projectId);
+        expect(foundByOwner).toBeDefined();
+
+        // Member (manager) should also see it
+        const memberList = await request(app)
+          .get("/projects")
+          .set("Authorization", `Bearer ${managerToken}`);
+
+        expect(memberList.status).toBe(200);
+        const foundByMember = memberList.body.find((p) => p.id === projectId);
+        expect(foundByMember).toBeDefined();
+      });
+
+      it("should not show project to users who are neither owner nor member", async () => {
+        const title = `NonMember Visibility ${Date.now()}`;
+        // Create project with a different member (TEST003). Manager is TEST002.
+        const createResp = await request(app)
+          .post("/projects")
+          .set("Authorization", `Bearer ${staffToken}`)
+          .send({
+            title,
+            description: "Non-member visibility test",
+            members: ["TEST003"],
+          });
+
+        expect(createResp.status).toBe(201);
+        const projectId = createResp.body.id;
+        createdProjectIds.push(projectId);
+
+        // Manager (TEST002) should NOT see this project
+        const managerView = await request(app)
+          .get("/projects")
+          .set("Authorization", `Bearer ${managerToken}`);
+
+        expect(managerView.status).toBe(200);
+        const found = managerView.body.find((p) => p.id === projectId);
+        expect(found).toBeUndefined();
+      });
+
+      it("should include newly created projects in the project list after creation (multiple creations)", async () => {
+        const baseTs = Date.now();
+        const titles = [
+          `ListInclude A ${baseTs}`,
+          `ListInclude B ${baseTs}`,
+          `ListInclude C ${baseTs}`,
+        ];
+
+        // Create multiple projects
+        for (const t of titles) {
+          const resp = await request(app)
+            .post("/projects")
+            .set("Authorization", `Bearer ${staffToken}`)
+            .send({
+              title: t,
+              description: "List include test",
+              members: ["TEST001"],
+            });
+
+          expect(resp.status).toBe(201);
+          createdProjectIds.push(resp.body.id);
+        }
+
+        // Fetch list and ensure all created titles are present for owner
+        const listResp = await request(app)
+          .get("/projects")
+          .set("Authorization", `Bearer ${staffToken}`);
+
+        expect(listResp.status).toBe(200);
+        const returnedTitles = listResp.body.map((p) => p.title);
+        for (const t of titles) {
+          expect(returnedTitles).toContain(t);
+        }
+      });
+    });
   }
 );

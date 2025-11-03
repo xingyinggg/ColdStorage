@@ -1441,109 +1441,105 @@ router.put("/:id/recurrence", async (req, res) => {
 });
 
 // Delete a recurring task series
-router.delete("/:id/recurrence", async (req, res) => {
-  try {
-    const supabase = getServiceClient();
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+// router.delete("/:id/recurrence", async (req, res) => {
+//   try {
+//     const supabase = getServiceClient();
+//     const authHeader = req.headers.authorization || "";
+//     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
-    if (!token) return res.status(401).json({ error: "Missing access token" });
+//     if (!token) return res.status(401).json({ error: "Missing access token" });
 
-    const user = await getUserFromToken(token);
-    if (!user) return res.status(401).json({ error: "Invalid token" });
+//     const user = await getUserFromToken(token);
+//     if (!user) return res.status(401).json({ error: "Invalid token" });
 
-    const empId = await getEmpIdForUserId(user.id);
-    if (!empId) return res.status(400).json({ error: "emp_id not found" });
+//     const empId = await getEmpIdForUserId(user.id);
+//     if (!empId) return res.status(400).json({ error: "emp_id not found" });
 
-    const { id } = req.params;
-    const { delete_all } = req.query; // Query param: true to delete all instances, false to delete only future
+//     const { id } = req.params;
+//     const { delete_all } = req.query; // Query param: true to delete all instances, false to delete only future
 
-    // Get the task to verify ownership
-    const { data: task, error: taskError } = await supabase
-      .from("tasks")
-      .select("owner_id, is_recurring, parent_recurrence_id")
-      .eq("id", Number(id))
-      .single();
+//     // Get the task to verify ownership
+//     const { data: task, error: taskError } = await supabase
+//       .from("tasks")
+//       .select("owner_id, is_recurring, parent_recurrence_id")
+//       .eq("id", Number(id))
+//       .single();
 
-    if (taskError || !task) {
-      return res.status(404).json({ error: "Task not found" });
-    }
+//     if (taskError || !task) {
+//       return res.status(404).json({ error: "Task not found" });
+//     }
 
-    // Check if user owns the task
-    if (task.owner_id !== empId) {
-      return res.status(403).json({ error: "You can only delete your own tasks" });
-    }
+//     // Check if user owns the task
+//     if (task.owner_id !== empId) {
+//       return res.status(403).json({ error: "You can only delete your own tasks" });
+//     }
 
-    // Check if task is part of a recurring series
-    if (!task.is_recurring && !task.parent_recurrence_id) {
-      return res.status(400).json({ error: "This task is not part of a recurring series" });
-    }
+//     // Check if task is part of a recurring series
+//     if (!task.is_recurring && !task.parent_recurrence_id) {
+//       return res.status(400).json({ error: "This task is not part of a recurring series" });
+//     }
 
-    // Delete recurring task series
-    const deleteAllInstances = delete_all === "true";
-    const result = await recurrenceService.deleteRecurringTask(supabase, Number(id), deleteAllInstances);
+//     // Delete recurring task series
+//     const deleteAllInstances = delete_all === "true";
+//     const result = await recurrenceService.deleteRecurringTask(supabase, Number(id), deleteAllInstances);
 
-    if (!result.success) {
-      return res.status(500).json({ error: result.error || "Failed to delete recurring task" });
-    }
+//     if (!result.success) {
+//       return res.status(500).json({ error: result.error || "Failed to delete recurring task" });
+//     }
 
-    res.json({
-      success: true,
-      deletedCount: result.deletedCount,
-      message: deleteAllInstances
-        ? "Recurring task series and all instances deleted successfully"
-        : "Recurring task template and future instances deleted successfully",
-    });
-  } catch (e) {
-    console.error("Error deleting recurring task:", e);
-    res.status(500).json({ error: e.message });
-  }
-});
+//     res.json({
+//       success: true,
+//       deletedCount: result.deletedCount,
+//       message: deleteAllInstances
+//         ? "Recurring task series and all instances deleted successfully"
+//         : "Recurring task template and future instances deleted successfully",
+//     });
+//   } catch (e) {
+//     console.error("Error deleting recurring task:", e);
+//     res.status(500).json({ error: e.message });
+//   }
+// });
 
-// Get all active recurring tasks (for managers/directors)
-router.get("/recurring/active", async (req, res) => {
-  try {
-    const supabase = getServiceClient();
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+// // Get all active recurring tasks (for managers/directors)
+// router.get("/recurring/active", async (req, res) => {
+//   try {
+//     const supabase = getServiceClient();
+//     const authHeader = req.headers.authorization || "";
+//     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
-    if (!token) return res.status(401).json({ error: "Missing access token" });
+//     if (!token) return res.status(401).json({ error: "Missing access token" });
 
-    const user = await getUserFromToken(token);
-    if (!user) return res.status(401).json({ error: "Invalid token" });
+//     const user = await getUserFromToken(token);
+//     if (!user) return res.status(401).json({ error: "Invalid token" });
 
-    const empId = await getEmpIdForUserId(user.id);
-    if (!empId) return res.status(400).json({ error: "emp_id not found" });
+//     const empId = await getEmpIdForUserId(user.id);
+//     if (!empId) return res.status(400).json({ error: "emp_id not found" });
 
-    // Get user role to check permissions
-    const userRole = await getUserRole(empId);
-    const canViewAll = userRole === "manager" || userRole === "director";
+//     // Get user role to check permissions
+//     const userRole = await getUserRole(empId);
+//     const canViewAll = userRole === "manager" || userRole === "director";
 
-    if (!canViewAll) {
-      return res.status(403).json({ error: "Only managers and directors can view all recurring tasks" });
-    }
+//     if (!canViewAll) {
+//       return res.status(403).json({ error: "Only managers and directors can view all recurring tasks" });
+//     }
 
-    // Get all active recurring tasks
-    const result = await recurrenceService.getActiveRecurringTasks(supabase);
+//     // Get all active recurring tasks
+//     const result = await recurrenceService.getActiveRecurringTasks(supabase);
 
-    if (!result.success) {
-      return res.status(500).json({ error: result.error || "Failed to fetch active recurring tasks" });
-    }
+//     if (!result.success) {
+//       return res.status(500).json({ error: result.error || "Failed to fetch active recurring tasks" });
+//     }
 
-    res.json({
-      success: true,
-      tasks: result.tasks,
-      count: result.tasks.length,
-    });
-  } catch (e) {
-    console.error("Error fetching active recurring tasks:", e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// New endpoint: GET /tasks/team/workload
-// Returns tasks owned by team members + collaboration tasks
-// Includes workload analysis (due in 3 days)
+//     res.json({
+//       success: true,
+//       tasks: result.tasks,
+//       count: result.tasks.length,
+//     });
+//   } catch (e) {
+//     console.error("Error fetching active recurring tasks:", e);
+//     res.status(500).json({ error: e.message });
+//   }
+// });
 
 /* istanbul ignore file */
 export default router;

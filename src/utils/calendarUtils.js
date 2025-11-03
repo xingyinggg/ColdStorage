@@ -1,7 +1,3 @@
-/**
- * Calendar utility functions for date grid generation and task filtering
- * Extracted from schedule page for testability
- */
 
 /**
  * Normalize a date to start of day (00:00:00)

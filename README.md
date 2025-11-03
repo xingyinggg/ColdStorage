@@ -33,7 +33,7 @@ A comprehensive workforce management platform built with Next.js and Express.js,
 
 2. **Task Management**
 
-   Users can create new tasks/subtasks (can be in a project or standalone), view their current tasks/subtasks, update task/subtask details, and update their statuses. Tasks can include deadlines, notes, invited collaborators, and status tracking. Managers and above can assign tasks/subtasks to their staff, transferring ownership to them. This forms the foundation for personal and team productivity.
+   Users can create new tasks/subtasks (can be in a project or standalone), view their current tasks/subtasks, update task/subtask details, and update their statuses. Tasks can include deadlines, notes, invited collaborators, status tracking, and relevant documents. Managers and above can assign tasks/subtasks to their staff, transferring ownership to them. This forms the foundation for personal and team productivity.
 
    - Create, view, update, and delete tasks and subtasks
    - Can be standalone or part of a project
@@ -42,10 +42,11 @@ A comprehensive workforce management platform built with Next.js and Express.js,
    - Managers can assign tasks to staff (ownership transfer)
    - Invite collaborators to tasks
    - Add notes/comments to tasks
+   - Attach up to 10 PDF files for reference
 
 3. **Task Grouping and Organization (Projects)**
 
-   Users can create projects to house their tasks and subtasks. Collaborators can be invited to work on projects. This ensures that there are proper organization and navigation for projects, as most staff work on multiple.
+   Users can create projects to house their tasks and subtasks. Collaborators can be invited to work on projects. This ensures that there are proper organization and navigation for projects, as most staff work on multiple projects.
 
    - Create projects to organize related tasks
    - Invite collaborators to projects
@@ -55,7 +56,7 @@ A comprehensive workforce management platform built with Next.js and Express.js,
 
 4. **Deadline and Schedule Tracking**
 
-   Enables users to attach due dates to tasks and view schedules across a timeline. Automated reminders help staff stay on track, and overdue items are highlighted for follow-up. Team members within the same project can also view schedules to monitor team load and prioritization.
+   Allows users to attach due dates to tasks and view schedules across a timeline. Automated reminders help staff stay on track, and overdue items are highlighted for follow-up. Team members within the same project can also view schedules to monitor team load and prioritization.
 
    - Attach due dates to tasks
    - Timeline view of all scheduled tasks
@@ -79,17 +80,40 @@ A comprehensive workforce management platform built with Next.js and Express.js,
 
 6. **Report Generation and Exporting**
 
-   Team members in a project can generate and export a report of its overall schedule, which shows at-a-glance the projected tasks, completed tasks, in-progress tasks, and tasks under review. This allows for future planning around deadlines and serves as a good estimate for how busy the team members are.
+   Comprehensive reporting system with role-based views for different organizational levels. Each user role has access to specific report types tailored to their responsibilities and scope of oversight.
 
-   - Generate project schedule reports
-   - View at-a-glance project status:
-     - Projected tasks
-     - Completed tasks
-     - In-progress tasks
-     - Tasks under review
-   - Export functionality for reports
-   - Team workload estimates
-   - Future planning insights
+   **General Features:**
+   - Generate and export reports in multiple formats
+   - Real-time data visualization with charts
+   - Customizable date ranges and filters
+   - Team workload estimates and future planning insights
+
+   **Manager Reports:**
+   - Project schedule reports for assigned projects
+   - Team member performance analytics
+   - Department-specific task completion rates
+   - Resource allocation and workload distribution
+   - Task priority analysis and bottleneck identification
+
+   **Director Reports:**
+   - Organization-wide performance metrics
+   - Cross-departmental collaboration analysis
+   - Company KPIs and productivity scores
+   - Project portfolio overview and completion rates
+   - Strategic planning insights and trends
+
+   **HR Reports:**
+   - Employee performance rankings and scoring
+   - Department productivity comparisons
+   - Team effectiveness metrics
+   - Workload distribution across the organization
+   - Performance improvement recommendations
+
+   **Project Team Reports:**
+   - Project status overview (projected, completed, in-progress, under review tasks)
+   - Individual and team contribution metrics
+   - Deadline tracking and milestone progress
+   - Task dependencies and critical path analysis
 
 ### Additional Features
 

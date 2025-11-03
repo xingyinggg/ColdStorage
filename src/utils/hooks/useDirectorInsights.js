@@ -114,14 +114,16 @@ export function useDirectorInsights() {
         completionRate: 0
       });
 
-      setDepartmentPerformance(deptData.departments?.map(dept => ({
-        department: dept.name,
-        memberCount: dept.employeeCount,
-        activeTasks: dept.totalTasks,
-        productivity: dept.productivityScore,
-        completionRate: dept.taskCompletionRate,
-        totalProjects: dept.totalProjects
-      })) || []);
+      setDepartmentPerformance(deptData.departments || []);
+
+      // setDepartmentPerformance(deptData.departments?.map(dept => ({
+      //   department: dept.name,
+      //   memberCount: dept.employeeCount,
+      //   activeTasks: dept.totalTasks,
+      //   productivity: dept.productivityScore,
+      //   completionRate: dept.taskCompletionRate,
+      //   totalProjects: dept.totalProjects
+      // })) || []);
       
       setCollaborationMetrics({
         totalProjects: collabData.collaborationMetrics?.totalProjects || 0,

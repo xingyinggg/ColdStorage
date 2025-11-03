@@ -36,7 +36,13 @@ export default function ProjectTaskCard({
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/subtasks/task/${taskId}`);
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch subtasks: ${response.statusText}`);
+        if (response.status === 403) {
+          throw new Error("You don't have permission to view subtasks for this task");
+        } else if (response.status === 404) {
+          throw new Error("Task not found");
+        } else {
+          throw new Error(`Failed to fetch subtasks: ${response.statusText}`);
+        }
       }
       
       const data = await response.json();

@@ -189,6 +189,7 @@ describeIf(hasTestEnv)('Notification routes - integration', () => {
     });
 
     it('POST /notification/check-deadlines should trigger deadline checks and return success', async () => {
+
         const res = await request.post('/notification/check-deadlines').set('Authorization', 'Bearer faketoken').send({ force: true });
         expect(res.status).toBe(200);
         expect(res.body).toBeDefined();

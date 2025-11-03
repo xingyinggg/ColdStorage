@@ -67,6 +67,9 @@ export default defineConfig(({ mode }) => {
             include: ["tests/integration/**/*.{test,spec}.{js,ts}"],
             // Database setup only for integration tests
             setupFiles: ["tests/integration/setupTests.js"],
+            // Longer timeout for integration tests
+            testTimeout: 30000,
+            timeout: 30000,
           },
           coverage: {
             provider: "v8",

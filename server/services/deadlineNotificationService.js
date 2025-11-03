@@ -581,6 +581,9 @@ try {
 // Export service instance and individual functions
 export default deadlineNotificationService;
 
+// Export the class for testing
+export { DeadlineNotificationService };
+
 // Export individual functions for testing
 export async function checkUpcomingDeadlines(forceCheck = false) {
   if (!deadlineNotificationService) {

@@ -8,6 +8,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { getSingaporeDate, setupDeadlineScheduler, getDeadlineServiceStatus } from '../../../server/services/deadlineNotificationService.js';
 
+// Mock supabase for testing notification creation logic
+vi.mock('../../../server/lib/supabase.js', () => ({
+  getServiceClient: vi.fn(),
+  getNumericIdFromEmpId: vi.fn((id) => parseInt(id)),
+}));
+
+// Import the service class after mocking
+import { DeadlineNotificationService } from '../../../server/services/deadlineNotificationService.js';
+
 /**
  * Mock Date to ensure consistent test results
  */
@@ -202,6 +211,367 @@ describe('Deadline Notification Service - Unit Tests', () => {
       // This is hard to test directly, but the function should handle it gracefully
       const status = getDeadlineServiceStatus();
       expect(typeof status.available).toBe('boolean');
+    });
+  });
+
+  describe('createDeadlineNotification', () => {
+    let service;
+    let mockSupabase;
+
+    beforeEach(async () => {
+      // Create a fresh service instance for each test
+      service = new DeadlineNotificationService();
+      mockSupabase = {
+        from: vi.fn(() => mockSupabase),
+        select: vi.fn(() => mockSupabase),
+        eq: vi.fn(() => mockSupabase),
+        limit: vi.fn(() => mockSupabase),
+        single: vi.fn(() => mockSupabase),
+        upsert: vi.fn(() => mockSupabase),
+        insert: vi.fn(() => mockSupabase),
+        update: vi.fn(() => mockSupabase),
+        delete: vi.fn(() => mockSupabase),
+        neq: vi.fn(() => mockSupabase),
+        onConflict: vi.fn(() => mockSupabase),
+      };
+
+      // Mock getServiceClient to return our mock supabase
+      const { getServiceClient } = await import('../../../server/lib/supabase.js');
+      getServiceClient.mockReturnValue(mockSupabase);
+
+      // Clear recent notification keys between tests
+      service._recentNotificationKeys.clear();
+    });
+
+    it('should create a new notification successfully', async () => {
+      // Mock no existing notification
+      mockSupabase.single.mockResolvedValueOnce({ data: null, error: null });
+      // Mock successful upsert
+      mockSupabase.single.mockResolvedValueOnce({
+        data: {
+          id: 1,
+          emp_id: 123,
+          task_id: 456,
+          type: 'Upcoming Deadline',
+          title: 'Test notification',
+          read: false,
+          created_at: '2025-10-31T10:00:00Z',
+          sent_at: '2025-10-31T10:00:00Z'
+        },
+        error: null
+      });
+
+      const result = await service.createDeadlineNotification({
+        emp_id: 123,
+        task_id: 456,
+        type: 'Upcoming Deadline',
+        title: 'Test notification',
+        description: 'Test description',
+        notification_category: 'deadline'
+      });
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe(1);
+      expect(result.emp_id).toBe(123);
+      expect(result.task_id).toBe(456);
+      expect(result.type).toBe('Upcoming Deadline');
+    });
+
+    it('should prevent duplicate notifications using deduplication logic', async () => {
+      // First call should succeed
+      mockSupabase.single.mockResolvedValueOnce({ data: null, error: null });
+      mockSupabase.single.mockResolvedValueOnce({
+        data: { id: 1, emp_id: 123, task_id: 456, type: 'Upcoming Deadline', title: 'Test notification' },
+        error: null
+      });
+
+      await service.createDeadlineNotification({
+        emp_id: 123,
+        task_id: 456,
+        type: 'Upcoming Deadline',
+        title: 'Test notification',
+        description: 'Test description'
+      });
+
+      // Second call with same parameters should return null (deduplicated)
+      const result = await service.createDeadlineNotification({
+        emp_id: 123,
+        task_id: 456,
+        type: 'Upcoming Deadline',
+        title: 'Test notification',
+        description: 'Test description'
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it('should update sent_at for existing notifications instead of creating duplicates', async () => {
+      // Mock existing notification found
+      mockSupabase.single.mockResolvedValueOnce({
+        data: {
+          id: 1,
+          emp_id: 123,
+          task_id: 456,
+          type: 'Upcoming Deadline',
+          title: 'Existing notification',
+          read: false,
+          sent_at: '2025-10-30T10:00:00Z'
+        },
+        error: null
+      });
+
+      const result = await service.createDeadlineNotification({
+        emp_id: 123,
+        task_id: 456,
+        type: 'Upcoming Deadline',
+        title: 'Existing notification',
+        description: 'Test description'
+      });
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe(1);
+      expect(mockSupabase.update).toHaveBeenCalledWith(
+        { sent_at: expect.any(String) }
+      );
+    });
+
+    it('should handle upsert fallback when primary upsert fails', async () => {
+      // Mock no existing notification
+      mockSupabase.single.mockResolvedValueOnce({ data: null, error: null });
+      // Mock upsert failure
+      mockSupabase.single.mockResolvedValueOnce({ data: null, error: { message: 'Upsert failed' } });
+      // Mock successful insert fallback
+      mockSupabase.single.mockResolvedValueOnce({
+        data: { id: 2, emp_id: 123, task_id: 456, type: 'Upcoming Deadline', title: 'Fallback notification' },
+        error: null
+      });
+
+      const result = await service.createDeadlineNotification({
+        emp_id: 123,
+        task_id: 456,
+        type: 'Upcoming Deadline',
+        title: 'Fallback notification',
+        description: 'Test description'
+      });
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe(2);
+      expect(mockSupabase.insert).toHaveBeenCalled();
+    });
+
+    it('should handle notification creation errors gracefully', async () => {
+      // Mock no existing notification
+      mockSupabase.single.mockResolvedValueOnce({ data: null, error: null });
+      // Mock upsert failure
+      mockSupabase.single.mockResolvedValueOnce({ data: null, error: { message: 'Upsert failed' } });
+      // Mock insert failure
+      mockSupabase.single.mockResolvedValueOnce({ data: null, error: { message: 'Insert failed' } });
+
+      await expect(service.createDeadlineNotification({
+        emp_id: 123,
+        task_id: 456,
+        type: 'Upcoming Deadline',
+        title: 'Error notification',
+        description: 'Test description'
+      })).rejects.toThrow('Failed to create deadline notification: Insert failed');
+    });
+  });
+
+  describe('checkUpcomingDeadlines', () => {
+    let service;
+    let mockSupabase;
+
+    beforeEach(async () => {
+      service = new DeadlineNotificationService();
+      mockSupabase = {
+        from: vi.fn(() => mockSupabase),
+        select: vi.fn(() => mockSupabase),
+        eq: vi.fn(() => mockSupabase),
+        neq: vi.fn(() => mockSupabase),
+        lt: vi.fn(() => mockSupabase),
+        order: vi.fn(() => mockSupabase),
+        limit: vi.fn(() => mockSupabase),
+        single: vi.fn(() => mockSupabase),
+      };
+
+      const { getServiceClient } = await import('../../../server/lib/supabase.js');
+      getServiceClient.mockReturnValue(mockSupabase);
+    });
+
+    it('should check for upcoming deadlines at 1, 3, and 7 days', async () => {
+      // Mock no tasks found for any day interval
+      mockSupabase.neq.mockResolvedValue({ data: [], error: null });
+
+      const result = await service.checkUpcomingDeadlines(true);
+
+      expect(result.success).toBe(true);
+      expect(result.data.upcoming.notifications).toEqual([]);
+      expect(result.data.upcoming.created).toBe(0);
+      expect(mockSupabase.from).toHaveBeenCalledWith('tasks');
+      expect(mockSupabase.eq).toHaveBeenCalledWith('due_date', expect.any(String));
+    });
+
+    it('should create notifications for tasks due in specified intervals', async () => {
+      // Mock tasks due tomorrow
+      const mockTasks = [
+        {
+          id: 1,
+          title: 'Task due tomorrow',
+          due_date: '2025-11-01', // Tomorrow in Singapore time
+          owner_id: '1',
+          collaborators: [2],
+          status: 'in_progress'
+        }
+      ];
+
+      // Mock different responses for different day intervals
+      let callCount = 0;
+      mockSupabase.neq.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) { // 1 day interval
+          return Promise.resolve({ data: mockTasks, error: null });
+        }
+        return Promise.resolve({ data: [], error: null }); // 3 and 7 day intervals
+      });
+
+      // Mock no existing notification
+      mockSupabase.single.mockResolvedValue({ data: null, error: null });
+
+      // Mock successful notification creation
+      mockSupabase.single.mockResolvedValue({
+        data: { id: 1, type: 'Upcoming Deadline', title: '1 days before Task due tomorrow is due' },
+        error: null
+      });
+
+      const result = await service.checkUpcomingDeadlines(true);
+
+      expect(result.success).toBe(true);
+      expect(result.data.upcoming.created).toBe(2); // Owner + 1 collaborator
+      expect(result.notifications).toHaveLength(2);
+      expect(result.notifications[0].type).toBe('Upcoming Deadline');
+      expect(result.notifications[0].days_remaining).toBe(1);
+    });
+
+
+    it('should handle cooldown period correctly', async () => {
+      // Set last check time to recent
+      service.lastCheck = Date.now() - (2 * 60 * 1000); // 2 minutes ago
+
+      const result = await service.checkUpcomingDeadlines(false); // force = false
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('Deadline check skipped due to cooldown');
+      expect(result.skipped).toBe(true);
+      expect(result.notifications).toEqual([]);
+    });
+
+    it('should bypass cooldown when force is true', async () => {
+      service.lastCheck = Date.now() - (2 * 60 * 1000); // 2 minutes ago
+      mockSupabase.neq.mockResolvedValue({ data: [], error: null });
+
+      const result = await service.checkUpcomingDeadlines(true); // force = true
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('Deadline check completed');
+      expect(result.skipped).toBeUndefined();
+    });
+  });
+
+  describe('checkMissedDeadlines', () => {
+    let service;
+    let mockSupabase;
+
+    beforeEach(async () => {
+      service = new DeadlineNotificationService();
+      mockSupabase = {
+        from: vi.fn(() => mockSupabase),
+        select: vi.fn(() => mockSupabase),
+        eq: vi.fn(() => mockSupabase),
+        neq: vi.fn(() => mockSupabase),
+        lt: vi.fn(() => mockSupabase),
+        order: vi.fn(() => mockSupabase),
+        limit: vi.fn(() => mockSupabase),
+        single: vi.fn(() => mockSupabase),
+      };
+
+      const { getServiceClient } = await import('../../../server/lib/supabase.js');
+      getServiceClient.mockReturnValue(mockSupabase);
+    });
+
+    it('should check for overdue tasks using Singapore timezone', async () => {
+      // Mock no overdue tasks
+      mockSupabase.neq.mockResolvedValue({ data: [], error: null });
+
+      const result = await service.checkMissedDeadlines();
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('No overdue tasks found');
+      expect(result.notifications).toEqual([]);
+      expect(result.totalNotifications).toBe(0);
+    });
+
+    it('should create notifications for overdue tasks', async () => {
+      const mockOverdueTasks = [
+        {
+          id: 2,
+          title: 'Overdue task',
+          due_date: '2025-10-30', // Yesterday in Singapore time
+          owner_id: '1',
+          collaborators: [3],
+          status: 'in_progress'
+        }
+      ];
+
+      mockSupabase.neq.mockResolvedValue({ data: mockOverdueTasks, error: null });
+      // Mock no existing notification
+      mockSupabase.single.mockResolvedValue({ data: null, error: null });
+      // Mock successful notification creation
+      mockSupabase.single.mockResolvedValue({
+        data: { id: 2, type: 'Deadline Missed', title: 'Overdue: Overdue task deadline has passed' },
+        error: null
+      });
+
+      const result = await service.checkMissedDeadlines();
+
+      expect(result.success).toBe(true);
+      expect(result.totalNotifications).toBe(2); // Owner + 1 collaborator
+      expect(result.notifications).toHaveLength(2);
+      expect(result.notifications[0].type).toBe('Deadline Missed');
+      expect(result.notifications[0].task_id).toBe(2);
+      expect(result.notifications[0].title).toContain('Overdue: Overdue task deadline has passed');
+    });
+
+    it('should skip tasks without valid recipients', async () => {
+      const mockTasksWithoutRecipients = [
+        {
+          id: 3,
+          title: 'Task without recipients',
+          due_date: '2025-10-30',
+          owner_id: null,
+          collaborators: null,
+          status: 'in_progress'
+        }
+      ];
+
+      mockSupabase.neq.mockResolvedValue({ data: mockTasksWithoutRecipients, error: null });
+
+      const result = await service.checkMissedDeadlines();
+
+      expect(result.success).toBe(true);
+      expect(result.totalNotifications).toBe(0);
+      expect(result.notifications).toEqual([]);
+    });
+
+    it('should handle database errors gracefully', async () => {
+      mockSupabase.neq.mockResolvedValue({
+        data: null,
+        error: { message: 'Database connection failed' }
+      });
+
+      const result = await service.checkMissedDeadlines();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Database connection failed');
     });
   });
 });

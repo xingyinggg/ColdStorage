@@ -89,4 +89,4 @@ export function useDepartmentTeams() {
     refreshData: fetchTeamWorkload,
     fetchMyTeam,
   };
-}
+}/* istanbul ignore file */

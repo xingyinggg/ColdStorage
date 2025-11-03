@@ -3,7 +3,6 @@ import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
-import serverless from "serverless-http";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,8 +28,7 @@ const usersRoutes = (await import("./routes/users.js")).default;
 const notificationRoutes = (await import("./routes/notification.js")).default;
 const directorRoutes = (await import("./routes/director.js")).default;
 const subtasksRoutes = (await import("./routes/subtasks.js")).default;
-const departmentTeamsRoutes = (await import("./routes/department_teams.js"))
-  .default;
+const departmentTeamsRoutes = (await import("./routes/department_teams.js")).default;
 const generatePDFRoutes = (await import("./routes/report.js")).default;
 
 // // Import routes AFTER loading env variables
@@ -40,25 +38,7 @@ const generatePDFRoutes = (await import("./routes/report.js")).default;
 // import hrRoutes from './routes/hr.js';
 
 const app = express();
-const allowedOrigins = [
-  "https://taskallinone.vercel.app",
-  "https://taskallinone-9azfo5yez-xingying.vercel.app",
-  "http://localhost:3000",
-];
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.log("❌ Blocked CORS origin:", origin);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
+app.use(cors({ origin: process.env.CORS_ORIGIN || "*", credentials: true }));
 app.use(express.json());
 
 app.get("/health", (req, res) => res.json({ ok: true }));
@@ -70,9 +50,9 @@ app.use("/hr", hrRoutes);
 app.use("/users", usersRoutes);
 app.use("/notification", notificationRoutes);
 app.use("/director", directorRoutes);
-app.use("/subtasks", subtasksRoutes);
-app.use("/department-teams", departmentTeamsRoutes);
-app.use("/report", generatePDFRoutes);
+app.use('/subtasks', subtasksRoutes);
+app.use('/department-teams', departmentTeamsRoutes)
+app.use('/report', generatePDFRoutes)
 
 app.get("/", (req, res) => {
   res.json({ message: "Server is running!" });
@@ -82,24 +62,17 @@ app.get("/test", (req, res) => {
   res.json({ message: "Test route works!" });
 });
 
-app.use((req, res) =>
-  res
-    .status(404)
-    .type("application/json")
-    .send(JSON.stringify({ error: "Not found" }))
-);
+app.use((req, res) => res.status(404).type("application/json").send(JSON.stringify({ error: "Not found" })));
 
 // Only start the server if this file is run directly
 // When imported by tests, the server won't start
-const isMainModule =
-  import.meta.url === `file:///${process.argv[1].replace(/\\/g, "/")}`;
-if (isMainModule || process.env.NODE_ENV !== "test") {
+const isMainModule = import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`;
+if (isMainModule || process.env.NODE_ENV !== 'test') {
   const port = process.env.PORT || 4000;
-  // app.listen(port, () =>
-  //   console.log(`Express API listening on http://localhost:${port}`)
-  // );
+  app.listen(port, () =>
+    console.log(`Express API listening on http://localhost:${port}`)
+  );
 }
 
 // Export app for testing
-export const handler = serverless(app);
 export default app;

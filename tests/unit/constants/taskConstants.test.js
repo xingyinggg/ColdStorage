@@ -4,7 +4,8 @@ import {
   PRIORITY_LEVELS,
   PRIORITY_COLORS,
   TASK_STATUSES,
-  STATUS_LEVELS
+  STATUS_LEVELS,
+  getPriorityConfig
 } from '../../../src/constants/taskConstants.js';
 
 describe('Task Constants', () => {
@@ -62,6 +63,90 @@ describe('Task Constants', () => {
       expect(TASK_STATUSES.ONGOING).toBe('on going');
       expect(TASK_STATUSES.UNDER_REVIEW).toBe('under_review');
       expect(TASK_STATUSES.COMPLETED).toBe('completed');
+    });
+  });
+
+  describe('getPriorityConfig', () => {
+    it('should return high priority config for "high"', () => {
+      const config = getPriorityConfig('high');
+      expect(config).toEqual({
+        bg: 'bg-red-50',
+        text: 'text-red-700',
+        border: 'border-red-200',
+        dot: 'bg-red-500'
+      });
+    });
+
+    it('should return medium priority config for "medium"', () => {
+      const config = getPriorityConfig('medium');
+      expect(config).toEqual({
+        bg: 'bg-orange-50',
+        text: 'text-orange-700',
+        border: 'border-orange-200',
+        dot: 'bg-orange-500'
+      });
+    });
+
+    it('should return low priority config for "low"', () => {
+      const config = getPriorityConfig('low');
+      expect(config).toEqual({
+        bg: 'bg-green-50',
+        text: 'text-green-700',
+        border: 'border-green-200',
+        dot: 'bg-green-500'
+      });
+    });
+
+    it('should return default config for unknown priority', () => {
+      const config = getPriorityConfig('unknown');
+      expect(config).toEqual({
+        bg: 'bg-gray-50',
+        text: 'text-gray-700',
+        border: 'border-gray-200',
+        dot: 'bg-gray-500'
+      });
+    });
+
+    it('should return default config for null priority', () => {
+      const config = getPriorityConfig(null);
+      expect(config).toEqual(PRIORITY_COLORS.default);
+    });
+
+    it('should return default config for undefined priority', () => {
+      const config = getPriorityConfig(undefined);
+      expect(config).toEqual(PRIORITY_COLORS.default);
+    });
+
+    it('should handle case insensitive priority matching', () => {
+      expect(getPriorityConfig('HIGH')).toEqual(PRIORITY_COLORS.high);
+      expect(getPriorityConfig('Medium')).toEqual(PRIORITY_COLORS.medium);
+      expect(getPriorityConfig('LOW')).toEqual(PRIORITY_COLORS.low);
+    });
+
+    it('should handle empty string as unknown priority', () => {
+      const config = getPriorityConfig('');
+      expect(config).toEqual(PRIORITY_COLORS.default);
+    });
+
+    it('should handle whitespace-only string as unknown priority', () => {
+      const config = getPriorityConfig('   ');
+      expect(config).toEqual(PRIORITY_COLORS.default);
+    });
+
+    it('should return object with all required properties', () => {
+      const config = getPriorityConfig('high');
+      expect(config).toHaveProperty('bg');
+      expect(config).toHaveProperty('text');
+      expect(config).toHaveProperty('border');
+      expect(config).toHaveProperty('dot');
+    });
+
+    it('should return valid Tailwind CSS classes', () => {
+      const config = getPriorityConfig('high');
+      expect(config.bg).toMatch(/^bg-\w+-\d+$/);
+      expect(config.text).toMatch(/^text-\w+-\d+$/);
+      expect(config.border).toMatch(/^border-\w+-\d+$/);
+      expect(config.dot).toMatch(/^bg-\w+-\d+$/);
     });
   });
 });

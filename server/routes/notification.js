@@ -84,12 +84,21 @@ router.get("/unread-count", async (req, res) => {
       return res.status(401).json({ error: "Employee ID not found for user" });
     }
 
+    // Convert emp_id to numeric ID for notifications table
+    const numericEmpId = getNumericIdFromEmpId(empId);
+    if (!numericEmpId) {
+      console.error(`Failed to convert empId ${empId} to numeric ID`);
+      return res.status(500).json({ error: "Invalid employee ID format" });
+    }
+
+    console.log(`Fetching unread count for user ${user.id}, empId: ${empId}, numericEmpId: ${numericEmpId}`);
+
     // Count unread notifications
     const supabase = getServiceClient();
     const { count, error } = await supabase
       .from("notifications")
       .select("*", { count: "exact", head: true })
-      .eq("emp_id", getNumericIdFromEmpId(empId)) // Convert emp_id to numeric ID for notifications table
+      .eq("emp_id", numericEmpId)
       .eq("read", false);
 
     if (error) {
@@ -97,6 +106,7 @@ router.get("/unread-count", async (req, res) => {
       return res.status(500).json({ error: "Failed to count notifications" });
     }
 
+    console.log(`Unread count for empId ${empId}: ${count || 0}`);
     res.json({ unread_count: count || 0 });
   } catch (error) {
     console.error("Error in GET /notification/unread-count:", error);

@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import { useTasks } from "@/utils/hooks/useTasks";
 import { useDepartmentTeams } from "@/utils/hooks/useDepartmentTeams";
 import ManagerTasks from "./ManagerTasks";
+import { useAuth } from "@/utils/hooks/useAuth";
 
 export default function ManagerTasksView({ currentUserEmpId, onLogout, showHeader = true, projectNames = {} }) {
   const [activeTab, setActiveTab] = useState("my-tasks");
   const router = useRouter();
+  const { user, signOut } = useAuth();
 
   // Personal tasks (same as staff)
   const {

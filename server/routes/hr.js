@@ -49,7 +49,8 @@ router.get('/insights', async (req, res) => {
 
     // Process data for insights
     const departmentCounts = deptStats.reduce((acc, emp) => {
-      acc[emp.department] = (acc[emp.department] || 0) + 1;
+      const deptName = emp.department || "Executive Management";
+      acc[deptName] = (acc[deptName] || 0) + 1;
       return acc;
     }, {});
 
@@ -192,7 +193,7 @@ router.get('/departments', async (req, res) => {
     const departmentStats = {};
 
     employees.forEach(emp => {
-      const dept = emp.department;
+      const dept = emp.department || "Executive Management";
       const tasks = emp.tasks_assigned || [];
       
       if (!departmentStats[dept]) {

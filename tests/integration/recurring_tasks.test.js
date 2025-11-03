@@ -38,25 +38,6 @@ import {
 import request from "supertest";
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
-
-// Mock authentication functions with test users
-import {
-  getUserFromToken,
-  getEmpIdForUserId,
-  getUserRole,
-} from "../../server/lib/supabase.js";
-
-vi.mock("../../server/lib/supabase.js", async () => {
-  const actual = await vi.importActual("../../server/lib/supabase.js");
-  return {
-    ...actual,
-    getUserFromToken: vi.fn(),
-    getEmpIdForUserId: vi.fn(),
-    getUserRole: vi.fn(),
-  };
-});
-
-// Import routes after mocking
 import taskRoutes from "../../server/routes/tasks.js";
 import authRoutes from "../../server/routes/auth.js";
 
@@ -126,58 +107,65 @@ describe.skipIf(skipIntegrationTests)(
       testUserId = authData.user.id;
       testEmpId = registrationData.emp_id;
 
-      // Upsert user into users table
-      const { error: userError } = await supabaseClient.from("users").upsert(
-        {
-          id: testUserId,
-          emp_id: registrationData.emp_id,
-          name: registrationData.name,
-          email: registrationData.email,
-          department: registrationData.department,
-          role: registrationData.role,
-        },
-        { onConflict: "id" }
-      );
+    // Upsert user into users table
+    const { error: userError } = await supabaseClient
+      .from("users")
+      .upsert({
+        id: testUserId,
+        emp_id: registrationData.emp_id,
+        name: registrationData.name,
+        email: registrationData.email,
+        department: registrationData.department,
+        role: registrationData.role,
+      }, { onConflict: 'id' });
 
-      if (userError) {
-        console.error("❌ Failed to insert user into users table:", userError);
-        throw userError;
-      }
+    if (userError) {
+      console.error('❌ Failed to insert user into users table:', userError);
+      throw userError;
+    }
 
-      // Setup test token
-      testUserToken = "test-recurring-task-token";
+      // Wait a bit to ensure user is fully created in the system
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Configure authentication mocks
-      vi.mocked(getUserFromToken).mockImplementation(async (token) => {
-        if (token === testUserToken) {
-          return {
-            id: testUserId,
-            email: registrationData.email,
-          };
-        }
-        if (token.includes("invalid")) {
-          throw new Error("Invalid token");
-        }
-        throw new Error("Token not found");
-      });
+    // Instead of using the login endpoint, use service client to sign in directly
+    // This bypasses email confirmation requirements
+    const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
+      email: registrationData.email,
+      password: registrationData.password,
+    });
 
-      vi.mocked(getEmpIdForUserId).mockImplementation(async (userId) => {
-        if (userId === testUserId) {
-          return testEmpId;
-        }
-        return null;
-      });
+    if (signInError) {
+      console.error('❌ Failed to sign in test user:', signInError);
+      console.error('Sign in error details:', JSON.stringify(signInError, null, 2));
+      
+      // Try to get more info about the user
+      const { data: userData, error: userFetchError } = await supabaseClient.auth.admin.getUserById(testUserId);
+      console.error('User data:', userData);
+      console.error('User fetch error:', userFetchError);
+      
+      throw signInError;
+    }
 
-      vi.mocked(getUserRole).mockImplementation(async (empId) => {
-        if (empId === testEmpId) {
-          return "staff";
-        }
-        return null;
-      });
+    testUserToken = signInData.session.access_token;
+    
+    console.log("✅ Test user authenticated successfully");
 
-      console.log("✅ Test user created and authentication mocked");
-      console.log("   User ID:", testUserId);
-      console.log("   Emp ID:", testEmpId);
+    // // Login to get the token
+    // const loginResponse = await request(app)
+    //   .post("/auth/login")
+    //   .send({
+    //     email: registrationData.email,
+    //     password: registrationData.password,
+    //   });
+
+    // if (loginResponse.status !== 200) {
+    //   console.error('❌ Failed to login:', loginResponse.body);
+    // }
+    
+    // expect(loginResponse.status).toBe(200);
+    // testUserToken = loginResponse.body.access_token;
+
+
 
       // Create a test project
       const { data: project, error: projectError } = await supabaseClient
@@ -197,9 +185,11 @@ describe.skipIf(skipIntegrationTests)(
 
       createdProjectId = project.id;
 
-      console.log("✅ Test user and project created successfully");
-      console.log("   Project ID:", createdProjectId);
-    });
+    console.log("✅ Test user and project created successfully");
+    console.log("   User ID:", testUserId);
+    console.log("   Emp ID:", testEmpId);
+    console.log("   Project ID:", createdProjectId);
+  });
 
     beforeEach(() => {
       createdTaskIds = [];
@@ -237,6 +227,7 @@ describe.skipIf(skipIntegrationTests)(
     });
 
     it("[CS-US75-TC-1] should create recurring task on different weekday than due date and generate correct next occurrence", async () => {
+      // NOTE: recurrence_count in the API represents the MAX count (limit), not current count
       const taskData = {
         title: "[CS-US75-TC-1] Weekly Wednesday Task",
         description: "Test weekly recurrence on Wednesday",
@@ -257,17 +248,18 @@ describe.skipIf(skipIntegrationTests)(
         .set("Authorization", `Bearer ${testUserToken}`)
         .send(taskData);
 
-      if (createResponse.status !== 201) {
-        console.error("❌ Failed to create task:", createResponse.body);
-      }
+    if (createResponse.status !== 201) {
+      console.error('❌ Failed to create task:', createResponse.body);
+      console.error('❌ Response:', JSON.stringify(createResponse.body, null, 2));
+    }
 
-      expect(createResponse.status).toBe(201);
-      expect(createResponse.body).toBeDefined();
+    expect(createResponse.status).toBe(201);
+    expect(createResponse.body).toBeDefined();
+    
+    const firstTask = createResponse.body;
+    createdTaskIds.push(firstTask.id);
 
-      const firstTask = createResponse.body;
-      createdTaskIds.push(firstTask.id);
-
-      console.log("✅ Created first task:", firstTask.id);
+    console.log('✅ Created first task:', firstTask.id);
 
       expect(firstTask.is_recurring).toBe(true);
       expect(firstTask.recurrence_pattern).toBe("weekly");
@@ -276,21 +268,21 @@ describe.skipIf(skipIntegrationTests)(
       expect(firstTask.recurrence_max_count).toBe(5);
       expect(firstTask.recurrence_series_id).toBeDefined();
 
-      // Mark task as completed
-      const updateResponse = await request(app)
-        .put(`/api/tasks/${firstTask.id}`)
-        .set("Authorization", `Bearer ${testUserToken}`)
-        .send({ status: "completed" });
+    // Mark task as completed
+    const updateResponse = await request(app)
+      .put(`/api/tasks/${firstTask.id}`)
+      .set("Authorization", `Bearer ${testUserToken}`)
+      .send({ status: "completed" });
 
-      if (updateResponse.status !== 200) {
-        console.error("❌ Failed to complete task:", updateResponse.body);
-      }
+    if (updateResponse.status !== 200) {
+      console.error('❌ Failed to complete task:', updateResponse.body);
+    }
 
-      expect(updateResponse.status).toBe(200);
-      console.log("✅ Marked task as completed");
+    expect(updateResponse.status).toBe(200);
+    console.log('✅ Marked task as completed');
 
-      // Wait for async task creation
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+    // Wait for async task creation
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
       const { data: nextTasks, error } = await supabaseClient
         .from("tasks")
@@ -299,87 +291,93 @@ describe.skipIf(skipIntegrationTests)(
         .eq("status", "ongoing")
         .order("due_date", { ascending: true });
 
-      if (error) {
-        console.error("❌ Failed to fetch next tasks:", error);
-      }
+    if (error) {
+      console.error('❌ Failed to fetch next tasks:', error);
+    }
 
-      expect(error).toBeNull();
-      expect(nextTasks).toBeDefined();
-
-      if (nextTasks.length === 0) {
-        console.error("❌ No next task was created!");
-      }
-
-      expect(nextTasks.length).toBeGreaterThan(0);
+    expect(error).toBeNull();
+    expect(nextTasks).toBeDefined();
+    
+    if (nextTasks.length === 0) {
+      console.error('❌ No next task was created!');
+      console.error('Series ID:', firstTask.recurrence_series_id);
+      
+      // Debug: Check all tasks in series
+      const { data: allSeriesTasks } = await supabaseClient
+        .from("tasks")
+        .select("*")
+        .eq("recurrence_series_id", firstTask.recurrence_series_id);
+      
+      console.error('All tasks in series:', allSeriesTasks);
+    }
+    
+    expect(nextTasks.length).toBeGreaterThan(0);
 
       const nextTask = nextTasks[0];
       createdTaskIds.push(nextTask.id);
 
-      console.log(
-        "✅ Next task created:",
-        nextTask.id,
-        "with due date:",
-        nextTask.due_date
-      );
+    console.log('✅ Next task created:', nextTask.id, 'with due date:', nextTask.due_date);
 
-      expect(nextTask.due_date).toBe("2025-10-22"); // Wednesday
-
-      const nextDate = new Date(nextTask.due_date);
-      expect(nextDate.getDay()).toBe(3); // Wednesday
-
-      expect(nextTask.recurrence_count).toBe(2);
-      expect(nextTask.recurrence_max_count).toBe(5);
-      expect(nextTask.is_recurring).toBe(true);
+    expect(nextTask.due_date).toBe("2025-10-22"); // Wednesday
+    
+    const nextDate = new Date(nextTask.due_date);
+    expect(nextDate.getDay()).toBe(3); // Wednesday
+    
+    expect(nextTask.recurrence_count).toBe(2); // Second occurrence
+    expect(nextTask.recurrence_max_count).toBe(5);
+    expect(nextTask.is_recurring).toBe(true);
 
       console.log("✅ CS-US75-TC-1 PASSED");
     }, 20000);
 
-    it("[CS-US75-TC-2] should stop creating occurrences after reaching max count", async () => {
-      const taskData = {
-        title: "[CS-US75-TC-2] Daily Task with Count Limit",
-        description: "Test recurring task stops after 3 occurrences",
-        due_date: "2025-10-21",
-        status: "ongoing",
-        priority: 5,
-        owner_id: testEmpId,
-        project_id: createdProjectId,
-        is_recurring: true,
-        recurrence_pattern: "daily",
-        recurrence_interval: 1,
-        recurrence_count: 3,
-      };
+  it("[CS-US75-TC-2] should stop creating occurrences after reaching max count", async () => {
+    // NOTE: recurrence_count in the API represents the MAX count (limit)
+    const taskData = {
+      title: "[CS-US75-TC-2] Daily Task with Count Limit",
+      description: "Test recurring task stops after 3 occurrences",
+      due_date: "2025-10-21",
+      status: "ongoing",
+      priority: 5,
+      owner_id: testEmpId,
+      project_id: createdProjectId,
+      is_recurring: true,
+      recurrence_pattern: "daily",
+      recurrence_interval: 1,
+      recurrence_count: 3, // This is the MAX count (gets stored as recurrence_max_count)
+    };
 
       const createResponse = await request(app)
         .post("/api/tasks")
         .set("Authorization", `Bearer ${testUserToken}`)
         .send(taskData);
 
-      if (createResponse.status !== 201) {
-        console.error("❌ Failed to create task:", createResponse.body);
-      }
+    if (createResponse.status !== 201) {
+      console.error('❌ Failed to create task:', createResponse.body);
+      console.error('❌ Response:', JSON.stringify(createResponse.body, null, 2));
+    }
 
-      expect(createResponse.status).toBe(201);
-      const task1 = createResponse.body;
-      createdTaskIds.push(task1.id);
+    expect(createResponse.status).toBe(201);
+    const task1 = createResponse.body;
+    createdTaskIds.push(task1.id);
 
       expect(task1.recurrence_count).toBe(1);
       expect(task1.recurrence_max_count).toBe(3);
       const seriesId = task1.recurrence_series_id;
 
-      // Complete task 1
-      await request(app)
-        .put(`/api/tasks/${task1.id}`)
-        .set("Authorization", `Bearer ${testUserToken}`)
-        .send({ status: "completed" });
+    // Complete task 1
+    await request(app)
+      .put(`/api/tasks/${task1.id}`)
+      .set("Authorization", `Bearer ${testUserToken}`)
+      .send({ status: "completed" });
 
       await new Promise((resolve) => setTimeout(resolve, 3000));
 
-      // Verify task 2 created
-      let { data: seriesTasks } = await supabaseClient
-        .from("tasks")
-        .select("*")
-        .eq("recurrence_series_id", seriesId)
-        .order("due_date", { ascending: true });
+    // Step 4: Verify task 2 created
+    let { data: seriesTasks } = await supabaseClient
+      .from("tasks")
+      .select("*")
+      .eq("recurrence_series_id", seriesId)
+      .order("due_date", { ascending: true });
 
       let task2 = seriesTasks.find(
         (t) => t.recurrence_count === 2 && t.status === "ongoing"
@@ -388,20 +386,20 @@ describe.skipIf(skipIntegrationTests)(
       expect(task2.due_date).toBe("2025-10-22");
       createdTaskIds.push(task2.id);
 
-      // Complete task 2
-      await request(app)
-        .put(`/api/tasks/${task2.id}`)
-        .set("Authorization", `Bearer ${testUserToken}`)
-        .send({ status: "completed" });
+    // Step 5: Complete task 2
+    await request(app)
+      .put(`/api/tasks/${task2.id}`)
+      .set("Authorization", `Bearer ${testUserToken}`)
+      .send({ status: "completed" });
 
       await new Promise((resolve) => setTimeout(resolve, 3000));
 
-      // Verify task 3 created
-      ({ data: seriesTasks } = await supabaseClient
-        .from("tasks")
-        .select("*")
-        .eq("recurrence_series_id", seriesId)
-        .order("due_date", { ascending: true }));
+    // Step 6: Verify task 3 created
+    ({ data: seriesTasks } = await supabaseClient
+      .from("tasks")
+      .select("*")
+      .eq("recurrence_series_id", seriesId)
+      .order("due_date", { ascending: true }));
 
       let task3 = seriesTasks.find(
         (t) => t.recurrence_count === 3 && t.status === "ongoing"
@@ -430,8 +428,8 @@ describe.skipIf(skipIntegrationTests)(
       const task4 = seriesTasks.find((t) => t.recurrence_count === 4);
       expect(task4).toBeUndefined();
 
-      const completedTasks = seriesTasks.filter((t) => t.status === "completed");
-      expect(completedTasks.length).toBe(3);
+    const completedTasks = seriesTasks.filter(t => t.status === "completed");
+    expect(completedTasks.length).toBe(3);
 
       console.log("✅ CS-US75-TC-2 PASSED");
     }, 30000);

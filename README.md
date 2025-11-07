@@ -1,4 +1,4 @@
-# ColdStorage
+# IS212 SPM G1 ColdStorage
 
 [![CI/CD Pipeline](https://github.com/xingyinggg/ColdStorage/actions/workflows/ci.yml/badge.svg)](https://github.com/xingyinggg/ColdStorage/actions/workflows/ci.yml)
 
